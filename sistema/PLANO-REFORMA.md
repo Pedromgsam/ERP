@@ -122,3 +122,7 @@ Aprovado pelo usuário em 08/10/2026. Leia isto antes de qualquer rodada da refo
   Feito no **Backup 82** (só front). Mantidos por serem funções que só o ERP tem: pastas de Documentos, "Minha fila de trabalho", Calendário/Fluxos de Tarefas, filtros Grupo/Competência, recortes do Financeiro. Falta: **A4** (tirar o ERP.html) — Backup 83.
 
 - **Respostas de 14/10 (Backup 83):** o ERP deve ficar idêntico ao ambiente v5 — sem a busca na barra do alto, Início sem calendário (agenda só em Tarefas), menu Jurídico/Financeiro que abre e fecha (como antes), faixa/pílulas na altura do ambiente, Evolução do passivo na linha do ambiente, Empresas do grupo e cartões de Parcelamentos mais leves.
+
+## Backup 85 — respostas de 15/10 ("Levar ao ERP, igual ao ambiente")
+Levados ao ERP: TB1–TB8, TB10 (mantido), CG1, JN1–JN5, BG1, BG3 (mantido), IN1–IN3, TF2, TF3 (mantido), TF6–TF9, PE4, PR1–PR8, PA1–PA6, AC1–AC4, EX1–EX4, FI2–FI7, FI12–FI14, CT1–CT3, CL1, CL2, CL4, DO1–DO3, RO2, RO3, AD1, AD3, AD4, PT2–PT4, TX1–TX3.
+Regra do usuário: "levo o visual do ambiente e acrescento o que o ambiente tem a mais, mas não apago nada que o ERP já faz" — o que ficou só no ERP está em `MANTIDOS-B85.md` (M01–M36), para ele marcar Manter/Tirar.

@@ -53,7 +53,7 @@ console.log('Dados fictícios: ' + N.cl + ' clientes, ' + N.pa + ' parcelamentos
     if (LAT) await ctx.route(/\/rest\/v1\//, async (rota) => { await new Promise((ok2) => setTimeout(ok2, LAT)); rota.continue(); });
     const p = await ctx.newPage();
     p.on('pageerror', (e) => erros.push(e.message));
-    p.on('dialog', (d) => d.accept());
+    p.on('dialog', (d) => d.accept()); await require('./confirmar-auto.js')(p);
     await p.goto(BASE + '/');
     await p.waitForSelector('#ac-login-email', { state: 'visible' });
     await p.fill('#ac-login-email', 'pedro@teste'); await p.fill('#ac-login-senha', 'senha123');
@@ -71,7 +71,7 @@ console.log('Dados fictícios: ' + N.cl + ' clientes, ' + N.pa + ' parcelamentos
         pago: () => !document.querySelector('[data-pl-p="' + window.__alvo + '"]'),
         financeiro: () => { const t = document.querySelector('#panel-financeiro tbody tr'); return !!t && t.offsetParent !== null && !(document.getElementById('loadOverlay') || document.body).classList.contains('on'); },
         painel: () => { const t = document.querySelector('#pe-nova tbody tr[data-b-k]'); return !!t && t.offsetParent !== null; },   // Backup 73: tabela nova
-        processos: () => { const t = document.querySelector('#rt-proc-corpo tr[data-pid]'); return !!t && t.offsetParent !== null; },
+        processos: () => { const t = document.querySelector('#rt-proc-tab [data-b-aba]'); return !!t && t.offsetParent !== null; },   // Backup 85: tabela nova
         parcelamentos: () => { const pn = document.getElementById('panel-parcelamentos'); if (!pn || !pn.offsetParent || !pn.querySelector('#pc-tabela .b-quadro')) return false;   // Backup 68: a tela nova já desenhada (lista ou "nada aqui")
           return (DB.parcelamentos || []).some((pa) => (pa.parcelas || []).some((x) => x._id === window.__alvo && x.pagamento === 'SIM')); },
         clientes: () => /\d/.test((document.getElementById('cli-conta') || {}).textContent || '') && !!document.querySelector('#panel-clientes tbody tr') };
@@ -110,7 +110,7 @@ console.log('Dados fictícios: ' + N.cl + ' clientes, ' + N.pa + ' parcelamentos
       await abrir('Parcelamentos pós-Pago', 'parcelamentos', 'parcelamentos'); await p.waitForTimeout(300);
       // Backup 52: Rotina → Processos (a Rotina abre direto na aba)
       await irPara('rotina'); await p.waitForSelector('#rt-abas'); await p.click('#rt-abas [data-rt-aba=processos]');
-      await p.waitForSelector('#rt-proc-corpo tr[data-pid]', { timeout: 60000 }); await irPara('hoje'); await p.waitForTimeout(1200);
+      await p.waitForSelector('#rt-proc-tab [data-b-aba]', { timeout: 60000 }); await irPara('hoje'); await p.waitForTimeout(1200);
       await abrir('Rotina → Processos', 'rotina', 'processos'); if (!i) await foto('processos'); await p.waitForTimeout(500);
       // telas do ERP
       await abrir('Financeiro', 'financeiro', 'financeiro'); await p.waitForTimeout(300);

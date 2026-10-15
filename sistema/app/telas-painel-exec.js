@@ -54,7 +54,7 @@ TELAS.painelExec = async function () {
       '<select id="pe-emp" aria-label="Empresa"><option value="">Todas as empresas</option>' + emps.map((e) => '<option' + (P.empresa === e ? ' selected' : '') + '>' + esc(e) + '</option>').join('') + '</select>' +
       '<span class="b-pe-conta">' + plural(N.data.length, 'entidade', 'entidades') + ' · ' + plural(unicosB(N.data.map((r) => r.grupo)).length, 'grupo', 'grupos') + '</span></div>' +
     '<div id="pe-nums">' + numsFaixa([['Passivo total', t(N.total), 'RFB ' + brlCurto(N.rfb) + ' · PGFN ' + brlCurto(N.pgfn) + ' · AGE/MG ' + brlCurto(N.age)], ['Parcelamentos (saldo)', t(N.saldoParc), plural(N.nParc, 'ativo', 'ativos')],
-      ['Acordos (em aberto)', t(N.acPagar), plural(N.nAc, 'parcela', 'parcelas')], ['Passivo em disputa', t(N.passivo), plural(N.nProc, 'processo', 'processos'), N.passivo ? 'b-verm' : ''], ['Ativo em disputa', t(N.ativo), '', N.ativo ? 'b-verde' : '']]) + '</div>' +
+      ['Acordos (em aberto)', t(N.acPagar), plural(N.nAc, 'parcela', 'parcelas')], ['Passivo em disputa', t(N.passivo), plural(N.nProc, 'processo', 'processos'), 'b-verm'], ['Ativo em disputa', t(N.ativo), '', 'b-verde']]) + '</div>' +
     // Backup 83: como no ambiente — só o título e "6 meses · 12 meses"; a linha é o total do que está escolhido no alto (todos, um grupo ou uma empresa)
     '<section class="b-fin-cartao b-pe-evo" id="pe-evo"><div class="b-fin-hd b-pe-evo-hd"><div><h3>Evolução do passivo</h3></div>' +
       '<div class="b-chips" id="pe-evo-meses" role="group" aria-label="Período">' + [6, 12].map((m) => '<button type="button" class="b-chip" data-m="' + m + '">' + m + ' meses</button>').join('') + '</div></div>' +
@@ -139,22 +139,29 @@ TELAS.processosERP = async function () {
   const sit = (p) => (p.arquivamento === 'Arquivado' ? 'arq' : p.arquivamento ? 'ext' : 'at');
   const ops = (f) => unicosB(P.map(f)).map((x) => [x, x]);
   const partes = (p) => [p.autor, p.reu].filter(Boolean).map((x) => String(x).replace(/;\s*/g, ' · '));
-  tabelaB($('pr-nova'), { id: 'processos', tabCls: 'b-tab-proc', linhas: P, chave: (p) => String(p._id), unidade: ['processo', 'processos'], dicaBusca: 'Nº, grupo, autor, réu…',
+  const trib = (p) => tribunalProcesso(p) || '', hojeP = new Date(hojeISO() + 'T12:00:00');
+  const diasConf = (p) => { const i = isoDeBRp(p.ultimaMovEm); return i ? Math.floor((hojeP - new Date(i + 'T12:00:00')) / 864e5) : null; };
+  tabelaB($('pr-nova'), { id: 'processos', contagem: true, tabCls: 'b-tab-proc', linhas: P, chave: (p) => String(p._id), unidade: ['processo', 'processos'], dicaBusca: 'Nº, grupo, autor, réu…',
     abas: [{ id: 'at', rot: 'Ativos', f: (p) => sit(p) === 'at' }, { id: 'arq', rot: 'Arquivados', f: (p) => sit(p) === 'arq' }, { id: 'ext', rot: 'Extintos', f: (p) => sit(p) === 'ext' }, { id: 'todos', rot: 'Todos', f: () => true }],
     busca: (p) => [p.numero, p.grupo, p.autor, p.reu, p.natureza, p.competencia, p.advogado, p.obs].join(' '), valor: (p) => Number(p.valor) || 0,
     conta: (n) => plural(n, 'processo', 'processos'), ord: { k: 'g', dir: 1 },
+    // Backup 85 (PR4): Grupo, Tribunal, Natureza e Conferência como no ambiente; Competência e Advogado ficaram do ERP (lista para decidir)
     listas: [{ k: 'g', rot: 'Grupo', todos: 'Todos os grupos', opcoes: ops((p) => p.grupo), get: (p) => p.grupo },
-      { k: 'comp', rot: 'Competência', todos: 'Todas as competências', opcoes: ops((p) => p.competencia), get: (p) => p.competencia },
+      { k: 'trib', rot: 'Tribunal', todos: 'Todos os tribunais', opcoes: ops(trib), get: trib },
       { k: 'nat', rot: 'Natureza', todos: 'Todas as naturezas', opcoes: ops((p) => p.natureza), get: (p) => p.natureza },
+      { k: 'conf', rot: 'Conferência', todos: 'Conferidos e não conferidos', opcoes: [['nao', 'Sem conferir há 15 dias ou mais'], ['sim', 'Conferidos nos últimos 15 dias']], get: (p) => (diasConf(p) != null && diasConf(p) < 15 ? 'sim' : 'nao') },
+      { k: 'comp', rot: 'Competência', todos: 'Todas as competências', opcoes: ops((p) => p.competencia), get: (p) => p.competencia },
       { k: 'adv', rot: 'Advogado', todos: 'Todos os advogados', opcoes: ops((p) => p.advogado), get: (p) => p.advogado }],
     colunas: [
       { k: 'g', rot: 'Grupo', html: (p) => esc(p.grupo || '—'), ord: (p) => (p.grupo || '').toLowerCase() },
-      { k: 'n', rot: 'Processo', cls: 'b-num', html: (p) => esc(p.numero || '—') + (p.competencia ? '<span class="b-sub">' + esc(p.competencia) + '</span>' : ''), ord: (p) => p.numero || '' },
+      { k: 'n', rot: 'Processo', cls: 'b-num', html: (p) => esc(p.numero || '—') + (trib(p) || p.competencia ? '<span class="b-sub">' + esc(trib(p) || p.competencia) + '</span>' : ''), ord: (p) => p.numero || '' },   // Backup 85 (PR2): tribunal embaixo
       { k: 'nat', rot: 'Natureza', html: (p) => esc(p.natureza || '—'), ord: (p) => p.natureza || '' },
       { k: 'pt', rot: 'Partes', html: (p) => { const x = partes(p); return x.length ? esc(x[0]) + (x[1] ? '<span class="b-sub">× ' + esc(x[1]) + '</span>' : '') : '—'; }, ord: (p) => (p.autor || '').toLowerCase() },
       { k: 'v', rot: 'Valor', cls: 'b-dir b-val', soma: true, html: (p) => (p.valor ? brl(p.valor) + (p.valorEm ? '<small>em ' + esc(p.valorEm) + '</small>' : '') : '—'), ord: (p) => Number(p.valor) || 0 },
       { k: 'mov', rot: 'Última movimentação', cls: 'b-data b-mov', html: (p) => { const d = p.ultimaMovEm || p.atualizacao, i = isoDeBRp(d), velho = i && i < somarDias(hojeISO(), -30);
         return d ? (velho ? '<span class="b-pz-r" title="Mais de 30 dias sem novidade">' + esc(d) + '</span>' : esc(d)) + (p.ultimaMov ? '<small title="' + esc(p.ultimaMov) + '">' + esc(String(p.ultimaMov).slice(0, 40)) + '</small>' : '') : '—'; }, ord: (p) => isoDeBRp(p.ultimaMovEm || p.atualizacao) || '0' },
+      // Backup 85 (PR1): "Conferido" — data da última conferência (verde até 15 dias; âmbar depois; "nunca" em vermelho)
+      { k: 'conf', rot: 'Conferido', cls: 'b-cen b-data', html: (p) => { const d = diasConf(p); return d == null ? '<span class="b-pz-r">nunca</span>' : '<span class="' + (d < 15 ? 'b-ok-txt' : 'b-pz-a') + '">' + esc(String(p.ultimaMovEm).slice(0, 5)) + '</span>'; }, ord: (p) => isoDeBRp(p.ultimaMovEm) || '0' },
       { k: 'st', rot: 'Status', cls: 'b-cen', html: (p) => '<span class="b-pill ' + (sit(p) === 'at' ? 'b-g' : sit(p) === 'arq' ? 'b-a' : 'b-r') + '">' + esc(p.arquivamento || 'Ativo') + '</span>', ord: sit }],
     clique: (p) => (window.ERP_ABRIR_PROCESSO ? window.ERP_ABRIR_PROCESSO(p) : null),
     vazio: { titulo: 'Nenhum processo aqui', frase: 'Troque a aba (Ativos, Arquivados, Extintos, Todos) ou limpe os filtros.', botao: podeEd ? ['+ Processo', '#pr-novo'] : null } });
@@ -174,7 +181,7 @@ function resumoCarteira(L0) {
     return '<div class="b-pr-res-t"><div class="b-rola b-rola-solta" data-sem-pagina><table class="b-tab"><thead><tr><th>' + esc(rot) + '</th><th class="b-cen">Processos</th><th class="b-dir">Valor</th></tr></thead><tbody>' +
       ks.map((k) => '<tr><td>' + esc(k) + '</td><td class="b-cen">' + M[k].n + '</td><td class="b-dir">' + (M[k].v ? esc(brl(M[k].v)) : '—') + '</td></tr>').join('') + '</tbody></table></div></div>'; };
   return numsFaixa([['Processos', String(L.length), ativos + ' em andamento · ' + (L.length - ativos) + ' arquivados/extintos'], ['Valor em disputa', esc(brl(tot)), 'soma dos valores da causa'],
-    ['Passivo em disputas', esc(brl(vP)), 'cliente como réu', vP ? 'b-verm' : ''], ['Ativo em disputas', esc(brl(vA)), 'cliente como autor', vA ? 'b-verde' : '']]) +
+    ['Passivo em disputas', esc(brl(vP)), 'cliente como réu', 'b-verm'], ['Ativo em disputas', esc(brl(vA)), 'cliente como autor', 'b-verde']]) +
     '<div class="b-pr-res-tres">' + agrupa('grupo', 'Grupo') + agrupa('competencia', 'Tribunal') + agrupa('natureza', 'Natureza') + '</div>';
 }
 

@@ -13,7 +13,7 @@
 const EMPRESAS = {
   escritorio:    { tela: 'juridico', titulo: 'Financeiro · Jurídico', frase: 'Honorários a receber, recebidos e contas a pagar',
                    abas: [['analise', 'Análise'], ['lanc', 'Lançamentos']] },
-  contabilidade: { tela: 'contabilidade', titulo: 'Financeiro · Contabilidade', frase: 'A receber, a pagar, caixa e distribuição de lucros da contabilidade.',
+  contabilidade: { tela: 'contabilidade', titulo: 'Financeiro · Contabilidade', frase: 'Honorários a receber, recebidos e contas a pagar',
                    abas: [['analise', 'Análise'], ['lanc', 'Lançamentos'], ['caixa', 'Caixa'], ['lucros', 'Distribuição de lucros']] }
 };
 const SOCIOS_LUCRO = ['Pedro', 'Éder'];
@@ -68,18 +68,15 @@ async function telaHonorarios(empresa, forcar) {
       // Backup 82 (ambiente): Análise | Lançamentos, Recibo e "+ Lançar" (Receita/Despesa) no alto, à direita do título
       cabecalhoTela({ icone: 'financeiro', titulo: info.titulo, frase: info.frase,
         extra: '<div class="b-seg" role="tablist" id="fin-abas">' + info.abas.map((a) => '<button type="button" role="tab" class="b-seg-bt" data-aba="' + a[0] + '">' + a[1] + '</button>').join('') + '</div>' +
-          '<button type="button" class="btn btn-o b-bt" id="fin-recibo" title="Gerar um recibo na Central de Documentos">' + iconeB('recibo') + 'Recibo</button>' +
-          (pode(empresa === 'contabilidade' ? 'financeiro_contab' : 'financeiro_juridico', 'editar') ? '<span class="b-menu-w"><button type="button" class="btn btn-p b-bt" id="fin-lancar" aria-haspopup="true" aria-expanded="false">' + iconeB('mais') + 'Lançar</button>' +
-            '<span class="b-menu" id="fin-lancar-menu" hidden><button type="button" data-novo-l="receita">Receita (honorário a receber)</button><button type="button" data-novo-l="despesa">Despesa (conta a pagar)</button></span></span>' : '') }) +
+          '<button type="button" class="btn btn-o b-bt" id="fin-recibo" title="Recibo de um honorário recebido">' + iconeB('recibo') + 'Recibo</button>' +
+          (pode(empresa === 'contabilidade' ? 'financeiro_contab' : 'financeiro_juridico', 'editar') ? '<button type="button" class="btn btn-p b-bt" id="fin-lancar">' + iconeB('mais') + 'Lançar</button>' : '') }) +
       '<div class="b-fin-avisos" id="fin-avisos"></div>' +
       '<div id="fin-corpo"><div class="carregando">Carregando…</div></div></div>';
-    { const bl = c.querySelector('#fin-lancar'), mn = c.querySelector('#fin-lancar-menu');
-      if (bl) { bl.onclick = (ev) => { ev.stopPropagation(); mn.hidden = !mn.hidden; bl.setAttribute('aria-expanded', String(!mn.hidden)); };
-        document.addEventListener('click', (ev) => { if (!mn.hidden && !ev.target.closest('.b-menu-w')) { mn.hidden = true; bl.setAttribute('aria-expanded', 'false'); } }); } }
-    c.querySelectorAll('[data-novo-l]').forEach((b) => b.onclick = () =>
-      formLancamento({ tipo: b.dataset.novoL, empresa, grupo_id: F.an.grupo || null }, () => telaHonorarios(empresa, true)));
+    // Backup 85 (FI3): como no ambiente — "Lançar" é um botão só; Receita ou Despesa se escolhe no próprio formulário
+    { const bl = c.querySelector('#fin-lancar');
+      if (bl) bl.onclick = () => formLancamento({ tipo: 'receita', empresa, grupo_id: F.an.grupo || null }, () => telaHonorarios(empresa, true)); }
     c.querySelector('#fin-abas').onclick = (ev) => { const b = ev.target.closest('[data-aba]'); if (!b) return; F.aba = b.dataset.aba; pintarFin(empresa); };
-    c.querySelector('#fin-recibo').onclick = () => abrirGerador('modelo=recibo');
+    c.querySelector('#fin-recibo').onclick = () => janelaRecibo(empresa);
     c.querySelector('#fin-avisos').onclick = (ev) => { const b = ev.target.closest('[data-fin-ir]'); if (!b) return;
       F.aba = 'lanc'; E.tabB = E.tabB || {}; const st = E.tabB['fin-' + empresa] = E.tabB['fin-' + empresa] || {};
       if (b.dataset.finIr === 'venc') { st.aba = 'areceber'; st.prazo = 'venc'; } else { st.aba = 'perda'; st.prazo = ''; }
@@ -113,9 +110,12 @@ function pintarFin(empresa) {
 function listaFin(empresa, corpo) {
   const F = estadoFin(empresa), L = F.dados || [], h = hojeISO();
   const temDesp = empresa === 'contabilidade' || L.some((l) => l._c === 'apagar' || l._c === 'pago');
-  const abas = [{ id: 'areceber', rot: 'A receber', f: (l) => l._c === 'areceber' }, { id: 'recebido', rot: 'Recebido', f: (l) => l._c === 'recebido' }]
-    .concat(temDesp ? [{ id: 'apagar', rot: 'A pagar', f: (l) => l._c === 'apagar' }, { id: 'pago', rot: 'Pago', f: (l) => l._c === 'pago' }] : [])
-    .concat([{ id: 'perda', rot: 'Perdas', f: (l) => l._c === 'perda' }]);
+  // Backup 85 (FI4/TX2): nomes do ambiente (Recebidos, Pagos, Prejuízo) e, no Jurídico, a aba "Comissões" (redutores de receita)
+  const jur = empresa !== 'contabilidade';
+  const abas = [{ id: 'areceber', rot: 'A receber', f: (l) => l._c === 'areceber' && !(jur && l.redutor) }, { id: 'recebido', rot: 'Recebidos', f: (l) => l._c === 'recebido' }]
+    .concat(temDesp ? [{ id: 'apagar', rot: 'A pagar', f: (l) => l._c === 'apagar' }, { id: 'pago', rot: 'Pagos', f: (l) => l._c === 'pago' }] : [])
+    .concat([{ id: 'perda', rot: 'Prejuízo', f: (l) => l._c === 'perda' }])
+    .concat(jur ? [{ id: 'comissoes', rot: 'Comissões', f: (l) => !!l.redutor && !l.perda }] : []);
   const porPag = (a) => a === 'recebido' || a === 'pago';
   const dataL = (l) => (l.pago ? l.data_pagamento : l.vencimento) || '';
   const opc = (f) => [...new Set(L.map(f).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'pt-BR')).map((v) => [v, v]);
@@ -128,17 +128,17 @@ function listaFin(empresa, corpo) {
       { k: 'desc', rot: 'Descrição', html: (l) => { const lg = legendaLanc(l); return esc(l.descricao || '—') + (lg ? '<span class="b-sub">' + esc(lg) + '</span>' : ''); }, ord: (l) => normalizar(l.descricao || '') },
       { k: 'v', rot: 'Valor', cls: 'b-dir b-val', clsL: (l) => (vS(l) < 0 ? ' valor-desp' : ' valor-rec'), soma: true,
         html: (l) => (vS(l) < 0 ? '− ' : '') + brl(l.valor) + (l.redutor ? '<small>redutor</small>' : ''), ord: valorLanc },
-      { k: 'venc', rot: porPag(aba) ? 'Pago em' : 'Vencimento', cls: 'b-cen b-data',
-        html: (l) => { const d = dataL(l); return d ? dataBR(d) + (porPag(aba) && l.vencimento && l.vencimento !== d ? '<small>venc. ' + dataBR(l.vencimento) + '</small>' : '') : '—'; }, ord: (l) => dataL(l) || '9' }];
-    if (!porPag(aba)) C.push({ k: 'pz', rot: aba === 'perda' ? 'Situação' : 'Prazo', cls: 'b-cen b-prazo', html: celPrazoL, ord: (l) => (l.pago || l.perda ? '9' : l.vencimento || '9') });
+      // Backup 85 (FI6): como no ambiente — a coluna continua "Vencimento" também nos pagos; o "✓ Pago em" fica na coluna Prazo
+      { k: 'venc', rot: 'Vencimento', cls: 'b-cen b-data', html: (l) => (l.vencimento ? dataBR(l.vencimento) : '—'), ord: (l) => l.vencimento || '9' }];
+    C.push({ k: 'pz', rot: aba === 'perda' ? 'Situação' : 'Prazo', cls: 'b-cen b-prazo', html: celPrazoL, ord: (l) => (l.pago || l.perda ? '9' : l.vencimento || '9') });
     C.push({ k: 'ac', rot: '', cls: 'b-dir b-c-acoes', html: celAcoesL, ord: false });
     return C;
   };
   const el = corpo.querySelector('#fin-tab') || (corpo.innerHTML = '<div id="fin-tab"></div>', corpo.querySelector('#fin-tab'));
   el._lancDepois = () => telaHonorarios(empresa, true);
-  tabelaB(el, { id: 'fin-' + empresa, tabCls: 'b-tab-lanc', linhas: L, colunas: colunas('areceber'), colunasAba: colunas, abas, semContagemAbas: false,
+  tabelaB(el, { id: 'fin-' + empresa, tabCls: 'b-tab-lanc', linhas: L, colunas: colunas('areceber'), colunasAba: colunas, abas, contagem: true,
     unidade: ['lançamento', 'lançamentos'], busca: (l) => [l.descricao, nomeLanc(l), l.clientes && l.clientes.nome, l.favorecido, l.categoria, l.obs, l.servico, l.referencia].join(' '),
-    dicaBusca: 'Cliente, grupo, descrição…', prazos: true, prazosAbas: ['areceber', 'apagar'], venc: dataL, valor: vS,
+    dicaBusca: 'Cliente, grupo, descrição…', prazos: true, prazosAbas: ['areceber', 'apagar', 'comissoes'], venc: dataL, valor: vS,
     ord: { k: 'venc', dir: 1 }, ordAbas: { recebido: { k: 'venc', dir: -1 }, pago: { k: 'venc', dir: -1 } },
     conta: (n) => plural(n, 'lançamento', 'lançamentos'), linhaCls: (l) => (!l.pago && !l.perda && l.vencimento && l.vencimento <= h ? ' b-tr-venc' : ''),
     listas: [].concat(lista('resp', 'Quem', 'Todas as pessoas', (l) => l.responsavel), lista('grupo', 'Grupo', 'Todos os grupos', (l) => l.grupos && l.grupos.nome),
@@ -146,14 +146,14 @@ function listaFin(empresa, corpo) {
       lista('ref', 'Referência', 'Todas as referências', (l) => l.referencia), lista('fav', 'Favorecido', 'Todos os favorecidos', (l) => l.favorecido)),
     lote: [{ rot: 'Dar baixa nas marcadas', icone: 'check', quando: (l) => !l.pago && !l.perda, fn: async (marc) => {
       const alvo = marc.filter((l) => !l.pago && !l.perda); if (!alvo.length) return false;
-      const bx = await perguntarBaixa({ titulo: 'Baixa em lote — confirme a data', descricao: plural(alvo.length, 'lançamento', 'lançamentos'), valor: soma(alvo, valorLanc) });
+      const bx = await perguntarBaixa({ titulo: 'Lançar a baixa das marcadas?', descricao: plural(alvo.length, 'lançamento', 'lançamentos'), valor: soma(alvo, valorLanc) });
       if (!bx) return false;
       await q(sb.from('lancamentos').update(Object.assign(bx, { cobranca: '', perda: false })).in('id', alvo.map((l) => l.id)));
       aviso('✓ Baixa de ' + plural(alvo.length, 'lançamento', 'lançamentos') + ' em ' + dataBR(bx.data_pagamento) + '.'); await el._lancDepois(); } },
     { rot: 'Cobrar as marcadas', icone: 'enviar', quando: (l) => l._c === 'areceber' && !l.redutor, fn: async (marc) => { cobrarVarios(marc.filter((l) => l._c === 'areceber' && !l.redutor)); return false; } }],
     loteBotao: true,
-    clique: (l) => detalheLancamento(l.id).catch((e) => aviso(erroAmigavel(e), true)),
-    vazio: { titulo: 'Nenhum lançamento aqui', frase: 'Troque o botão (A receber, Recebido…) ou limpe os filtros.' } });
+    clique: (l) => formLancamento(l, el._lancDepois),   // Backup 85 (FI12): como no ambiente, abre direto o formulário (o detalhe fica no botão "Detalhe")
+    vazio: { titulo: 'Nenhum lançamento aqui', frase: 'Troque a aba ou limpe os filtros.' } });
   if (!el._lancLigado) {
     el._lancLigado = true;
     el.addEventListener('click', (ev) => {
@@ -163,7 +163,7 @@ function listaFin(empresa, corpo) {
       if (b.dataset.desfazer) return comBotao(b, async () => { await q(sb.from('lancamentos').update({ pago: false }).eq('id', b.dataset.desfazer)); aviso('Lançamento voltou para "em aberto".'); await el._lancDepois(); });
       comBotao(b, async () => {
         const l = (F.dados || []).find((x) => x.id === b.dataset.pagar) || await q(sb.from('lancamentos').select('descricao, valor, tipo, redutor').eq('id', b.dataset.pagar).single());
-        const bx = await perguntarBaixa({ descricao: l.descricao, valor: l.valor, despesa: l.tipo === 'despesa' && !l.redutor });
+        const bx = await perguntarBaixa({ descricao: l.descricao, valor: l.valor, despesa: l.tipo === 'despesa' && !l.redutor, sub: nomeLanc(l) || '', linha: l.vencimento ? 'vencimento ' + dataBR(l.vencimento) : '', aviso: l.tipo !== 'despesa' ? await avisoRecibo(l.cliente_id) : '' });
         if (!bx) return;
         await q(sb.from('lancamentos').update(Object.assign(bx, { cobranca: '', perda: false })).eq('id', b.dataset.pagar));
         aviso('✓ Baixa registrada em ' + dataBR(bx.data_pagamento) + '.'); await el._lancDepois();
@@ -289,7 +289,6 @@ function analiseFin(empresa, corpo) {
   // com os filtros de Quem/Período e tudo o que eles mudam. Contabilidade: duas linhas de dois quadros, como no ambiente.
   const dois = (a, b) => '<div class="b-fin-dois">' + a + b + '</div>';
   corpo.innerHTML = fluxoDoMes(empresa) +
-    '<div class="b-sec b-fa-sec"><div><h2>Análise do período</h2><p>Recebido, a receber, em atraso e prejuízo — mudam com os filtros abaixo (o Fluxo do mês, acima, não).</p></div></div>' +
     fil + numsFaixa(nums) + graf + comp +
     dois(cartaoFin(contab ? 'Recebido por tipo de serviço' : 'Por tipo de serviço', '', barrasFin(somaPor(receita, (l) => l.servico))),
       cartaoFin('Maiores grupos', '', barrasFin(somaPor(receita, (l) => l.grupos && l.grupos.nome)))) +
@@ -501,20 +500,20 @@ function tabelaLancB(el, lista, opc, depois) {
     { k: 'desc', rot: 'Descrição', html: (l) => { const lg = legendaLanc(l); return esc(l.descricao || '—') + (lg ? '<span class="b-sub">' + esc(lg) + '</span>' : ''); }, ord: (l) => normalizar(l.descricao || '') },
     { k: 'v', rot: 'Valor', cls: 'b-dir b-val', clsL: (l) => (l.tipo === 'receita' && !l.redutor ? ' valor-rec' : ' valor-desp'), soma: true,
       html: (l) => (l.tipo === 'despesa' || l.redutor ? '− ' : '') + brl(l.valor) + (l.redutor ? '<small>redutor</small>' : ''), ord: vS },
-    { k: 'venc', rot: porPag ? 'Pago em' : 'Vencimento', cls: 'b-cen b-data', html: (l) => { const d = dataL(l); return d ? dataBR(d) + (porPag && l.vencimento && l.vencimento !== d ? '<small>venc. ' + dataBR(l.vencimento) + '</small>' : '') : '—'; }, ord: (l) => dataL(l) || '9' }];
-  if (!porPag) C.push({ k: 'pz', rot: 'Prazo', cls: 'b-cen b-prazo', html: celPrazoL, ord: (l) => (l.pago || l.perda ? '9' : l.vencimento || '9') });
+    { k: 'venc', rot: 'Vencimento', cls: 'b-cen b-data', html: (l) => (l.vencimento ? dataBR(l.vencimento) : '—'), ord: (l) => l.vencimento || '9' } ];   // Backup 85 (FI6)
+  C.push({ k: 'pz', rot: 'Prazo', cls: 'b-cen b-prazo', html: celPrazoL, ord: (l) => (l.pago || l.perda ? '9' : l.vencimento || '9') });
   C.push({ k: 'ac', rot: '', cls: 'b-dir b-c-acoes', html: celAcoesL, ord: false });
   const resp = [...new Set(lista.map((l) => l.responsavel).filter(Boolean))].sort();
   const temAberto = lista.some((l) => !l.pago && !l.perda);
   el._lancDepois = depois || recarregar;
-  tabelaB(el, { id: opc.id || 'fin-' + aba, tabCls: 'b-tab-lanc' + (porPag ? ' b-sem-prazo' : ''), linhas: lista, colunas: C, unidade: ['lançamento', 'lançamentos'],
+  tabelaB(el, { id: opc.id || 'fin-' + aba, tabCls: 'b-tab-lanc', linhas: lista, colunas: C, unidade: ['lançamento', 'lançamentos'],
     titulo: opc.titulo, busca: (l) => [l.descricao, quemL(l), l.clientes && l.clientes.nome, l.favorecido, l.categoria, l.obs, l.servico].join(' '), dicaBusca: 'Cliente, grupo, descrição…',
     prazos: aberto && !opc.semPrazos, venc: (l) => dataL(l), valor: vS, ord: porPag ? { k: 'venc', dir: -1 } : { k: 'venc', dir: 1 },
     conta: (n) => plural(n, 'lançamento', 'lançamentos'), linhaCls: (l) => (!l.pago && !l.perda && l.vencimento && l.vencimento <= h ? ' b-tr-venc' : ''),
     listas: resp.length > 1 ? [{ k: 'resp', rot: 'Quem', todos: 'Todas as pessoas', opcoes: resp.map((r) => [r, r]), get: (l) => l.responsavel }] : [],
     lote: temAberto ? [{ rot: 'Dar baixa nas marcadas', icone: 'check', quando: (l) => !l.pago && !l.perda, fn: async (marc) => {
       const ids = marc.map((l) => l.id); if (!ids.length) return false;
-      const bx = await perguntarBaixa({ titulo: 'Baixa em lote — confirme a data', descricao: plural(ids.length, 'lançamento', 'lançamentos'), valor: soma(marc, vS) });
+      const bx = await perguntarBaixa({ titulo: 'Lançar a baixa das marcadas?', descricao: plural(ids.length, 'lançamento', 'lançamentos'), valor: soma(marc, vS) });
       if (!bx) return false;
       await q(sb.from('lancamentos').update(Object.assign(bx, { cobranca: '', perda: false })).in('id', ids));
       aviso('✓ Baixa de ' + plural(ids.length, 'lançamento', 'lançamentos') + ' em ' + dataBR(bx.data_pagamento) + '.'); await el._lancDepois(); } }] : null, loteBotao: true,
@@ -529,7 +528,7 @@ function tabelaLancB(el, lista, opc, depois) {
       if (b.dataset.desfazer) return comBotao(b, async () => { await q(sb.from('lancamentos').update({ pago: false }).eq('id', b.dataset.desfazer)); aviso('Lançamento voltou para "em aberto".'); await el._lancDepois(); });
       comBotao(b, async () => {
         const l = await q(sb.from('lancamentos').select('descricao, valor, tipo, redutor').eq('id', b.dataset.pagar).single());
-        const bx = await perguntarBaixa({ descricao: l.descricao, valor: l.valor, despesa: l.tipo === 'despesa' && !l.redutor });
+        const bx = await perguntarBaixa({ descricao: l.descricao, valor: l.valor, despesa: l.tipo === 'despesa' && !l.redutor, sub: nomeLanc(l) || '', linha: l.vencimento ? 'vencimento ' + dataBR(l.vencimento) : '', aviso: l.tipo !== 'despesa' ? await avisoRecibo(l.cliente_id) : '' });
         if (!bx) return;
         await q(sb.from('lancamentos').update(Object.assign(bx, { cobranca: '', perda: false })).eq('id', b.dataset.pagar));
         aviso('✓ Baixa registrada em ' + dataBR(bx.data_pagamento) + '.'); await el._lancDepois();
@@ -550,7 +549,7 @@ function ligarAcoesLancamentos(raiz, depois) {
     bar.querySelector('[data-lote-limpar]').onclick = () => { w.querySelectorAll('[data-lote]').forEach((c) => { c.checked = false; }); if (todos) todos.checked = false; atualiza(); };
     bar.querySelector('[data-lote-baixa]').onclick = (ev) => comBotao(ev.currentTarget, async () => {
       const ids = marcados().map((c) => c.dataset.lote); if (!ids.length) return;
-      const bx = await perguntarBaixa({ titulo: 'Baixa em lote — confirme a data', descricao: plural(ids.length, 'lançamento', 'lançamentos'), valor: soma(marcados(), (c) => Number(c.dataset.valor) || 0) });
+      const bx = await perguntarBaixa({ titulo: 'Lançar a baixa das marcadas?', descricao: plural(ids.length, 'lançamento', 'lançamentos'), valor: soma(marcados(), (c) => Number(c.dataset.valor) || 0) });
       if (!bx) return;
       await q(sb.from('lancamentos').update(Object.assign(bx, { cobranca: '', perda: false })).in('id', ids));
       aviso('✓ Baixa de ' + plural(ids.length, 'lançamento', 'lançamentos') + ' em ' + dataBR(bx.data_pagamento) + '.'); await apos();
@@ -563,7 +562,7 @@ function ligarAcoesLancamentos(raiz, depois) {
   raiz.querySelectorAll('[data-cobrar]').forEach((b) => b.onclick = () => cobrarWhatsApp(b.dataset.cobrar));
   raiz.querySelectorAll('[data-pagar]').forEach((b) => b.onclick = () => comBotao(b, async () => {
     const l = await q(sb.from('lancamentos').select('descricao, valor, tipo, redutor').eq('id', b.dataset.pagar).single());
-    const bx = await perguntarBaixa({ descricao: l.descricao, valor: l.valor, despesa: l.tipo === 'despesa' && !l.redutor });
+    const bx = await perguntarBaixa({ descricao: l.descricao, valor: l.valor, despesa: l.tipo === 'despesa' && !l.redutor, sub: nomeLanc(l) || '', linha: l.vencimento ? 'vencimento ' + dataBR(l.vencimento) : '', aviso: l.tipo !== 'despesa' ? await avisoRecibo(l.cliente_id) : '' });
     if (!bx) return;
     await q(sb.from('lancamentos').update(Object.assign(bx, { cobranca: '', perda: false })).eq('id', b.dataset.pagar));
     aviso('✓ Baixa registrada em ' + dataBR(bx.data_pagamento) + '.'); await apos();
@@ -588,9 +587,14 @@ function formLancamento(l, depois) {
   const novo = !l.id;
   const tipo = l.tipo || 'receita';
   const empresa = l.empresa || 'escritorio';
+  // Backup 85 (FI3/FI12): como no ambiente — "Novo lançamento" com a escolha Receita/Despesa no alto; ao editar, o título é a descrição
+  const nomeEmp = empresa === 'contabilidade' ? 'Contabilidade' : 'Jurídico';
   const j = abrirJanela({
-    titulo: (novo ? 'Nov' + (l.redutor ? 'o ' : 'a ') : 'Editar ') + (l.redutor ? 'redutor de receita (comissão/desconto)' : tipo === 'receita' ? 'receita' : 'despesa'), larga: true,
+    kick: novo ? 'Novo lançamento' : (l.redutor ? 'Comissão (redutor)' : tipo === 'receita' ? 'Receita' : 'Despesa') + ' · ' + nomeEmp,
+    titulo: novo ? nomeEmp : (l.descricao || 'Lançamento'), sub: novo ? '' : (l.pago ? 'Pago em ' + dataBR(l.data_pagamento) : l.vencimento ? 'Vence ' + dataBR(l.vencimento) : ''), larga: true,
     corpo:
+      (novo ? '<div class="b-campo b-fl-tipo"><span class="b-rot">Tipo</span><div class="b-seg" role="tablist">' + [['receita', 'Receita'], ['despesa', 'Despesa']].map((t) =>
+        '<button type="button" class="b-seg-bt" role="tab" data-fl-tipo="' + t[0] + '" aria-selected="' + (tipo === t[0]) + '">' + t[1] + '</button>').join('') + '</div></div>' : '') +
       '<form id="f-lanc" class="grade">' +
       campo('Descrição <span class="obrig">*</span>', '<input name="descricao" required maxlength="200" value="' + esc(l.descricao || '') + '">', 'inteiro') +
       campo('Valor (R$) <span class="obrig">*</span>', '<input name="valor" required inputmode="decimal" placeholder="0,00" value="' + (l.valor ? valorParaCampo(l.valor) : '') + '">') +
@@ -628,10 +632,18 @@ function formLancamento(l, depois) {
       campo('Observação', '<textarea name="obs" maxlength="2000">' + esc(l.obs || '') + '</textarea>', 'inteiro') +
       '</form>',
     rodape:
-      (novo ? '<span></span>' : '<button class="btn btn-x" id="btn-excluir-lanc" type="button">Excluir</button>') +
-      '<div class="acoes"><button class="btn btn-o" type="button" data-cancelar>Cancelar</button>' +
-      '<button class="btn btn-p" id="btn-salvar-lanc" type="button">Salvar</button></div>'
+      (novo ? '<span></span>' : '<button class="btn btn-g" id="btn-excluir-lanc" type="button" style="margin-right:auto">' + iconeB('lixo') + ' Excluir</button>') +
+      '<div class="acoes">' + (!novo ? '<button class="btn btn-o" type="button" id="btn-detalhe-lanc" title="Contrato, ficha do cliente, recibo e cobrança">Detalhe</button>' : '') +
+      (!novo && !l.pago && !l.perda && tipo === 'receita' ? '<button class="btn btn-o" type="button" id="btn-perda-lanc">Virou prejuízo</button>' : '') +
+      '<button class="btn btn-o" type="button" data-cancelar>Cancelar</button>' +
+      '<button class="btn btn-p" id="btn-salvar-lanc" type="button">' + iconeB('check') + ' Salvar</button></div>'
   });
+  j.querySelectorAll('[data-fl-tipo]').forEach((b) => b.onclick = () => {
+    if (b.dataset.flTipo === tipo) return;
+    const fx = j.querySelector('#f-lanc'), copia = Object.assign({}, l, { tipo: b.dataset.flTipo, categoria: '' });
+    if (fx) { copia.descricao = fx.descricao.value; copia.valor = lerValor(fx.valor.value) || l.valor; copia.vencimento = fx.vencimento.value; copia.empresa = fx.empresa.value; }
+    fecharJanela(j); formLancamento(copia, depois); });
+  { const dt = j.querySelector('#btn-detalhe-lanc'); if (dt) dt.onclick = () => { fecharJanela(j); detalheLancamento(l.id).catch((e) => aviso(erroAmigavel(e), true)); }; }
   const f = j.querySelector('#f-lanc');
   if (!novo && typeof blocoDocumentos === 'function') {
     const d = document.createElement('div'); d.className = 'secao-docs';
@@ -687,19 +699,21 @@ function formLancamento(l, depois) {
           forma_pagamento: i === 0 ? dados.forma_pagamento : ''
         }));
       }
-      await q(sb.from('lancamentos').insert(linhas));
-      aviso(n > 1 ? '✓ ' + n + ' lançamentos criados.' : '✓ Lançamento salvo.');
+      // Backup 85 (JN4): salvar, alterar e excluir com "Desfazer"
+      fecharJanela(j);
+      await incluirComDesfazer('lancamentos', linhas, n > 1 ? n + ' lançamentos criados.' : 'Lançamento criado.', apos);
     } else {
-      await q(sb.from('lancamentos').update(dados).eq('id', l.id));
-      aviso('✓ Alterações salvas.');
+      fecharJanela(j);
+      await alterarComDesfazer('lancamentos', l.id, dados, 'Lançamento alterado.', apos);
     }
-    fecharJanela(j); await apos();
+    await apos();
   });
+  const pe = j.querySelector('#btn-perda-lanc');
+  if (pe) pe.onclick = () => comBotao(pe, async () => { fecharJanela(j); await alterarComDesfazer('lancamentos', l.id, { perda: true, cobranca: '' }, 'Lançamento marcado como prejuízo.', apos); await apos(); });
   const bx = j.querySelector('#btn-excluir-lanc');
   if (bx) bx.onclick = () => comBotao(bx, async () => {
-    if (!confirm('Excluir este lançamento? Esta ação não pode ser desfeita.')) return;
-    await excluir('lancamentos', l.id);
-    aviso('Lançamento excluído.'); fecharJanela(j); await apos();
+    if (!await confirmarB({ titulo: 'Excluir este lançamento?', sub: esc(l.descricao || ''), ok: 'Excluir', perigo: true })) return;
+    fecharJanela(j); await excluirComDesfazer('lancamentos', l.id, 'Lançamento excluído.', apos); await apos();
   });
 }
 
@@ -813,4 +827,35 @@ async function janelaReceber(depois) {
   let t; j.querySelector('#rc-busca').oninput = () => { clearTimeout(t); t = setTimeout(pintar, 200); };
   pintar(); j.querySelector('#rc-busca').focus();
   return j;
+}
+
+// Backup 85 (FI13): "Recibo" como no ambiente — escolhe um recebimento recente, vê a prévia e manda por e-mail (PDF anexo).
+// A Central de Documentos continua num botão ("Abrir na Central de Documentos"), para quem quer ajustar o texto ou imprimir.
+function janelaRecibo(empresa) {
+  const F = estadoFin(empresa), L = (F.dados || []).filter((l) => l.tipo === 'receita' && l.pago && !l.redutor)
+    .sort((a, b) => String(b.data_pagamento || '').localeCompare(String(a.data_pagamento || ''))).slice(0, 12);
+  const j = abrirJanela({ kick: 'Recibo', titulo: 'Escolha o recebimento', sub: 'Os 12 últimos honorários recebidos',
+    corpo: L.length ? '<div class="b-lista">' + L.map((l) => '<button type="button" class="b-li b-li-bt" data-rc="' + esc(l.id) + '"><span class="b-li-tx"><b>' + esc(nomeLanc(l) || '—') + '</b><small>' +
+      esc(l.descricao || '') + ' · pago em ' + dataBR(l.data_pagamento) + '</small></span><b class="b-val">' + brl(l.valor) + '</b></button>').join('') + '</div>'
+      : vazioB({ icone: 'recibo', titulo: 'Nenhum honorário recebido ainda', frase: 'Quando houver um recebimento, ele aparece aqui para gerar o recibo.' }),
+    rodape: '<button type="button" class="btn btn-g" id="rc-central" style="margin-right:auto">Abrir na Central de Documentos</button><button type="button" class="btn btn-o" data-fechar>Fechar</button>' });
+  j.querySelector('#rc-central').onclick = () => { fecharJanela(j); abrirGerador('modelo=recibo'); };
+  j.addEventListener('click', (ev) => { const b = ev.target.closest('[data-rc]'); if (!b) return; const l = L.find((x) => String(x.id) === b.dataset.rc); fecharJanela(j); if (l) previaRecibo(l); });
+}
+function previaRecibo(l) {
+  const quem = (l.clientes && l.clientes.nome) || nomeLanc(l) || '—', doc = l.clientes && l.clientes.cpf_cnpj;
+  const j = abrirJanela({ kick: 'Recibo', titulo: 'Recibo de honorários', sub: esc(quem),
+    corpo: '<div class="b-previa-email"><div class="b-pe-hd">Araújo &amp; Castro — Recibo</div><div class="b-pe-bd">Recebemos de ' + esc(quem) + (doc ? ' (' + esc(doc) + ')' : '') + ' a quantia de <b>' + brl(l.valor) + '</b>, referente a ' +
+      esc(l.descricao || 'honorários') + ', paga em ' + dataBR(l.data_pagamento) + '.<br><br>Belo Horizonte, ' + dataBR(hojeISO()) + '.<br><br>Araújo &amp; Castro Advocacia</div></div>' +
+      '<p class="b-mudo" style="margin-top:8px">O e-mail leva o recibo em PDF, com número e valor por extenso.</p>',
+    rodape: '<button type="button" class="btn btn-g" id="rc-ajustar" style="margin-right:auto">Abrir na Central de Documentos</button><button type="button" class="btn btn-o" data-fechar>Fechar</button>' +
+      (l.cliente_id || l.grupo_id ? '<button type="button" class="btn btn-p" id="rc-email">' + iconeB('enviar') + ' Mandar por e-mail</button>' : '') });
+  j.querySelector('#rc-ajustar').onclick = () => { fecharJanela(j); abrirGerador('lancamento=' + l.id); };
+  const em = j.querySelector('#rc-email');
+  if (em) em.onclick = () => comBotao(em, async () => {
+    const r = await q(sb.rpc('enviar_recibo_email', { p_lanc: l.id }));
+    fecharJanela(j);
+    aviso('Recibo na fila para ' + (r && r.para || 'o cliente') + '.');
+    try { await enviarEmailAgora(r && r.ref, r && r.para); } catch (e) { aviso(erroAmigavel(e), true); }
+  });
 }

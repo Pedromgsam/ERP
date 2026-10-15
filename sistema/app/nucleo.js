@@ -434,14 +434,15 @@ function baixarArquivo(nome, conteudo, tipo) {
 // ─────────────────────────── janelas ───────────────────────────────
 // Backup 63 (reforma): a janela no CENTRO é a única para criar, editar e ver detalhes — kick (linha azul acima do título),
 // sub (linha cinza abaixo) e dir (selo/pílula à direita, antes do ×) são opcionais
-function abrirJanela({ titulo, corpo, rodape, larga, kick, sub, dir }) {
+function abrirJanela({ titulo, corpo, rodape, larga, kick, sub, dir, abas }) {   // Backup 85 (JN2): abas = html preso ao cabeçalho (fica parado ao rolar)
   const fundo = document.createElement('div');
   fundo.className = 'fundo';
   fundo.innerHTML =
     '<div class="janela' + (larga ? ' larga' : '') + '" role="dialog" aria-modal="true">' +
     '<div class="janela-hd">' + (kick || sub ? '<div class="j-tit">' + (kick ? '<span class="j-kick">' + esc(kick) + '</span>' : '') : '') + '<h2>' + esc(titulo) + '</h2>' +
     (kick || sub ? (sub ? '<small class="j-sub">' + sub + '</small>' : '') + '</div>' : '') + (dir ? '<div class="j-dir">' + dir + '</div>' : '') +
-    '<button type="button" data-fechar aria-label="Fechar">×</button></div>' +
+    '<button type="button" data-fechar aria-label="Fechar" title="Fechar">' + iconeB('x') + '</button></div>' +   // Backup 85 (JN1): X desenhado, como no ambiente
+    (abas ? '<div class="j-abas">' + abas + '</div>' : '') +
     '<div class="janela-bd">' + corpo + '</div>' +
     (rodape ? '<div class="janela-rp">' + rodape + '</div>' : '') + '</div>';
   fundo.addEventListener('mousedown', (ev) => { if (ev.target === fundo) fecharJanela(fundo); });
@@ -460,20 +461,48 @@ function fecharJanela(el) {
 }
 document.addEventListener('keydown', (ev) => { if (ev.key === 'Escape') fecharJanela(); });
 
+// Backup 85 (JN3): confirmação DENTRO da página (no lugar da caixinha do navegador) — devolve true/false.
+// o: { kick, titulo, sub, texto, resumo (html), ok (rótulo do botão), perigo }
+function confirmarB(o) {
+  if (typeof o === 'string') {   // texto solto (o que antes ia para o confirm do navegador): 1º parágrafo = título, o resto = explicação
+    const partes = o.split(/\n\s*\n/), apaga = /^(excluir|apagar|descartar|cancelar esta|tirar|desmarcar|parar)/i.test(o.trim());
+    o = { titulo: partes[0].replace(/\n/g, ' '), texto: partes.slice(1).join(' ').replace(/\n/g, ' '), perigo: apaga, ok: apaga ? ((w) => (w === 'Cancelar' ? 'Sim, cancelar' : w || 'Confirmar'))(o.trim().split(' ')[0].replace(/[^\wÀ-ú]/g, '')) : 'Confirmar' };
+  }
+  return new Promise((ok) => {
+    let feito = false;
+    const j = abrirJanela({ kick: o.kick || 'Confirmar', titulo: o.titulo, sub: o.sub,
+      corpo: (o.resumo ? '<div class="b-conf-resumo">' + o.resumo + '</div>' : '') + (o.texto ? '<p class="b-conf-tx">' + esc(o.texto) + '</p>' : ''),
+      rodape: '<button type="button" class="btn btn-o" data-cf-nao>Cancelar</button><button type="button" class="btn ' + (o.perigo ? 'btn-perigo' : 'btn-p') + '" data-cf-sim>' + iconeB('check') + esc(o.ok || 'Confirmar') + '</button>' });
+    j.classList.add('janela-conf');
+    const fim = (v) => { if (feito) return; feito = true; fecharJanela(j); ok(v); };
+    j.querySelector('[data-cf-nao]').onclick = () => fim(false);
+    j.querySelector('[data-fechar]').onclick = () => fim(false);
+    j.addEventListener('mousedown', (ev) => { if (ev.target === j) fim(false); });
+    j.querySelector('[data-cf-sim]').onclick = () => fim(true);
+    setTimeout(() => { const b = j.querySelector('[data-cf-sim]'); if (b) b.focus(); }, 60);
+    new MutationObserver((_, ob) => { if (!j.isConnected) { ob.disconnect(); fim(false); } }).observe(j.parentNode, { childList: true });
+  });
+}
+
 // Baixa (recebimento/pagamento): pergunta a data — vem com hoje, mas dá para trocar quando o
 // lançamento é feito depois. Acordo: pergunta também se o comprovante foi juntado ao processo (e o ID).
 // Devolve os campos a gravar, ou null se a pessoa cancelou.
-function perguntarBaixa({ titulo, descricao, valor, acordo, despesa }) {
+// Backup 85 (JN5/TX3): desenho do ambiente — "Confirmar pagamento" em cima, a pergunta no título, o nome embaixo,
+// um resumo (descrição, nº/vencimento, valor) e, quando houver, o aviso do recibo automático.
+function perguntarBaixa({ titulo, descricao, valor, acordo, despesa, sub, linha, aviso: avisoTx, recebimento }) {
+  const receb = recebimento != null ? recebimento : !despesa && !acordo;
   return new Promise((ok) => {
     let feito = false;
-    const j = abrirJanela({ titulo: titulo || (despesa ? 'Pago — confirme a data' : 'Recebido — confirme a data'),
-      corpo: (descricao ? '<div class="dica" style="margin-bottom:12px"><b>' + esc(descricao) + '</b>' + (valor != null ? ' · ' + brl(valor) : '') + '</div>' : '') +
-        campo(despesa || acordo ? 'Data do pagamento' : 'Data do recebimento', '<input type="date" name="bx-data" required value="' + hojeISO() + '">') +
+    const j = abrirJanela({ kick: receb ? 'Confirmar recebimento' : 'Confirmar pagamento',
+      titulo: titulo || (acordo ? 'Lançar o pagamento desta parcela do acordo?' : receb ? 'Lançar este recebimento?' : 'Lançar este pagamento?'), sub: sub ? esc(sub) : '',
+      corpo: (descricao || valor != null ? '<div class="b-conf-resumo">' + (descricao ? '<b>' + esc(descricao) + '</b>' : '') + (linha ? '<span>' + esc(linha) + '</span>' : '') +
+          (valor != null && valor !== '' ? '<span class="b-conf-val">' + brl(valor) + '</span>' : '') + (avisoTx ? '<span class="b-conf-av">' + esc(avisoTx) + '</span>' : '') + '</div>' : '') +
+        campo(despesa || acordo || !receb ? 'Data do pagamento' : 'Data do recebimento', '<input type="date" name="bx-data" required value="' + hojeISO() + '">') +
         '<div class="sub" style="margin:4px 0 10px">Já vem com hoje. Se foi em outro dia, troque.</div>' +
         (acordo ? '<fieldset class="bx-comp"><legend>O comprovante foi anexado ao processo?</legend>' +
           '<label><input type="radio" name="bx-comp" value="sim"> Sim</label> <label><input type="radio" name="bx-comp" value="nao" checked> Não</label>' +
           '<div class="bx-id" hidden>' + campo('ID do documento no processo', '<input name="bx-id" placeholder="ex.: 123456789 (ID do PJe)">') + '</div></fieldset>' : ''),
-      rodape: '<button type="button" class="btn btn-o" data-bx-cancelar>Cancelar</button><button type="button" class="btn btn-v" data-bx-ok>✓ Confirmar</button>' });
+      rodape: '<button type="button" class="btn btn-o" data-bx-cancelar>Cancelar</button><button type="button" class="btn btn-v" data-bx-ok>' + iconeB('check') + (receb ? 'Confirmar recebimento' : 'Confirmar pagamento') + '</button>' });
     j.classList.add('janela-baixa');
     const data = j.querySelector('[name=bx-data]');
     const radios = j.querySelectorAll('[name=bx-comp]'), caixaId = j.querySelector('.bx-id');
@@ -494,6 +523,47 @@ function perguntarBaixa({ titulo, descricao, valor, acordo, despesa }) {
     };
     new MutationObserver((_, o) => { if (!j.isConnected) { o.disconnect(); fim(null); } }).observe(j.parentNode, { childList: true });
   });
+}
+// Backup 85 (JN4): "Desfazer" no rodapé depois de salvar, editar ou excluir — desfazer = função que volta o que foi feito
+function feitoDesfazer(texto, desfazer, depois) {
+  const ed = window.ERP_EDITOR;
+  const volta = desfazer ? async () => { try { await desfazer(); aviso('Desfeito.'); if (depois) await depois(); } catch (e) { aviso(erroAmigavel(e), true); } } : null;
+  if (ed && ed.gravou) { ed.gravou(texto, volta); marcarGravacao(); invalidarCadastros(); } else aviso('✓ ' + texto);
+}
+// guarda os campos de um registro antes de mudar e devolve a função que volta a eles (para o "Desfazer")
+async function fotoRegistro(tabela, id, campos) {
+  const r = (await q(sb.from(tabela).select(campos.join(',')).eq('id', id)))[0];
+  return r ? async () => { await q(sb.from(tabela).update(r).eq('id', id)); } : null;
+}
+// Backup 85 (JN4): excluir com "Desfazer" — guarda a linha inteira antes de apagar e, no Desfazer, grava de volta com o mesmo id
+async function excluirComDesfazer(tabela, id, texto, depois) {
+  const linha = (await q(sb.from(tabela).select('*').eq('id', id)))[0];
+  await excluir(tabela, id);
+  feitoDesfazer(texto || 'Excluído.', linha ? () => q(sb.from(tabela).insert(linha)) : null, depois);
+}
+// gravar alterações com "Desfazer": fotografa os campos que vão mudar e volta a eles
+async function alterarComDesfazer(tabela, id, dados, texto, depois) {
+  const volta = await fotoRegistro(tabela, id, Object.keys(dados));
+  await q(sb.from(tabela).update(dados).eq('id', id));
+  feitoDesfazer(texto || 'Alterações salvas.', volta, depois);
+}
+// incluir com "Desfazer": devolve as linhas criadas; o Desfazer apaga
+async function incluirComDesfazer(tabela, linhas, texto, depois) {
+  const novas = await q(sb.from(tabela).insert(linhas).select('id'));
+  const ids = (novas || []).map((r) => r.id);
+  feitoDesfazer(texto || 'Salvo.', ids.length ? () => q(sb.from(tabela).delete().in('id', ids)) : null, depois);
+  return novas;
+}
+// Backup 85 (JN5): o aviso "O recibo em PDF vai sozinho para…" — só quando o e-mail automático de recibo está ligado e o cliente recebe e-mails
+let _reciboLigado = null;
+async function avisoRecibo(clienteId) {
+  if (!clienteId) return '';
+  try {
+    if (_reciboLigado == null) { const r = await q(sb.from('regras_tarefas').select('ligada').eq('chave', 'email_pagamento_recebido')); _reciboLigado = !!(r[0] && r[0].ligada); setTimeout(() => { _reciboLigado = null; }, 60000); }
+    if (!_reciboLigado) return '';
+    const c = (await q(sb.from('clientes').select('email, recebe_email').eq('id', clienteId)))[0];
+    return c && c.email && c.recebe_email !== false ? 'O recibo em PDF vai sozinho para ' + String(c.email).split(',')[0].trim() + '.' : '';
+  } catch (e) { return ''; }
 }
 
 function irParaTela(t) { if (typeof window.nav === 'function') window.nav(null, t); else irPara(t); }
@@ -552,6 +622,8 @@ Object.assign(ICONES_B, ICONES_B2);
 ICONES_B.painel = '<path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 6-6"/>';   // Backup 82: gráfico de linha (Painel), como no ambiente
 ICONES_B.rotina = '<rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="M9 14l2 2 4-4"/>';
 ICONES_B.olho = '<path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>';   // Backup 81: prévia do portal
+ICONES_B.lapis = '<path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/>';   // Backup 85: editar (sem emoji ✎), como no ambiente
+ICONES_B.lixo = '<path d="M4 7h16M10 11v6M14 11v6M5 7l1 13h12l1-13M9 7V4h6v3"/>';
 // Backup 76: ícones do Financeiro novo (e de quem mais precisar)
 // Backup 76 (L4): ícones do cabeçalho único de todas as telas
 Object.assign(ICONES_B, { admin: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>',
@@ -595,11 +667,14 @@ function numsFaixa(itens) {
 //   abas: [{id, rot, f(r), cor:'r'}], abaPadrao, ordAbas: {aba: {k, dir}}, ord: {k, dir}, busca(r) → texto, dicaBusca,
 //   listas: [{k, rot, todos, opcoes: [[v, rótulo]], get(r)}], venc(r) → 'aaaa-mm-dd', valor(r) → número,
 //   lote: [{rot, icone, quando(r), fn(lista)}], clique(r), chave(r), vazio: {titulo, frase}, unidade: [um, varios], altura, semBarra, barraExtra (html) }
+function prepararTabB(id, arg) { E.tabBPend = E.tabBPend || {}; E.tabBPend[id] = arg; }
 function tabelaB(el, cfg) {
   E.tabB = E.tabB || {};
   const st = E.tabB[cfg.id] = E.tabB[cfg.id] || { aba: (cfg.abas && (cfg.abaPadrao || cfg.abas[0].id)) || '', q: '', listas: {}, vde: '', vate: '', min: '', max: '', ord: Object.assign({}, cfg.ord || { k: '', dir: 1 }), ordAba: {}, sel: {}, painel: false, prazo: '', prazoAte: '', limite: 150 };
   if (cfg.ordAbas) Object.keys(cfg.ordAbas).forEach((a) => { if (!st.ordAba[a]) st.ordAba[a] = Object.assign({}, cfg.ordAbas[a]); });
   if (!st.limite) st.limite = 150;
+  // Backup 85 (TB8): tela aberta já filtrada (ex.: pela faixa do Início) — prepararTabB(id, {aba, prazo, q})
+  const pend = E.tabBPend && E.tabBPend[cfg.id]; if (pend) { if (pend.aba) st.aba = pend.aba; if (pend.prazo != null) { st.prazo = pend.prazo; st.prazoAte = ''; } if (pend.q != null) st.q = pend.q; st.limite = 150; delete E.tabBPend[cfg.id]; }
   el._cfgB = cfg;
   const chave = cfg.chave || ((r) => String(r.id));
   const temFx = !!(cfg.venc || cfg.valor);
@@ -612,14 +687,15 @@ function tabelaB(el, cfg) {
       (cfg.prazos ? '<div class="b-prazos" data-bt="prazos"></div>' : '') +
       (cfg.busca ? '<label class="b-busca">' + iconeB('busca') + '<input data-bt="q" placeholder="' + esc(cfg.dicaBusca || 'Buscar') + '" aria-label="Buscar" value="' + esc(st.q) + '"></label>' : '') +
       '<span class="b-conta" data-bt="conta"></span><span class="b-barra-dir">' + (cfg.barraExtra || '') +   // Backup 72: controle extra da tela (ex.: período das Publicações)
-      (cfg.lote && cfg.loteBotao ? '<button type="button" class="b-bt-f" data-bt="loteon" aria-pressed="' + !!st.loteOn + '" title="Marcar várias linhas para dar baixa de uma vez">' + iconeB('check') + (st.loteOn ? 'Fechar marcação' : 'Marcar várias') + '</button>' : '') +
+      (cfg.lote && cfg.loteBotao !== false ? '<button type="button" class="b-bt-f" data-bt="loteon" aria-pressed="' + !!st.loteOn + '" title="Marcar várias linhas para dar baixa de uma vez">' + iconeB('check') + (st.loteOn ? 'Fechar marcação' : 'Marcar várias') + '</button>' : '') +
       (temPainel ? '<button type="button" class="b-bt-f" data-bt="painel" aria-expanded="' + st.painel + '">' + iconeB('filtro') + 'Filtros <span class="b-nf" hidden></span></button>' : '') +
       '<button type="button" class="b-ic-bt" data-bt="dens" aria-pressed="' + compacto() + '" title="Tabela compacta (mais linhas na tela)" aria-label="Tabela compacta">' + iconeB('compacto') + '</button></span></div>' +
       (temPainel ? '<div class="b-mais-filtros" data-bt="pn"' + (st.painel ? '' : ' hidden') + '>' +
-        (cfg.listas || []).map((l) => '<select data-bt="l" data-k="' + esc(l.k) + '" aria-label="' + esc(l.rot) + '"><option value="">' + esc(l.todos) + '</option>' + l.opcoes.map((o) => '<option value="' + esc(o[0]) + '"' + (st.listas[l.k] === String(o[0]) ? ' selected' : '') + '>' + esc(o[1]) + '</option>').join('') + '</select>').join('') +
-        (cfg.venc ? '<div class="b-fx"><span>Vencimento</span>' + campoDataB('data-bt="vde"', st.vde, 'Vencimento de') + '<span>até</span>' + campoDataB('data-bt="vate"', st.vate, 'Vencimento até') + '</div>' : '') +
-        (cfg.valor ? '<div class="b-fx"><span>Valor (R$)</span><input inputmode="decimal" data-mascara="nenhuma" data-bt="min" placeholder="de" aria-label="Valor mínimo" value="' + esc(st.min) + '"><span>até</span><input inputmode="decimal" data-mascara="nenhuma" data-bt="max" placeholder="até" aria-label="Valor máximo" value="' + esc(st.max) + '"></div>' : '') +
-        '<button type="button" class="b-link" data-bt="limpar">Limpar filtros</button></div>' : '') +
+        // Backup 85 (TB5): como no ambiente — cada filtro com o nome escrito em cima
+        (cfg.listas || []).map((l) => '<div class="b-campo"><span class="b-rot">' + esc(l.rot) + '</span><select data-bt="l" data-k="' + esc(l.k) + '" aria-label="' + esc(l.rot) + '"><option value="">' + esc(l.todos) + '</option>' + l.opcoes.map((o) => '<option value="' + esc(o[0]) + '"' + (st.listas[l.k] === String(o[0]) ? ' selected' : '') + '>' + esc(o[1]) + '</option>').join('') + '</select></div>').join('') +
+        (cfg.venc ? '<div class="b-campo"><span class="b-rot">Vencimento</span><div class="b-fx">' + campoDataB('data-bt="vde"', st.vde, 'Vencimento de') + '<span>até</span>' + campoDataB('data-bt="vate"', st.vate, 'Vencimento até') + '</div></div>' : '') +
+        (cfg.valor ? '<div class="b-campo"><span class="b-rot">Valor (R$)</span><div class="b-fx"><input inputmode="decimal" data-mascara="nenhuma" data-bt="min" placeholder="de" aria-label="Valor mínimo" value="' + esc(st.min) + '"><span>até</span><input inputmode="decimal" data-mascara="nenhuma" data-bt="max" placeholder="até" aria-label="Valor máximo" value="' + esc(st.max) + '"></div></div>' : '') +
+        '<button type="button" class="btn btn-g" data-bt="limpar">Limpar filtros</button></div>' : '') +
       '<div data-bt="quadro"></div>';
   } else el.innerHTML = '<div data-bt="quadro"></div>';
   const Q = (s) => el.querySelector(s);
@@ -645,9 +721,10 @@ function tabelaB(el, cfg) {
   function abas() {
     if (!cfg.abas || cfg.semBarra) return;
     const guarda = st.aba, cont = {};
-    if (!cfg.semContagemAbas) { cfg.abas.forEach((a) => { st.aba = a.id; cont[a.id] = filtrar().length; }); st.aba = guarda; }
+    const contar = !!cfg.contagem && !cfg.semContagemAbas;   // Backup 85 (TB1): número nas abas só quando a tela pede, como no ambiente
+    if (contar) { cfg.abas.forEach((a) => { st.aba = a.id; cont[a.id] = filtrar().length; }); st.aba = guarda; }
     Q('.b-seg').innerHTML = cfg.abas.map((a) => '<button type="button" role="tab" class="b-seg-bt" data-b-aba="' + esc(a.id) + '" aria-selected="' + (a.id === st.aba) + '">' + esc(a.rot) +
-      (cfg.semContagemAbas ? '' : ' <span class="b-seg-n' + (a.cor === 'r' && cont[a.id] ? ' b-seg-n-r' : '') + '">' + cont[a.id] + '</span>') + '</button>').join('');
+      (!contar ? '' : ' <span class="b-seg-n' + (a.cor === 'r' && cont[a.id] ? ' b-seg-n-r' : '') + '">' + cont[a.id] + '</span>') + '</button>').join('');
   }
   function quadro() {
     const cols = cfg.colunasAba ? cfg.colunasAba(st.aba) : cfg.colunas;   // Backup 76: colunas que mudam com a aba (ex.: Vencimento × Pago em)
@@ -664,12 +741,14 @@ function tabelaB(el, cfg) {
             (cfg.vazio && cfg.vazio.botao ? '<div class="vazio b-vazio-bt"><button type="button" class="btn btn-p btn-mini vazio-bt" data-vazio-clica="' + esc(cfg.vazio.botao[1]) + '">' + esc(cfg.vazio.botao[0]) + '</button></div>' : '')) + '</div>';
       return;
     }
-    const soma = cfg.valor ? lin.reduce((s, r) => s + (cfg.valor(r) || 0), 0) : null;
-    const temLote = !!(cfg.lote && cfg.lote.length) && (!cfg.loteBotao || !!st.loteOn);   // Backup 71: loteBotao = caixinhas só depois de "Marcar várias"
+    const vSoma = cfg.valor || cfg.somaB;   // Backup 85: somaB = total no rodapé sem abrir "Filtros" de valor (janelas do ambiente)
+    const soma = vSoma ? lin.reduce((s, r) => s + (vSoma(r) || 0), 0) : null;
+    const temLote = !!(cfg.lote && cfg.lote.length) && (cfg.loteBotao === false || !!st.loteOn);   // Backup 85 (TB3): caixinhas só depois de "Marcar várias", em toda tela
     const marc = lin.filter((r) => st.sel[chave(r)]);
-    const lote = temLote && marc.length ? '<div class="b-lote"><b>' + plural(marc.length, 'marcada', 'marcadas') + '</b>' + (cfg.valor ? '<span>' + brl(marc.reduce((s, r) => s + (cfg.valor(r) || 0), 0)) + '</span>' : '') +
-      '<button type="button" class="b-link" data-bt="desmarcar">Desmarcar</button><div class="b-lote-acoes">' + cfg.lote.map((a, i) => { const n = marc.filter((r) => !a.quando || a.quando(r)).length;
-        return '<button type="button" class="btn btn-o btn-mini" data-b-lote="' + i + '"' + (n ? '' : ' disabled') + '>' + iconeB(a.icone || 'check') + esc(a.rot) + (n !== marc.length ? ' (' + n + ')' : '') + '</button>'; }).join('') + '</div></div>' : '';
+    // Backup 85 (TB4): com a marcação ligada a barra aparece já com "Marque as linhas"
+    const lote = temLote ? '<div class="b-lote"><b>' + (marc.length ? plural(marc.length, 'marcada', 'marcadas') : 'Marque as linhas') + '</b>' + (cfg.valor && marc.length ? '<span>' + brl(marc.reduce((s, r) => s + (cfg.valor(r) || 0), 0)) + '</span>' : '') +
+      (marc.length ? '<button type="button" class="btn btn-g btn-mini" data-bt="desmarcar">Desmarcar</button>' : '') + '<div class="b-lote-acoes">' + cfg.lote.map((a, i) => { const n = marc.filter((r) => !a.quando || a.quando(r)).length;
+        return '<button type="button" class="btn btn-o btn-mini" data-b-lote="' + i + '"' + (n ? '' : ' disabled') + '>' + iconeB(a.icone || 'check') + esc(a.rot) + (n && n !== marc.length ? ' (' + n + ')' : '') + '</button>'; }).join('') + '</div></div>' : '';
     const cel = (c, r) => '<td' + ((c.cls || c.clsL) ? ' class="' + (c.cls || '') + (c.clsL ? c.clsL(r) : '') + '"' : '') + '>' + c.html(r) + '</td>';
     Q('[data-bt=quadro]').innerHTML = '<div class="b-quadro">' + (titulo ? '<div class="b-quadro-hd"><h2>' + esc(titulo) + '</h2><span class="b-resumo">' + plural(lin.length, un[0], un[1]) + (soma != null ? ' · <b>' + brl(soma) + '</b>' : '') + '</span></div>' : '') + lote +
       '<div class="b-rola" data-sem-pagina' + (cfg.altura ? ' style="max-height:' + cfg.altura + '"' : '') + '><table class="b-tab' + (cfg.tabCls ? ' ' + cfg.tabCls : '') + '"><thead><tr>' +
@@ -679,7 +758,7 @@ function tabelaB(el, cfg) {
         return '<tr class="' + (cfg.clique ? 'b-cl' : '') + (st.sel[k] ? ' b-sel' : '') + (cfg.linhaCls ? cfg.linhaCls(r) : '') + '"' + (cfg.clique ? ' tabindex="0"' : '') + ' data-b-k="' + esc(k) + '">' +
           (temLote ? '<td class="b-ck"><input type="checkbox" data-bt="um" aria-label="Marcar"' + (st.sel[k] ? ' checked' : '') + '></td>' : '') + cols.map((c) => cel(c, r)).join('') + '</tr>'; }).join('') +
       // Backup 69: com muitas linhas (ex.: 15 mil parcelas), desenha 150 por vez — a tela abre na hora
-      (lin.length > st.limite ? '<tr class="b-tr-mais"><td colspan="' + (cols.length + (temLote ? 1 : 0)) + '"><button type="button" class="b-link" data-bt="mais">Mostrar mais ' + Math.min(150, lin.length - st.limite) + ' (' + lin.length + ' no total)</button></td></tr>' : '') +
+      (lin.length > st.limite ? '<tr class="b-tr-mais"><td colspan="' + (cols.length + (temLote ? 1 : 0)) + '"><button type="button" class="btn btn-g btn-mini" data-bt="mais">Mostrar mais ' + Math.min(150, lin.length - st.limite) + ' (' + lin.length + ' no total)</button></td></tr>' : '') +
       '</tbody>' + (soma != null && lin.length > 1 ? '<tfoot><tr>' + (temLote ? '<td></td>' : '') + cols.map((c, i) => c.soma ? '<td class="b-dir b-val">' + brl(soma) + '<small>média ' + brl(soma / lin.length) + '</small></td>' : '<td>' + (i === 0 ? 'Total de ' + lin.length : '') + '</td>').join('') + '</tr></tfoot>' : '') +
       '</table></div></div>';
   }
@@ -690,7 +769,7 @@ function tabelaB(el, cfg) {
     b.innerHTML = [['', 'Todas'], ['venc', 'Vencidas'], ['5', '5 dias'], ['10', '10 dias'], ['15', '15 dias'], ['30', '30 dias']].map((o) => '<button type="button" class="b-chip" data-b-prazo="' + o[0] + '" aria-pressed="' + (st.prazo === o[0]) + '">' + o[1] + '</button>').join('') +
       '<label class="b-prazo-ate' + (st.prazo === 'ate' ? ' b-on' : '') + '" title="Vencimento até esta data">até ' + campoDataB('data-bt="prazoate"', st.prazoAte, 'Vencimento até') + '</label>';
   }
-  function conta() { const c = Q('[data-bt=conta]'); if (!c || !cfg.conta) return; c.textContent = cfg.conta(filtrar().length, st.aba); }
+  function conta() { const c = Q('[data-bt=conta]'); if (!c) return; const n = filtrar().length, un = cfg.unidade || ['linha', 'linhas']; c.textContent = cfg.conta ? cfg.conta(n, st.aba) : plural(n, un[0], un[1]); }   // Backup 85 (TB2): sempre à vista
   const tudo = () => { abas(); prazos(); quadro(); contarFx(); conta(); };
   el._redesenharB = tudo;
   tudo();
@@ -713,7 +792,7 @@ function tabelaB(el, cfg) {
       if (tt === 'painel') { s2.painel = !s2.painel; el.querySelector('[data-bt=pn]').hidden = !s2.painel; t.setAttribute('aria-expanded', s2.painel); return; }
       if (tt === 'limpar') { s2.q = ''; s2.listas = {}; s2.vde = s2.vate = s2.min = s2.max = ''; s2.prazo = s2.prazoAte = ''; tabelaB(el, c2); return; }
       const pz = ev.target.closest('[data-b-prazo]'); if (pz) { s2.prazo = pz.dataset.bPrazo; s2.prazoAte = ''; el._redesenharB(); return; }
-      if (tt === 'dens') { const on = !document.documentElement.classList.contains('b-compacto'); document.documentElement.classList.toggle('b-compacto', on); try { localStorage.setItem('erp_compacto', on ? '1' : ''); } catch (e) { /* sem armazenamento */ } t.setAttribute('aria-pressed', on); return; }
+      if (tt === 'dens') { const on = !document.documentElement.classList.contains('b-compacto'); document.documentElement.classList.toggle('b-compacto', on); try { localStorage.setItem('erp_compacto', on ? '1' : ''); } catch (e) { /* sem armazenamento */ } t.setAttribute('aria-pressed', on); aviso(on ? 'Tabelas compactas: mais linhas na tela.' : 'Tabelas confortáveis.'); return; }
       if (tt === 'desmarcar') { s2.sel = {}; el._redesenharB(); return; }
       if (tt === 'loteon') { s2.loteOn = !s2.loteOn; s2.sel = {}; t.setAttribute('aria-pressed', s2.loteOn); t.lastChild.textContent = s2.loteOn ? 'Fechar marcação' : 'Marcar várias'; el._redesenharB(); return; }
       if (tt === 'mais') { s2.limite += 150; el._redesenharB(); return; }

@@ -721,6 +721,31 @@ O que mudou:
 
 Ainda falta (próxima rodada): apagar o ERP antigo (ERP.html, remendos e blocos antigos do design.css).
 
+## Backup 85 — "Levar ao ERP (igual ao ambiente)": os itens escolhidos do comparativo
+1. Merge da pull request.
+2. **SQL no Supabase** (desta vez tem): Raw → Ctrl+A/Ctrl+C → conferir a última linha `-- ═══ fim do Backup 85 ═══` → Run.
+3. **Ctrl+Shift+R** no ERP.
+
+O que mudou (códigos do `COMPARATIVO-B84.md`):
+- **Tabelas (TB1–TB8):** número nas abas só onde o ambiente mostra; "Marcar várias" antes das caixinhas; filtros com o nome em cima; "Limpar filtros" e "Mostrar mais" no botão claro; clicar num aviso do Início já abre a lista filtrada.
+- **Janelas (JN1–JN5, CG1):** X desenhado; abas presas ao cabeçalho (ficha do cliente); **toda confirmação é uma janela do próprio sistema** (não mais a caixinha do navegador); "Desfazer" depois de salvar, alterar e excluir lançamentos, tarefas e os formulários do ERP (processos, parcelamentos, acordos…); baixa pergunta com o resumo e avisa quando o recibo vai sozinho.
+- **Busca (BG1):** Ctrl+K virou a "paleta" do ambiente (Telas, Ações, Clientes, Grupos, Processos…).
+- **Início (IN1–IN3):** faixa do ambiente — honorários em atraso, guias a emitir no mês, parcelas em atraso, publicações novas, tarefas atrasadas, e-mails com erro, certificados vencendo; "Nada pendente aqui. Tudo em dia." quando não há nada.
+- **Tarefas (TF2–TF9):** filtros da Lista em "Filtros"; "Concluir as marcadas"; Concluir com Desfazer; clicar abre o formulário; Semana sem a coluna de atrasadas.
+- **Painel/Processos (PE4, PR1–PR8):** Passivo sempre vermelho, Ativo verde; coluna "Conferido"; tribunal sob o número; filtros Grupo/Tribunal/Natureza/Conferido; janela do processo com "Ficha do cliente", "Conferido", "Registrar movimentação" e "Editar".
+- **Parcelamentos (PA1–PA5):** clicar abre a janela do parcelamento (ficha de 4 campos + "Mais dados", "Já pago", "Parcelas pagas N de T", Emitir); **Emitir** = a janela nova (anexa o PDF de cada guia, confere valor e vencimento, rascunho ou direto, "Só marcar como emitida").
+- **Acordos (AC2–AC4):** janela do acordo no mesmo desenho (4 campos + "Mais dados", "Alterar o acordo inteiro"); clicar na parcela abre o acordo; Emitir = janela nova.
+- **Execuções (EX2, EX4):** janela "Execução · nº" com o executado em destaque; "+ Recebimento" com valor e data à vista e Desfazer.
+- **Financeiro (FI3–FI13, TX1):** "Lançar" é um botão só (Receita/Despesa no formulário); abas Recebidos · Pagos · Prejuízo e, no Jurídico, **Comissões**; sem o título "Análise do período"; clicar no lançamento abre o formulário (com "Virou prejuízo", "Excluir" e "Detalhe"); **Recibo**: escolhe o recebimento, vê a prévia e **manda por e-mail** (é o SQL desta rodada).
+- **Contratos (CT3):** janela com Valor, Início, Reajuste e Êxito à vista, "Lançamentos deste contrato no Financeiro", "Marcar como assinado" e "Aplicar reajuste" no rodapé.
+- **Ficha do cliente (CL1, CL2, CL4):** abas Resumo · Parcelamentos · Acordos · Processos · Financeiro · Documentos · E-mails · Linha do tempo; Parcelamentos e Acordos com Emitir e Baixa; "Documentos do mês"; "Recebe e-mails" no alto; botões no rodapé.
+- **Documentos (DO1, DO2):** uma tabela (Cliente, Arquivo, Tipo, Enviado em, Validade) com a faixa "Vencendo em 30 dias"; clicar abre a ficha do cliente na aba Documentos.
+- **Rotina (RO2, RO3):** Processos na tabela nova (Para conferir · Conferidos 15 dias · Todos; "Movimentação" e "Sem novidade" na linha); Guias do mês → Emitir = janela nova.
+- **Administração (AD1, AD3, AD4, TX2):** abre em E-mails; "Como funciona" com as 3 chaves; "O que sai e quando" em duas colunas, com os 2 manuais (Rascunho/Direto) e os **dias** do lembrete e da cobrança.
+- **Portal (PT2–PT4):** botão "Falar com o escritório" (WhatsApp), "Baixar recibo" nos honorários pagos e "Baixar" no contrato (quando o PDF está no sistema); contratos em lista simples. **O WhatsApp usado é o 1º telefone dos advogados em Configurações dos documentos.**
+
+**O que foi MANTIDO do ERP (e não apagado):** está na página "Mantidos do ERP" (link na resposta) e em `sistema/MANTIDOS-B85.md` — marque Manter/Tirar e copie as respostas.
+
 ## Backup 84 — Respostas de 15/10: Tarefas, Painel, Parcelamentos/Acordos e Financeiro
 1. Merge da pull request.
 2. **SQL no Supabase** (desta vez tem): Raw → Ctrl+A/Ctrl+C → conferir a última linha `-- ═══ fim do Backup 84 ═══` → Run.

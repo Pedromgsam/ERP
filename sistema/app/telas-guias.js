@@ -204,7 +204,7 @@ async function janelaEmissao(tabela, x, depois) {
   });
   const d = j.querySelector('#gd-desfazer');
   if (d) d.onclick = (ev) => comBotao(ev.currentTarget, async () => {
-    if (!confirm('Desmarcar a emissão desta parcela?')) return;
+    if (!await confirmarB('Desmarcar a emissão desta parcela?')) return;
     await q(sb.rpc('registrar_emissao', { p_tabela: tabela, p_id: x.id, p_emitida: false, p_doc: null, p_enviar: false }));
     await fim('Emissão desmarcada.');
   });
@@ -521,7 +521,7 @@ async function gerarGuias(tabela, alcance, depois) {
     base.forEach((x) => { if (!tem.has(x._k) && !prox[x._k]) prox[x._k] = x; });
     L = L.concat(Object.values(prox)); }
   if (!L.length) {
-    if (base.length && !alcance.proximas && confirm('Nada em atraso nem vencendo neste mês.\n\nEmitir a PRÓXIMA parcela ' + (parc ? 'de cada parcelamento' : 'de cada acordo') + ' deste recorte?'))
+    if (base.length && !alcance.proximas && await confirmarB('Nada em atraso nem vencendo neste mês.\n\nEmitir a PRÓXIMA parcela ' + (parc ? 'de cada parcelamento' : 'de cada acordo') + ' deste recorte?'))
       return gerarGuias(tabela, Object.assign({}, alcance, { proximas: true }), depois);
     return aviso(base.length ? 'Nenhuma guia escolhida.' : 'Nenhuma parcela em aberto neste recorte' + (parc ? ' (que o escritório emita).' : '.'), !base.length);
   }
@@ -565,4 +565,82 @@ function formAcordoNovo(depois) {
     if (depois) await depois(); else if (window.ERP_RECARREGAR) window.ERP_RECARREGAR();
   });
   return j;
+}
+
+// ═══ Backup 85 (PA5/AC4/RO3): a janela "Emitir" do ambiente — todas as guias da MESMA empresa a emitir, em passos
+// 1. Anexar a guia (PDF) por linha → o sistema lê valor e vencimento e mostra se mudou · 2. Conferir · 3. Salvar no rascunho do Gmail
+// ou Enviar (conforme Administração → E-mails). "Só marcar como emitida" não manda e-mail (tem Desfazer).
+// itens: [{ id, desc, valor, venc, numero }] (todas da mesma tabela: 'parcelas' | 'acordos'); ctx: { nome, doc, cli, grupo, depois, extra }
+async function janelaEmitirGuias(tabela, itens, ctx) {
+  ctx = ctx || {};
+  if (!itens || !itens.length) return aviso('Nada para emitir.', true);
+  const acordo = tabela === 'acordos', modo = ((await modoEnvioGuias().catch(() => ({}))) || {})[acordo ? 'acordo' : 'parcelamento'] || 'rascunho';
+  const lidos = {}, arquivos = {};
+  const hoje = hojeISO(), h = new Date().getHours(), oi = h < 12 ? 'Bom dia!' : h < 18 ? 'Boa tarde!' : 'Boa noite!';
+  const texto = oi + '\n\n' + (acordo ? 'Segue a parcela do acordo para pagamento.' : 'Seguem as guias dos parcelamentos com vencimento neste mês ou em atraso. Antes de pagar, confirme se a guia já não foi paga, para evitar duplicidade.') + '\n\n' +
+    itens.map((x) => '• ' + x.desc + ' — ' + brl(x.valor) + ' — vence ' + dataBR(x.venc) + (x.pix ? '\n  PIX: ' + x.pix : '')).join('\n') + '\n\nQualquer dúvida, é só responder este e-mail.\n\nEquipe Araújo & Castro';
+  const j = abrirJanela({ larga: true, kick: acordo ? 'Emitir boleto/PIX do acordo' : 'Emitir guias do parcelamento', titulo: ctx.nome || 'Cliente', sub: esc(ctx.doc || '') + (ctx.doc ? ' · ' : '') + '<span id="eg-sub-email">procurando o e-mail…</span>',
+    corpo: '<div class="b-passos3"><span class="b-on">1. Anexar a guia (PDF)</span><span>2. Conferir</span><span>3. ' + (modo === 'rascunho' ? 'Salvar no rascunho do Gmail' : 'Enviar') + '</span></div>' +
+      '<div class="b-rola b-eg-rola"><table class="b-tab b-tab-eg"><thead><tr><th>Parcela</th><th class="b-dir">Valor</th><th class="b-cen">Vencimento</th><th>Guia (PDF)</th><th>Conferência</th></tr></thead><tbody>' +
+      itens.map((x) => '<tr data-eg="' + esc(x.id) + '"><td>' + esc(x.desc) + (x.venc < hoje ? '<span class="b-sub b-pz-r">vencida · <button type="button" class="b-link" data-eg-reenv="' + esc(x.id) + '" title="A janela do ERP para reenviar a guia vencida com novo vencimento e valor atualizado">reenviar atualizada</button></span>' : '') + '</td><td class="b-dir b-val">' + brl(x.valor) + '</td><td class="b-cen b-data">' + dataBR(x.venc) + '</td>' +
+        '<td><label class="btn btn-o btn-mini b-eg-anexar">' + iconeB('documento') + 'Anexar<input type="file" accept="application/pdf" hidden data-eg-pdf="' + esc(x.id) + '"></label></td>' +
+        '<td class="b-eg-conf" data-eg-conf="' + esc(x.id) + '"><span class="traco">aguardando o PDF</span></td></tr>').join('') + '</tbody></table></div>' +
+      '<div class="grade" style="margin-top:12px">' + campo('Para', '<input id="eg-para" type="email" placeholder="e-mail do cliente">', 'inteiro') +
+        campo('Texto do e-mail', '<textarea id="eg-texto" rows="8">' + esc(texto) + '</textarea>', 'inteiro') + '</div>' +
+      '<div class="dica">Como está configurado: <b>' + (modo === 'rascunho' ? 'o e-mail vai para o RASCUNHO do Gmail' : 'o e-mail é ENVIADO direto') + '</b> com as guias anexadas. Troque em Administração → E-mails.</div>' + (ctx.extra || ''),
+    rodape: '<button type="button" class="btn btn-o" data-cancelar>Cancelar</button><div class="acoes"><button type="button" class="btn btn-o" id="eg-so">Só marcar como emitida</button>' +
+      '<button type="button" class="btn btn-p" id="eg-ok">' + iconeB(modo === 'rascunho' ? 'documento' : 'enviar') + (modo === 'rascunho' ? 'Salvar no rascunho' : 'Enviar agora') + '</button></div>' });
+  j.classList.add('janela-emitir');
+  const $j = (s) => j.querySelector(s);
+  $j('[data-cancelar]').onclick = () => fecharJanela(j);
+  preencherDestino($j('#eg-para'), ctx.cli, ctx.grupo, tabela).then(() => { const e = $j('#eg-para') && $j('#eg-para').value; const s = $j('#eg-sub-email'); if (s) s.innerHTML = e ? 'e-mail: ' + esc(e) : '<b class="b-vermelho">sem e-mail cadastrado</b>'; }).catch(() => {});
+  const conferir = (x, pdf, nome) => {
+    lidos[x.id] = pdf;
+    const dif = pdf && pdf.valor != null && Math.abs(pdf.valor - (Number(x.valor) || 0)) > 0.01, vdif = pdf && pdf.venc && pdf.venc !== x.venc;
+    $j('[data-eg-conf="' + x.id + '"]').innerHTML = '<span class="' + (dif || vdif ? 'b-pz-a' : 'b-ok-txt') + '">' + (pdf && pdf.valor != null ? brl(pdf.valor) : 'valor não lido') + ' · ' + (pdf && pdf.venc ? dataBR(pdf.venc) : 'vencimento não lido') + '</span>' +
+      (dif ? '<small class="b-pz-sub">valor diferente da parcela (juros/atualização?) — o novo valor fica gravado</small>' : '') + (vdif ? '<small class="b-pz-sub">vencimento do PDF diferente da parcela</small>' : '') + '<small class="b-pz-sub">' + esc(nome) + '</small>';
+    const pas = j.querySelectorAll('.b-passos3 span'); if (pas[1]) pas[1].classList.add('b-on');
+  };
+  j.addEventListener('click', (ev) => { const r = ev.target.closest('[data-eg-reenv]'); if (!r) return; fecharJanela(j); emitirParcela(tabela, r.dataset.egReenv); });   // PA6 (do ERP)
+  j.addEventListener('change', async (ev) => {
+    const inp = ev.target.closest('[data-eg-pdf]'); if (!inp || !inp.files[0]) return;
+    const f = inp.files[0], x = itens.find((y) => String(y.id) === inp.dataset.egPdf); if (!x) return;
+    arquivos[x.id] = f;
+    $j('[data-eg-conf="' + x.id + '"]').innerHTML = '<span class="traco">lendo o PDF…</span>';
+    const pdf = await lerPdfGuia(f).catch(() => null);
+    conferir(x, pdf || { valor: null, venc: null }, f.name);
+  });
+  const marcar = async () => {
+    for (const x of itens) {
+      await q(sb.rpc('registrar_emissao', { p_tabela: tabela, p_id: x.id, p_emitida: true, p_doc: null, p_enviar: false }));
+      const v = lidos[x.id] && lidos[x.id].valor; if (!acordo && v > 0) await q(sb.rpc('lancar_valor_parcela', { p_id: x.id, p_valor: v })).catch(() => null);
+    }
+    if (window.ERP_EDITOR && window.ERP_EDITOR.marcarSujo && !acordo) itens.forEach((x) => { if (x.parcelamento_id) window.ERP_EDITOR.marcarSujo('parcelas', x.parcelamento_id); });
+  };
+  const desmarcar = async () => { for (const x of itens) await q(sb.rpc('registrar_emissao', { p_tabela: tabela, p_id: x.id, p_emitida: false, p_doc: null, p_enviar: false })); };
+  const fim = async () => { fecharJanela(j); if (ctx.depois) await Promise.resolve(ctx.depois()).catch(() => {}); if (window.ERP_RECARREGAR) window.ERP_RECARREGAR(); };
+  $j('#eg-so').onclick = (ev) => comBotao(ev.currentTarget, async () => {
+    await marcar(); feitoDesfazer(plural(itens.length, 'guia marcada', 'guias marcadas') + ' como emitida' + (itens.length > 1 ? 's' : '') + '.', desmarcar, ctx.depois); await fim(); });
+  $j('#eg-ok').onclick = (ev) => comBotao(ev.currentTarget, async () => {
+    const para = $j('#eg-para').value.trim(), falta = itens.filter((x) => !arquivos[x.id]);
+    if (!para && modo !== 'rascunho') throw new Error('Este cliente não tem e-mail cadastrado. Digite no campo "Para" ou use "Salvar no rascunho".');
+    if (falta.length && !(await confirmarB({ titulo: 'Faltam ' + plural(falta.length, 'guia', 'guias') + ' sem PDF', sub: 'O e-mail sai só com as que têm PDF.', ok: 'Continuar mesmo assim',
+      resumo: falta.map((x) => '<span>' + esc(x.desc) + '</span>').join('') }))) return;
+    const fs = Object.values(arquivos);
+    if (fs.reduce((s2, f) => s2 + f.size, 0) > LIMITE_ANEXOS) throw new Error('Os PDFs somam mais de 15 MB: envie em dois e-mails.');
+    const arqs = await Promise.all(fs.map(lerArquivoB64));
+    const r = await q(sb.rpc(modo === 'rascunho' ? 'salvar_guias_rascunho' : 'enviar_guias_email', { p_cliente: ctx.cli || null, p_grupo: ctx.grupo || null,
+      p_itens: itens.map((x) => ({ tabela, id: x.id, descricao: x.desc, vencimento: (lidos[x.id] && lidos[x.id].venc) || x.venc, valor: (lidos[x.id] && lidos[x.id].valor) || x.valor || null })),
+      p_assunto: (acordo ? 'Acordo — ' : 'Guias de Parcelamento — ') + (ctx.nome || ''), p_texto: $j('#eg-texto').value.trim(), p_docs: [], p_para: para || null, p_arquivos: arqs }));
+    await marcar();
+    fecharJanela(j); aviso(modo === 'rascunho' ? 'Guardando o rascunho no seu Gmail…' : 'Enviando o e-mail…');
+    Promise.all([avisoEnvio(plural(itens.length, 'guia', 'guias') + (arqs.length ? ' e ' + plural(arqs.length, 'anexo', 'anexos') : '') + ': ', r).catch((er) => aviso(erroAmigavel(er), true)),
+      ctx.depois ? Promise.resolve(ctx.depois()).catch(() => {}) : null]).then(() => { if (window.ERP_RECARREGAR) window.ERP_RECARREGAR(); });
+  });
+  return j;
+}
+// acha o cliente (cadastro) de uma empresa pelo CNPJ ou pelo nome — para o e-mail e o rascunho
+function clienteDaEmpresa(nome, doc) {
+  const so = (s) => String(s || '').replace(/\D/g, ''), d = so(doc), n = normalizar(nome || '');
+  return (E.clientes || []).find((c) => d && so(c.cpf_cnpj) === d) || (E.clientes || []).find((c) => n && normalizar(c.nome) === n) || null;
 }

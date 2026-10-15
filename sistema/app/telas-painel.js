@@ -299,39 +299,59 @@ async function cardResumoEscritorio() {
         pode('financeiro_contab') ? card('fin-pagar', 'A pagar · Contabilidade', pag.filter((l) => l.empresa === 'contabilidade')) : null].filter(Boolean); })(),
     ['tarefas', '📋', 'Tarefas do escritório', tAb, 'em aberto · equipe toda', [[tAtr, pl(tAtr, 'atrasada', 'atrasadas'), 'vermelho']].concat(prazos([0, tHoje, t5])), tAtr ? 'vermelho' : '']
   ].filter(Boolean);
-  // Backup 82 (E3): pílulas da faixa, como no ambiente — cada uma abre a tela certa (data-ini-ir); só o que pede ação (o resto some)
-  const pil = (k, n, txt, nivel, tit) => '<button type="button" class="ini-conf-it ini-pil b-av-' + nivel + '" data-ini-ir="' + k + '"><span class="b-av-pt" aria-hidden="true"></span>' +
-    (n !== '' && n != null ? '<b>' + n + '</b>' : '') + '<span class="ini-pil-tx" data-tit="' + esc(tit) + '">' + esc(txt) + '</span></button>';
+  // Backup 85 (IN1/IN2/IN3/TB8): a faixa do ambiente — Financeiro: "honorários em atraso" e "a pagar em 5 dias";
+  // Escritório: guias a emitir, parcelas em atraso, acordos em atraso, publicações, tarefas atrasadas, e-mail com erro, certificado vencendo.
+  // Cada pílula abre a tela já na aba e no prazo certos. Ficaram do ERP (lista para decidir): CRM em andamento e os avisos/conferências.
+  const pil = (k, n, txt, nivel, tit) => '<button type="button" class="ini-conf-it ini-pil b-av-' + nivel + '" data-ini-ir="' + k + '"' + (tit ? ' title="' + esc(tit) + '"' : '') + '><span class="b-av-pt" aria-hidden="true"></span>' +
+    (n !== '' && n != null ? '<b>' + n + '</b>' : '') + '<span class="ini-pil-tx">' + esc(txt) + '</span></button>';
   const finP = [], esc2 = [];
+  const fimMes = (() => { const d = new Date(h + 'T12:00:00'); return new Date(d.getFullYear(), d.getMonth() + 1, 0).toISOString().slice(0, 10); })();
+  const [guias, emailsErro, certs] = await Promise.all([
+    jur ? conta(sb.from('parcelas').select('id, parcelamentos!inner(emitimos_guia)', { count: 'exact', head: true }).eq('pago', false).is('emitida_em', null).lte('vencimento', fimMes).eq('parcelamentos.emitimos_guia', true)) : 0,
+    pode('admin') || pode('clientes') ? conta(cnt('email_fila').eq('status', 'erro').gte('criado_em', somarDias(h, -30))) : 0,
+    pode('clientes') ? conta(sb.from('cliente_certificado').select('cliente_id', { count: 'exact', head: true }).not('validade', 'is', null).lte('validade', somarDias(h, 30))) : 0]);
   if (lancs && (pode('financeiro_juridico') || pode('financeiro_contab'))) {
-    const at = (l) => l.filter((x) => x.vencimento < h), hj = (l) => l.filter((x) => x.vencimento === h), cinco = (l) => l.filter((x) => x.vencimento >= h && x.vencimento <= lim5);
+    const atr = (l) => l.filter((x) => x.vencimento <= h), cinco = (l) => l.filter((x) => x.vencimento <= lim5);
     const sm = (l) => brl(soma(l, (x) => Math.abs(vl(x))));
-    const rec = lancs.filter((l) => l.tipo === 'receita'), pag = lancs.filter((l) => l.tipo === 'despesa' && l.empresa === 'contabilidade');
-    const parte = (k, l, nome) => { if (at(l).length) finP.push(pil(k, sm(at(l)), 'de honorários em atraso · ' + nome, 'critico', 'A receber · ' + nome));
-      if (hj(l).length) finP.push(pil(k, sm(hj(l)), 'vence hoje · ' + nome, 'atencao', 'A receber · ' + nome)); };
-    if (pode('financeiro_juridico')) parte('fin-jur', rec.filter((l) => l.empresa !== 'contabilidade'), 'Jurídico');
-    if (pode('financeiro_contab')) { parte('fin-contab', rec.filter((l) => l.empresa === 'contabilidade'), 'Contabilidade');
-      if (at(pag).length) finP.push(pil('fin-pagar', sm(at(pag)), 'a pagar em atraso', 'critico', 'A pagar · Contabilidade'));
-      if (cinco(pag).length) finP.push(pil('fin-pagar', sm(cinco(pag)), 'a pagar em 5 dias', 'atencao', 'A pagar · Contabilidade')); }
-    if (!finP.length) finP.push(pil('fin-jur', '', 'Nada em atraso nem vencendo hoje', 'ok', 'A receber · Jurídico'));
+    const recJ = pode('financeiro_juridico') ? atr(lancs.filter((l) => l.tipo === 'receita' && !l.redutor && l.empresa !== 'contabilidade')) : [];
+    const recC = pode('financeiro_contab') ? atr(lancs.filter((l) => l.tipo === 'receita' && !l.redutor && l.empresa === 'contabilidade')) : [];
+    const pag = pode('financeiro_contab') ? cinco(lancs.filter((l) => l.tipo === 'despesa' && !l.redutor && l.empresa === 'contabilidade')) : [];
+    if (recJ.length || recC.length) finP.push(pil(recJ.length ? 'fin-jur' : 'fin-contab', sm(recJ.concat(recC)), 'de honorários em atraso', 'critico',
+      [recJ.length ? 'Jurídico: ' + sm(recJ) : '', recC.length ? 'Contabilidade: ' + sm(recC) : ''].filter(Boolean).join(' · ')));
+    if (pag.length) finP.push(pil('fin-pagar', sm(pag), 'a pagar em 5 dias', 'atencao', 'A pagar · Contabilidade'));
   }
-  T.forEach((t) => { const [k, , tit, n] = t, num = Number(n) || 0;
-    if (k === 'parcelamentos' && num) esc2.push(pil(k, num, pl(num, 'parcela de parcelamento em atraso', 'parcelas de parcelamento em atraso'), 'critico', tit));
-    if (k === 'acordos' && num) esc2.push(pil(k, num, pl(num, 'parcela de acordo em atraso', 'parcelas de acordo em atraso'), 'critico', tit));
-    if (k === 'publicacoes' && num) esc2.push(pil(k, num, pl(num, 'publicação nova', 'publicações novas'), 'info', tit));
-    if (k === 'crm' && num) esc2.push(pil(k, num, pl(num, 'oportunidade em andamento', 'oportunidades em andamento'), 'info', tit));
-    if (k === 'tarefas' && tAtr) esc2.push(pil(k, tAtr, pl(tAtr, 'tarefa atrasada', 'tarefas atrasadas'), 'critico', tit)); });
+  const parcAtr = (Number(parc[0]) || 0) + (Number(parc[1]) || 0), acAtr = (Number(aco[0]) || 0) + (Number(aco[1]) || 0);
+  if (guias) esc2.push(pil('guias', guias, pl(guias, 'guia a emitir este mês', 'guias a emitir este mês'), 'atencao'));
+  if (parcAtr) esc2.push(pil('parcelamentos', parcAtr, pl(parcAtr, 'parcela de parcelamento em atraso', 'parcelas de parcelamento em atraso'), 'critico'));
+  if (acAtr) esc2.push(pil('acordos', acAtr, pl(acAtr, 'parcela de acordo em atraso', 'parcelas de acordo em atraso'), 'critico'));
+  if (pubs) esc2.push(pil('publicacoes', pubs, pl(pubs, 'publicação nova', 'publicações novas'), 'info'));
+  if (tAtr) esc2.push(pil('tarefas', tAtr, pl(tAtr, 'tarefa atrasada', 'tarefas atrasadas'), 'critico'));
+  if (emailsErro) esc2.push(pil('emails', emailsErro, pl(emailsErro, 'e-mail com erro', 'e-mails com erro'), 'critico'));
+  if (certs) esc2.push(pil('certificados', certs, pl(certs, 'certificado vencendo', 'certificados vencendo'), 'atencao'));
+  const tudoEmDia = !esc2.length;
+  if (crm && abertas.length) esc2.push(pil('crm', abertas.length, pl(abertas.length, 'oportunidade em andamento', 'oportunidades em andamento'), 'info'));   // do ERP (fica para decidir)
   const lf = $('ini-resumo-fin'); if (lf) { lf.innerHTML = finP.join(''); const lin = $('ini-lin-fin'); if (lin) lin.hidden = !finP.length; }
-  el.innerHTML = esc2.join('');
+  el.innerHTML = (tudoEmDia ? '<span class="ini-tudo-ok">' + iconeB('ok') + 'Nada pendente aqui. Tudo em dia.</span>' : '') + esc2.join('');
   const raiz = $('ini-faixa') || el;
-  raiz.querySelectorAll('[data-ini-ir]').forEach((b) => b.onclick = () => {
-    const k = b.dataset.iniIr;
-    if (k === 'tarefas') E.tf = Object.assign(E.tf || {}, { aba: 'abertas', atalho: 'atrasadas' });
-    if (/^fin-/.test(k)) { if (typeof window.nav === 'function') window.nav(null, k === 'fin-contab' || k === 'fin-pagar' ? 'financeiroContab' : 'financeiro'); return; }
-    if (k === 'publicacoes') E.pub = Object.assign(E.pub || { tribunal: '', dias: '30', busca: '' }, { status: 'nova', adv: primeiroNomeUsuario() });
-    irParaTela(k);
-  });
+  raiz.querySelectorAll('[data-ini-ir]').forEach((b) => b.onclick = () => abrirDaFaixa(b.dataset.iniIr));
 }
+// Backup 85 (TB8): cada item da faixa abre a tela já filtrada (aba e prazo certos)
+function abrirDaFaixa(k) {
+  const ir = (t) => { if (typeof window.nav === 'function') window.nav(null, t); else irPara(t); };
+  if (k === 'fin-jur' || k === 'fin-contab') { const emp = k === 'fin-jur' ? 'juridico' : 'contabilidade';
+    estadoFinB(emp).aba = 'lanc'; prepararTabB('fin-' + emp, { aba: 'areceber', prazo: 'venc' }); return ir(emp === 'juridico' ? 'financeiro' : 'financeiroContab'); }
+  if (k === 'fin-pagar') { estadoFinB('contabilidade').aba = 'lanc'; prepararTabB('fin-contabilidade', { aba: 'apagar', prazo: '5' }); return ir('financeiroContab'); }
+  if (k === 'parcelamentos') { prepararTabB('parcelas', { aba: 'apagar', prazo: 'venc' }); return ir('parcelamentos'); }
+  if (k === 'acordos') { prepararTabB('acordos', { aba: 'apagar', prazo: 'venc' }); return ir('acordos'); }
+  if (k === 'tarefas') { E.tf = Object.assign(E.tf || {}, { aba: 'atrasadas', atalho: 'atrasadas', vista: 'lista' }); prepararTabB('tarefas', { aba: 'atrasadas' }); return ir('tarefas'); }
+  if (k === 'publicacoes') { E.pub = Object.assign(E.pub || { tribunal: '', dias: '30', busca: '' }, { status: 'nova', adv: primeiroNomeUsuario() }); return ir('publicacoes'); }
+  if (k === 'guias') { E.rt = Object.assign(E.rt || {}, { aba: 'guias' }); return ir('rotina'); }
+  if (k === 'emails') { E.adm = Object.assign(E.adm || { tabela: '' }, { aba: 'email', emailAba: 'saida', saidaF: 'erro' }); return ir('admin'); }
+  if (k === 'certificados') { E.rt = Object.assign(E.rt || {}, { aba: 'passivo' }); return ir('rotina'); }
+  return ir(k);
+}
+// o estado do Financeiro mora em E.fin[empresa] (telas-financeiro.js); aqui só garante a aba de Lançamentos
+function estadoFinB(emp) { E.fin = E.fin || {}; E.fin[emp] = E.fin[emp] || { aba: 'analise', an: { quem: [], preset: 'ano', de: '', ate: '', tipo: '', grupo: '' }, caixa: 'consolidado', dados: null, lidoEm: 0 }; return E.fin[emp]; }
 
 // ── Lembretes: o que NÃO é tarefa (recado sem prazo, pagar o aluguel, emitir guias de parcelamento) ──
 // Linha do lembrete: fundo pela cor do destaque, "✓ Feito" e "📌 Fixar/Fixado" (o fixado fica marcado, como o Feito); clicar abre o detalhe
@@ -380,7 +400,7 @@ function ligarLembretes(el, L, depois) {
     await q(sb.from('lembretes').update({ fixo: !l.fixo }).eq('id', l.id)); aviso(l.fixo ? 'Lembrete tirado do topo.' : '📌 Lembrete fixado no topo.'); await fim();
   }); });
   el.querySelectorAll('[data-lemb-x]').forEach((b) => b.onclick = (ev) => { ev.stopPropagation(); comBotao(b, async () => {
-    if (!confirm('Apagar este lembrete?')) return;
+    if (!await confirmarB('Apagar este lembrete?')) return;
     await q(sb.from('lembretes').delete().eq('id', b.dataset.lembX)); await fim();
   }); });
   el.querySelectorAll('[data-lemb-det]').forEach((d) => {

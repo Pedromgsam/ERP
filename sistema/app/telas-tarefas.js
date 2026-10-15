@@ -258,7 +258,7 @@ async function janelaAgendar(dataIni, depois) {
     const resp = f.resp.value || meuNome();
     const parts = [resp].concat([...f.querySelectorAll('[name=part]:checked')].map((x) => x.value).filter((n) => primeiroNome(n) !== primeiroNome(resp)));
     const c = semHora ? [] : await verConflito();
-    if (c.length && !confirm('Este horário choca com ' + plural(c.length, 'compromisso', 'compromissos') + ' de quem participa. Agendar mesmo assim?')) return;
+    if (c.length && !await confirmarB('Este horário choca com ' + plural(c.length, 'compromisso', 'compromissos') + ' de quem participa. Agendar mesmo assim?')) return;
     const com = f.com.value.trim(), cli = E.clientes.find((x) => normalizar(x.nome) === normalizar(com));
     const local = f.local.value.trim();
     const obs = [tipo === 'audiencia' ? 'Audiência: ' + f.tipo_aud.value + ' · ' + ({ presencial: 'Presencial', virtual: 'Virtual', hibrida: 'Híbrida' }[f.formato.value]) : '', f.descricao.value.trim()].filter(Boolean).join('\n');
@@ -520,9 +520,10 @@ function filtrarTarefas(daLista) {
     if (a === '7' && (tarefaFechada(t) || !t.prazo || t.prazo > somarDias(h, 7))) return false;
     // "pedem atenção" (destaque do Início): minhas atrasadas ou com prazo fatal em até 7 dias
     if (a === 'atencao' && (tarefaFechada(t) || !ehMinha(t) || !((t.prazo && t.prazo < h) || (t.prazo_fatal && t.prazo_fatal <= somarDias(h, 7))))) return false;
-    if (F.tipos && !F.tipos.includes(tipoItemAgenda(t))) return false;   // Backup 84: o tipo vale em todas as vistas
-    if (F.pessoas && F.pessoas.length && ![t.responsavel, t.revisor].concat(String(t.participantes || '').split(',')).some((n) => n && F.pessoas.includes(primeiroNome(n)))) return false;
-    if (F.pri && t.prioridade !== F.pri) return false;
+    // Backup 85 (TF2): na Lista, Pessoa/Tipo/Prioridade ficam dentro de "Filtros" da tabela (como no ambiente); a barra vale para as outras vistas
+    if (!daLista && F.tipos && !F.tipos.includes(tipoItemAgenda(t))) return false;
+    if (!daLista && F.pessoas && F.pessoas.length && ![t.responsavel, t.revisor].concat(String(t.participantes || '').split(',')).some((n) => n && F.pessoas.includes(primeiroNome(n)))) return false;
+    if (!daLista && F.pri && t.prioridade !== F.pri) return false;
     if (b && !normalizar(t.titulo + ' ' + t.processos_vinculados + ' ' + nomeGrupo(t.grupo_id) + ' ' + nomeCliente(t.cliente_id) + ' ' + t.etiquetas + ' ' + t.descricao).includes(b)) return false;
     return true;
   });
@@ -541,6 +542,7 @@ function pintarTarefas() {
     const pesSel = F.pessoas && F.pessoas.length === 1 ? F.pessoas[0] : '';
     const chipB = (k, r, on) => '<button type="button" class="b-chip" data-tf-tipo="' + esc(k) + '" aria-pressed="' + on + '">' + esc(r) + '</button>';
     $('tf-chips').classList.remove('fila-2x2', 'tf-so-quem');
+    $('tf-chips').style.display = F.vista === 'lista' ? 'none' : '';   // Backup 85 (TF2)
     $('tf-chips').innerHTML = '<div class="b-tf-filtros"><div class="b-chips" role="group" aria-label="Mostrar"><span class="b-fin-rot">Mostrar</span>' +
         chipB('*', 'Tudo', tSel.size === tipos.length) + FILTRO_TIPOS_AG.map(([k, r]) => chipB(k, r, tSel.has(k))).join('') + '</div>' +
       '<div class="b-fsus">' + (pes.length > 1 ? '<label class="b-fsus-c"><span>De quem</span><select id="tf-f-pes" aria-label="De quem"><option value="">Todas as pessoas</option>' +
@@ -562,6 +564,21 @@ const recarregarTarefas = () => TELAS.tarefas();
 async function concluirTarefa(id) {
   await q(sb.from('tarefas').update({ status: 'concluida' }).eq('id', id));
 }
+// Backup 85 (TF7/JN4): concluir na tabela com "Desfazer" (volta ao status de antes)
+async function concluirComDesfazer(id) {
+  const t = (E._tarefas || []).find((x) => String(x.id) === String(id)), antes = (t && t.status) || 'pendente';
+  await concluirTarefa(id);
+  const novo = (await q(sb.from('tarefas').select('status, revisor').eq('id', id)))[0] || {};
+  feitoDesfazer(novo.status === 'revisao' ? 'Tarefa enviada para ' + (novo.revisor || 'o revisor') + ' validar.' : 'Tarefa concluída.' + (t && t.recorrencia ? ' Ela volta sozinha.' : ''),
+    () => q(sb.from('tarefas').update({ status: antes }).eq('id', id)), recarregarTarefas);
+  await recarregarTarefas();
+}
+async function concluirVarias(lista) {
+  const ids = lista.map((t) => t.id), antes = lista.map((t) => [t.id, t.status || 'pendente']);
+  for (const id of ids) await concluirTarefa(id);
+  feitoDesfazer(plural(ids.length, 'tarefa concluída', 'tarefas concluídas') + '.', async () => { for (const [id, st] of antes) await q(sb.from('tarefas').update({ status: st }).eq('id', id)); }, recarregarTarefas);
+  await recarregarTarefas();
+}
 function ligarLinhasTarefa(raiz) {
   raiz.querySelectorAll('[data-concluir]').forEach((bt) => bt.onclick = (ev) => { ev.stopPropagation(); comBotao(bt, async () => {
     await concluirTarefa(bt.dataset.concluir); aviso('✓ Tarefa concluída.'); await recarregarTarefas();
@@ -570,7 +587,7 @@ function ligarLinhasTarefa(raiz) {
     await q(sb.from('tarefas').update({ status: 'pendente' }).eq('id', bt.dataset.restaurarT)); aviso('✓ Tarefa restaurada (voltou para Em aberto).'); await recarregarTarefas();
   }); });
   raiz.querySelectorAll('[data-apagar-t]').forEach((bt) => bt.onclick = (ev) => { ev.stopPropagation(); comBotao(bt, async () => {
-    if (!confirm('Excluir de vez? Esta ação não pode ser desfeita.')) return;
+    if (!await confirmarB('Excluir de vez? Esta ação não pode ser desfeita.')) return;
     await excluir('tarefas', bt.dataset.apagarT); aviso('Tarefa excluída de vez.'); await recarregarTarefas();
   }); });
   raiz.querySelectorAll('[data-editar-t]').forEach((bt) => bt.onclick = (ev) => { ev.stopPropagation();
@@ -598,12 +615,17 @@ function vistaLista(alvo) {
   const admin = (E.perfil || {}).papel === 'admin';
   const abaIni = 'abertas';
   if (F.atalho === 'atrasadas') { F.atalho = ''; E.tabB = E.tabB || {}; (E.tabB.tarefas = E.tabB.tarefas || {}).aba = 'atrasadas'; }
-  const r = tabelaB(alvo, { id: 'tarefas', linhas: lista, chave: (t) => String(t.id), abaPadrao: abaIni, unidade: ['tarefa', 'tarefas'], tabCls: 'b-tab-tf',
+  const r = tabelaB(alvo, { id: 'tarefas', contagem: true, linhas: lista, chave: (t) => String(t.id), abaPadrao: abaIni, unidade: ['tarefa', 'tarefas'], tabCls: 'b-tab-tf',
     abas: [{ id: 'abertas', rot: 'Em aberto', f: (t) => !tarefaFechada(t) }, { id: 'atrasadas', rot: 'Atrasadas', cor: 'r', f: (t) => !tarefaFechada(t) && t.prazo && t.prazo < h },
       { id: 'concluidas', rot: 'Concluídas', f: (t) => t.status === 'concluida' },
       { id: 'excluidas', rot: 'Excluídas', f: (t) => t.status === 'cancelada' && String(t.atualizado_em || '') >= somarDias(h, -90) }],   // mais de 90 dias: só no histórico
     venc: (t) => t.prazo || '', ord: { k: 'prazo', dir: 1 }, ordAbas: { concluidas: { k: 'prazo', dir: -1 } },   // B84: sem os atalhos de prazo (a aba Atrasadas e "Filtros → vencimento" bastam)
-    listas: [{ k: 'st', rot: 'Status', todos: 'Todos os status', opcoes: Object.entries(STATUS_TAREFA), get: (t) => t.status }],
+    listas: [{ k: 'pes', rot: 'Pessoa', todos: 'Todas as pessoas', opcoes: pessoasFiltro().map((n) => [primeiroNome(n), nomeCurto(n)]), get: (t) => [t.responsavel, t.revisor].concat(String(t.participantes || '').split(',')).filter(Boolean).map(primeiroNome) },
+      { k: 'tipo', rot: 'Tipo', todos: 'Todos os tipos', opcoes: FILTRO_TIPOS_AG, get: (t) => tipoItemAgenda(t) },
+      { k: 'pri', rot: 'Prioridade', todos: 'Todas', opcoes: [['alta', 'Alta'], ['media', 'Média'], ['baixa', 'Baixa']], get: (t) => t.prioridade },
+      { k: 'st', rot: 'Status', todos: 'Todos os status', opcoes: Object.entries(STATUS_TAREFA), get: (t) => t.status }],
+    // Backup 85 (TF6): "Marcar várias" → "Concluir as marcadas" (com Desfazer)
+    lote: [{ rot: 'Concluir as marcadas', icone: 'check', quando: (t) => !tarefaFechada(t), fn: (l) => concluirVarias(l) }],
     busca: (t) => [t.titulo, t.processos_vinculados, grupoDe(t), nomeCliente(t.cliente_id), t.etiquetas, t.descricao].join(' '), dicaBusca: 'Tarefa ou cliente…',
     colunas: [
       { k: 'tit', rot: 'Tarefa', cls: 'b-tf-tit', ord: (t) => normalizar(t.titulo), html: (t) => {
@@ -622,15 +644,15 @@ function vistaLista(alvo) {
         ? '<span class="b-acoes"><button type="button" class="btn btn-o btn-mini" data-restaurar-t="' + t.id + '">↩ Restaurar</button>' + (admin ? '<button type="button" class="btn btn-x btn-mini" data-apagar-t="' + t.id + '">Excluir de vez</button>' : '') + '</span>'
         : tarefaFechada(t) ? '' : '<button type="button" class="b-bt-baixa" data-concluir="' + t.id + '" title="Concluir a tarefa">Concluir</button>') }],
     linhaCls: (t) => (!tarefaFechada(t) && t.prazo && t.prazo < h ? ' b-tr-venc' : '') + (tarefaFechada(t) ? ' tf-feita' : ''),
-    clique: (t) => abrirTarefa(t, recarregarTarefas),
+    clique: (t) => formTarefa(t, recarregarTarefas),   // Backup 85 (TF8): abre direto o formulário (a ficha completa fica no botão "Ficha da tarefa")
     vazio: { titulo: 'Nenhuma tarefa aqui', frase: 'Use "+ Nova tarefa" ou troque a aba.', botao: ['+ Nova tarefa', '#tf-nova'] } });
   if (!alvo._tfLigado) { alvo._tfLigado = true;
     alvo.addEventListener('click', (ev) => {
-      const c = ev.target.closest('[data-concluir]'); if (c) { ev.stopPropagation(); comBotao(c, async () => { await concluirTarefa(c.dataset.concluir); aviso('✓ Tarefa concluída.'); await recarregarTarefas(); }); return; }
+      const c = ev.target.closest('[data-concluir]'); if (c) { ev.stopPropagation(); comBotao(c, () => concluirComDesfazer(c.dataset.concluir)); return; }
       const rs = ev.target.closest('[data-restaurar-t]'); if (rs) { ev.stopPropagation(); comBotao(rs, async () => {
         await q(sb.from('tarefas').update({ status: 'pendente' }).eq('id', rs.dataset.restaurarT)); aviso('✓ Tarefa restaurada (voltou para Em aberto).'); await recarregarTarefas(); }); return; }
       const ap = ev.target.closest('[data-apagar-t]'); if (ap) { ev.stopPropagation(); comBotao(ap, async () => {
-        if (!confirm('Excluir de vez? Esta ação não pode ser desfeita.')) return;
+        if (!await confirmarB('Excluir de vez? Esta ação não pode ser desfeita.')) return;
         await excluir('tarefas', ap.dataset.apagarT); aviso('Tarefa excluída de vez.'); await recarregarTarefas(); }); }
     }, true);
   }
@@ -972,7 +994,8 @@ function formTarefa(t, depois) {
   const novo = !t.id;
   let checklist = Array.isArray(t.checklist) ? t.checklist.map((c) => ({ texto: c.texto, feito: !!c.feito })) : [];
   const outras = (E._tarefas || []).filter((x) => x.id !== t.id && !tarefaFechada(x));
-  const j = abrirJanela({ titulo: novo ? (t.tarefa_pai_id ? 'Nova subtarefa' : 'Nova tarefa') : 'Tarefa', larga: true,
+  const j = abrirJanela({ kick: novo ? 'Nova' : 'Tarefa', titulo: novo ? (t.tarefa_pai_id ? 'Subtarefa' : 'Tarefa') : (t.titulo || 'Tarefa'), larga: true,
+    sub: novo ? '' : esc([ROT_TIPO_TF[tipoItemAgenda(t)] || 'Tarefa', t.responsavel ? nomeCurto(t.responsavel) : ''].filter(Boolean).join(' · ')),
     corpo: '<form id="f-tf" class="grade">' +
       // Backup 54: à vista só o essencial (o que fazer, para quem, até quando, urgência, cliente, se repete); o resto em "Mais opções"
       campo('Tarefa <span class="obrig">*</span>', '<input name="titulo" maxlength="300" value="' + esc(t.titulo || '') + '" placeholder="O que precisa ser feito?">', 'inteiro') +
@@ -1005,8 +1028,9 @@ function formTarefa(t, depois) {
         '<div class="inteiro secao">Documentos</div><div class="inteiro" id="tf-docs"></div>' +
         '<div class="inteiro secao">Comentários <span class="sub">— escreva @Nome para avisar alguém</span></div><div class="inteiro" id="tf-coment"></div>') +
       '</form>',
-    rodape: (novo ? '<span></span>' : '<button class="btn btn-x" type="button" id="btn-excluir-tf">Excluir</button>') +
-      '<div class="acoes"><button class="btn btn-o" type="button" data-cancelar>Cancelar</button><button class="btn btn-p" type="button" id="btn-salvar-tf">Salvar</button></div>' });
+    rodape: (novo ? '<span></span>' : '<span class="acoes"><button class="btn btn-x" type="button" id="btn-excluir-tf">Excluir</button><button class="btn btn-g" type="button" id="tf-ficha" title="Comentários, histórico, delegar, encaminhar e validar">Ficha da tarefa</button></span>') +
+      '<div class="acoes"><button class="btn btn-o" type="button" data-cancelar>Cancelar</button><button class="btn btn-p" type="button" id="btn-salvar-tf">' + iconeB('check') + 'Salvar</button></div>' });
+  { const fi = j.querySelector('#tf-ficha'); if (fi) fi.onclick = () => { fecharJanela(j); abrirTarefa(t, depois || recarregarTarefas); }; }
   const f = j.querySelector('#f-tf');
   const pintarCheck = () => {
     j.querySelector('#tf-check').innerHTML = checklist.length ? checklist.map((c, i) => '<div class="ck-item"><label class="check"><input type="checkbox" data-ck="' + i + '"' + (c.feito ? ' checked' : '') + '> <span' + (c.feito ? ' class="riscado"' : '') + '>' + esc(c.texto) + '</span></label>' +
@@ -1067,22 +1091,26 @@ function formTarefa(t, depois) {
       await q(sb.rpc('tarefa_serie_editar', { p_id: t.id, p: dados }));
       const proprio = Object.assign({}, dados); delete proprio.recorrencia_regra; delete proprio.recorrencia;
       await q(sb.from('tarefas').update(proprio).eq('id', t.id));
-    } else if (novo) await q(sb.from('tarefas').insert(dados)); else await q(sb.from('tarefas').update(dados).eq('id', t.id));
+    } else if (novo) { const n = await q(sb.from('tarefas').insert(dados).select('id').single()); E._tfNova = n && n.id; }
+    else { E._tfVolta = {}; Object.keys(dados).forEach((k) => { if (k in t) E._tfVolta[k] = t[k]; }); await q(sb.from('tarefas').update(dados).eq('id', t.id)); }
     if (dados.responsavel && (novo || dados.responsavel !== t.responsavel)) {
       await notificar(dados.responsavel, 'Nova tarefa para você: ' + dados.titulo, dados.prazo ? 'Prazo ' + dataBR(dados.prazo) : '', 'tarefas').catch(() => {});
     }
     let msg = novo ? '✓ Tarefa criada.' : dados.status === 'concluida' && t.status !== 'concluida' ? '✓ Tarefa concluída.' : '✓ Tarefa atualizada.';
     if (!novo && dados.status === 'concluida' && dados.exige_revisao && t.status !== 'revisao') msg = '✓ Tarefa enviada para revisão de ' + dados.revisor + '.';
-    aviso(msg);
+    // Backup 85 (JN4): Desfazer — apaga a tarefa criada ou volta os campos alterados (na série "esta e as próximas" não há Desfazer)
+    const nova = E._tfNova, volta = E._tfVolta; E._tfNova = null; E._tfVolta = null;
+    if (modo !== 'proximas' && (nova || volta)) feitoDesfazer(msg.replace(/^✓ /, ''), nova ? () => q(sb.from('tarefas').delete().eq('id', nova)) : () => q(sb.from('tarefas').update(volta).eq('id', t.id)), aposSalvar);
+    else aviso(msg);
     fecharJanela(j); await aposSalvar();
   });
   const bx = j.querySelector('#btn-excluir-tf');
   if (bx) bx.onclick = () => comBotao(bx, async () => {
-    if (!confirm('Excluir esta tarefa' + ((E._tarefas || []).some((x) => x.tarefa_pai_id === t.id) ? ' e as subtarefas dela' : '') + '? Ela vai para a aba "Excluídas" (dá para restaurar).')) return;
+    if (!await confirmarB('Excluir esta tarefa' + ((E._tarefas || []).some((x) => x.tarefa_pai_id === t.id) ? ' e as subtarefas dela' : '') + '? Ela vai para a aba "Excluídas" (dá para restaurar).')) return;
     // exclusão "suave": vira cancelada e vai para a aba Excluídas (subtarefas abertas junto)
     await q(sb.from('tarefas').update({ status: 'cancelada' }).eq('id', t.id));
     await q(sb.from('tarefas').update({ status: 'cancelada' }).eq('tarefa_pai_id', t.id).not('status', 'in', '(concluida,cancelada)'));
-    aviso('Tarefa movida para "Excluídas".'); fecharJanela(j); await aposSalvar();
+    feitoDesfazer('Tarefa movida para "Excluídas".', () => q(sb.from('tarefas').update({ status: t.status }).eq('id', t.id)), aposSalvar); fecharJanela(j); await aposSalvar();
   });
   if (!novo) {
     pintarSubtarefas(j, t, depois).catch((e) => console.error(e));
@@ -1251,7 +1279,7 @@ async function janelaModelos() {
     });
     const bx = k.querySelector('#btn-exc-mod');
     if (bx) bx.onclick = () => comBotao(bx, async () => {
-      if (!confirm('Excluir este modelo? Os fluxos já criados continuam.')) return;
+      if (!await confirmarB('Excluir este modelo? Os fluxos já criados continuam.')) return;
       await excluir('modelos_fluxo', m.id); aviso('Modelo excluído.'); fecharJanela(k); fecharJanela(j); janelaModelos();
     });
   };
@@ -1276,7 +1304,7 @@ async function janelaFeriados() {
   });
   j.querySelectorAll('[data-fer]').forEach((b) => b.onclick = () => comBotao(b, async () => {
     const [data, abr, local] = b.dataset.fer.split('|');
-    if (!confirm('Excluir o feriado de ' + dataBR(data) + '?')) return;
+    if (!await confirmarB('Excluir o feriado de ' + dataBR(data) + '?')) return;
     const r = await q(sb.from('feriados').delete().eq('data', data).eq('abrangencia', abr).eq('local', local).select());
     if (!r.length) throw new Error('Só o administrador pode excluir este registro.');
     E._feriados = null; aviso('Feriado excluído.'); fecharJanela(j); janelaFeriados();
@@ -1376,7 +1404,7 @@ async function janelaAgenda(novo) {
       'Se o link vazar, clique em <b>Trocar link</b>: o antigo para de funcionar na hora.</div>',
     rodape: '<button class="btn btn-o" type="button" id="ag-trocar">Trocar link</button><div class="acoes"><button class="btn btn-p" type="button" id="ag-copiar">Copiar link</button></div>' });
   j.querySelector('#ag-copiar').onclick = async () => { try { await navigator.clipboard.writeText(link); aviso('Link copiado. Agora cole no Google Agenda → Do URL.'); } catch (e) { j.querySelector('#ag-link').select(); aviso('Selecionei o link: aperte Ctrl+C para copiar.'); } };
-  j.querySelector('#ag-trocar').onclick = () => { if (confirm('Trocar o link? O link antigo para de funcionar e você precisará adicionar o novo no Google Agenda.')) { fecharJanela(j); janelaAgenda(true); } };
+  j.querySelector('#ag-trocar').onclick = async () => { if (await confirmarB('Trocar o link? O link antigo para de funcionar e você precisará adicionar o novo no Google Agenda.')) { fecharJanela(j); janelaAgenda(true); } };
 }
 
 // ─────────── Minha semana: segunda a sexta, arrastar para remarcar ───────────
@@ -1419,7 +1447,7 @@ function semanaArrastavel(alvo, o) {
     cl.addEventListener('drop', (ev) => { ev.preventDefault(); cl.classList.remove('sobre');
       const id = ev.dataTransfer.getData('text/plain') || arr, t = achar(id); if (!t || t.prazo === cl.dataset.dia) return;
       comBotao(null, async () => {
-        if (t.prazo_fatal && cl.dataset.dia > t.prazo_fatal && !confirm('A nova data passa do PRAZO FATAL (' + dataBR(t.prazo_fatal) + '). Remarcar mesmo assim?')) return;
+        if (t.prazo_fatal && cl.dataset.dia > t.prazo_fatal && !await confirmarB('A nova data passa do PRAZO FATAL (' + dataBR(t.prazo_fatal) + '). Remarcar mesmo assim?')) return;
         await q(sb.from('tarefas').update({ prazo: cl.dataset.dia }).eq('id', id)); t.prazo = cl.dataset.dia;
         aviso('✓ "' + t.titulo + '" remarcada para ' + dataBR(cl.dataset.dia) + '.'); o.repintar();
       }); });
@@ -1430,8 +1458,10 @@ function vistaSemana(alvo) {
   const quem = F.pessoas && F.pessoas.length ? 'escolhida' : '';
   // Backup 39: respeita a aba (Em aberto / Concluídas / Excluídas) — antes "Concluídas" ainda mostrava as abertas
   const doDono = (t) => (quem ? true : ehMinha(t));   // com pessoa escolhida, o filtro de cima já separou (responsável ou participante)
-  semanaArrastavel(alvo, { lista: filtrarTarefas().filter(doDono), estado: F, atrasadas: F.aba === 'abertas', rotulo: quem || 'minhas tarefas', altura: F.altCal,
-    abrir: (t) => abrirTarefa(t, recarregarTarefas), repintar: () => vistaSemana(alvo) });
+  // Backup 85 (TF9): como no ambiente — só os 7 dias (sem a coluna de atrasadas) e a nota embaixo; arrastar entre os dias continua (do ERP)
+  semanaArrastavel(alvo, { lista: filtrarTarefas().filter(doDono), estado: F, atrasadas: false, rotulo: quem || 'minhas tarefas', altura: F.altCal,
+    abrir: (t) => formTarefa(t, recarregarTarefas), repintar: () => vistaSemana(alvo) });
+  if (!alvo.querySelector('.tf-sem-nota')) alvo.insertAdjacentHTML('beforeend', '<p class="tf-sem-nota b-mudo">Atrasadas não aparecem aqui: veja a aba "Atrasadas" na Lista.</p>');
 }
 
 // ═══ Backup 26: DELEGAR e VALIDAR ═══

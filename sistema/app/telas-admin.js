@@ -8,10 +8,11 @@
 // Backup 49 (32): abas principais Usuários · Importar · E-mail · Backup; Histórico e Acessos (uso raro) ficam no "⋯ Mais".
 // Automações saiu daqui (tem menu próprio). Abas sem ícone.
 // Backup 80: na ordem do ambiente de teste + "Saúde do sistema" (as rotinas automáticas que ficavam na tela Alertas)
+// Backup 85 (AD1/TX2): ordem e nomes do ambiente — abre em E-mails; Histórico e Acessos ficaram do ERP (lista para decidir)
 const ABAS_ADMIN = [
+  { id: 'email', rot: 'E-mails' },
   { id: 'usuarios', rot: 'Usuários' },
-  { id: 'importar', rot: 'Importar' },
-  { id: 'email', rot: 'E-mail' },
+  { id: 'importar', rot: 'Importações' },
   { id: 'saude', rot: 'Saúde do sistema' },
   { id: 'backup',   rot: 'Backup' },
   // Backup 53: sem o "⋯ Mais" — Histórico e Acessos viraram abas normais
@@ -21,7 +22,7 @@ const ABAS_ADMIN = [
 const ABAS_ADMIN_MAIS = [];
 
 TELAS.admin = async function () {
-  E.adm = E.adm || { aba: 'usuarios', tabela: '' };
+  E.adm = E.adm || { aba: 'email', tabela: '' };
   $('conteudo').innerHTML =
     '<div class="titulo-pag b-cab"><div class="b-cab-ic">' + iconeB('admin') + '</div><div class="b-cab-tx"><h1>Administração</h1><p>Usuários, e-mails e cópias de segurança</p></div></div>' +
     '<div class="b-seg adm-abas" id="adm-abas" role="tablist">' + ABAS_ADMIN.map((a) => '<button type="button" role="tab" class="b-seg-bt" data-aba="' + a.id + '">' + a.rot + '</button>').join('') + '</div>' +
@@ -83,7 +84,7 @@ async function admUsuarios(corpo) {
     '<b>Revisor</b>: quem valida as tarefas dessa pessoa quando a tarefa pede validação e ninguém foi escolhido.</div>';
   // Backup 23: excluir usuário (só administrador; não exclui a si mesmo nem o último administrador)
   corpo.querySelectorAll('[data-excluir-u]').forEach((b) => b.onclick = () => comBotao(b, async () => {
-    if (!confirm('Excluir o usuário "' + b.dataset.nomeU + '"?\n\nA pessoa perde o acesso ao sistema. O que ela lançou (tarefas, honorários, histórico) continua gravado.\nNão dá para desfazer: para voltar, crie a conta de novo.')) return;
+    if (!await confirmarB('Excluir o usuário "' + b.dataset.nomeU + '"?\n\nA pessoa perde o acesso ao sistema. O que ela lançou (tarefas, honorários, histórico) continua gravado.\nNão dá para desfazer: para voltar, crie a conta de novo.')) return;
     await q(sb.rpc('excluir_usuario', { p_perfil: b.dataset.excluirU }));
     aviso('✓ Usuário excluído.'); await pintarAdmin();
   }));
@@ -94,7 +95,7 @@ async function admUsuarios(corpo) {
   corpo.querySelectorAll('tr[data-us]').forEach((tr) => { tr.classList.add('clicavel'); tr.title = 'Clique para editar'; tr.onclick = (ev) => { if (ev.target.closest('button, a, input, select, label')) return;
     formEditarUsuario(lista.find((x) => x.id === tr.dataset.us), lista, vinculos.filter((v) => v.perfil_id === tr.dataset.us).map((v) => v.grupo_id)); }; });
   corpo.querySelectorAll('[data-senha]').forEach((b) => b.onclick = () => comBotao(b, async () => {
-    if (!confirm('Enviar para ' + b.dataset.senha + ' um e-mail com link para criar uma senha nova?')) return;
+    if (!await confirmarB('Enviar para ' + b.dataset.senha + ' um e-mail com link para criar uma senha nova?')) return;
     const { error } = await sb.auth.resetPasswordForEmail(b.dataset.senha, { redirectTo: location.origin + '/' });
     if (error) throw error;
     aviso('✓ Link enviado para ' + b.dataset.senha + '.');
@@ -102,7 +103,7 @@ async function admUsuarios(corpo) {
   $('us-novo').onclick = () => formNovoUsuario();
   corpo.querySelectorAll('[data-prev]').forEach((b) => b.onclick = () => formNovoUsuario(previstos.find((v) => v.email === b.dataset.prev)));
   corpo.querySelectorAll('[data-prev-x]').forEach((b) => b.onclick = () => comBotao(b, async () => {
-    if (!confirm('Tirar ' + b.dataset.prevX + ' da lista de acessos combinados?')) return;
+    if (!await confirmarB('Tirar ' + b.dataset.prevX + ' da lista de acessos combinados?')) return;
     await q(sb.from('usuarios_previstos').delete().eq('email', b.dataset.prevX)); await pintarAdmin();
   }));
 }
@@ -235,7 +236,7 @@ async function admImportar(corpo) {
     if (window.ERP_RECARREGAR) window.ERP_RECARREGAR();
   });
   $('demo-apagar').onclick = (ev) => comBotao(ev.currentTarget, async () => {
-    if (!confirm('Apagar todos os dados de demonstração (DEMO ·)? O que você cadastrou não é tocado.')) return;
+    if (!await confirmarB('Apagar todos os dados de demonstração (DEMO ·)? O que você cadastrou não é tocado.')) return;
     const n = await q(sb.rpc('limpar_demonstracao'));
     await carregarCadastros(true); aviso('Demonstração apagada (' + n + ' clientes fictícios).');
     if (window.ERP_RECARREGAR) window.ERP_RECARREGAR();
@@ -322,7 +323,7 @@ async function gravarImportacao() {
   const validos = _importacoes.filter((r) => r.tipo);
   if (modo === 'substituir') {
     const tipos = [...new Set(validos.map((r) => r.tipo))];
-    if (!confirm('Substituir: vou apagar o que foi importado antes de ' + tipos.map((t) => ({ base: 'Base de Dados', financeiro: 'Honorários Jurídico', contabilidade: 'Contabilidade',
+    if (!await confirmarB('Substituir: vou apagar o que foi importado antes de ' + tipos.map((t) => ({ base: 'Base de Dados', financeiro: 'Honorários Jurídico', contabilidade: 'Contabilidade',
       processos: 'Processos', parcelamentos: 'Parcelamentos', acordos: 'Acordos', tarefas: 'Tarefas' }[t])).join(', ') + ' e gravar de novo a partir destas planilhas. Continuar?')) return;
     for (const t of tipos.filter((x) => x !== 'base')) {   // clientes não são apagados: a Base de Dados sempre atualiza
       prog.textContent = 'Apagando o que foi importado antes…';
@@ -633,9 +634,19 @@ async function modoEnvioGuias() {
   const r = await q(sb.from('configuracoes').select('valor').eq('chave', 'emails_guias_modo').maybeSingle()).catch(() => null);
   return Object.assign({ parcelamento: 'rascunho', acordo: 'rascunho' }, (r && r.valor) || {});
 }
+// Backup 85 (AD3/AD4): as 3 automáticas do ambiente, com o prazo em dias
+const TRES_AUTO = [['email_lembrete_honorario', 'Lembrete de honorário', (d) => d + ' dias antes do vencimento', 'dias antes do vencimento'],
+  ['email_cobranca_honorario', 'Cobrança educada', (d) => d + ' dias depois do vencimento, se não pagou', 'dias depois do vencimento'],
+  ['email_pagamento_recebido', 'Recibo de pagamento', () => 'na hora em que você dá baixa no honorário', '']];
+const chaveB = (attr, k, on, pode) => '<button type="button" class="b-chave" role="switch" aria-checked="' + !!on + '" ' + attr + '="' + esc(k) + '"' + (pode ? '' : ' disabled') + ' aria-label="Ligar ou desligar"></button>';
+async function trocarRegraEmail(chave, ligar) {
+  try { await q(sb.from('regras_tarefas').update({ ligada: ligar }).eq('chave', chave));
+    feitoDesfazer(ligar ? 'Ligado.' : 'Desligado.', () => q(sb.from('regras_tarefas').update({ ligada: !ligar }).eq('chave', chave)), () => admEmail($('adm-corpo'))); }
+  catch (e) { aviso(erroAmigavel(e), true); }
+}
 async function admEmailComo(corpo) {
   const adm = (E.perfil || window.ERP_EU || {}).papel === 'admin';
-  const [modo, regras] = await Promise.all([modoEnvioGuias(), q(sb.from('regras_tarefas').select('chave, nome, descricao, ligada, oculta').eq('grupo', 'cliente_email').order('nome')).catch(() => [])]);
+  const [modo, regras] = await Promise.all([modoEnvioGuias(), q(sb.from('regras_tarefas').select('chave, nome, descricao, ligada, oculta, dias').eq('grupo', 'cliente_email').order('nome')).catch(() => [])]);
   const seg = (k) => '<div class="b-seg em-modo" data-modo="' + k + '" role="group">' + [['rascunho', 'Salvar no rascunho do Gmail'], ['direto', 'Enviar direto']]
     .map(([v, r]) => '<button type="button" class="b-seg-bt' + (modo[k] === v ? ' ativo' : '') + '" aria-selected="' + (modo[k] === v) + '" data-m="' + v + '"' + (adm ? '' : ' disabled') + '>' + r + '</button>').join('') + '</div>';
   const auto = regras.filter((r) => !r.oculta);
@@ -644,14 +655,17 @@ async function admEmailComo(corpo) {
     '<section class="card em-como-c"><div class="card-bd"><span class="em-como-n">1</span><h3>Os que VOCÊ manda (com anexo)</h3><p>Guias de parcelamento e boleto/PIX de acordo. <b>Sempre manuais</b>, porque precisam da guia anexada.</p>' +
       '<ol><li>Rotina → <b>Guias do mês</b> (ou o botão Emitir na parcela).</li><li>Anexe o PDF da guia. O sistema lê o valor e o vencimento do PDF e avisa se mudou.</li><li>O e-mail, com o texto pronto e as guias anexadas, vai para o lugar escolhido abaixo.</li></ol>' +
       MODOS_GUIA.map(([k, r]) => '<div class="em-como-m"><b>' + r + '</b>' + seg(k) + '</div>').join('') + '</div></section>' +
+    // Backup 85 (AD3): as 3 chaves ficam aqui mesmo, como no ambiente; os outros automáticos do ERP continuam em "O que sai e quando"
     '<section class="card em-como-c"><div class="card-bd"><span class="em-como-n">2</span><h3>Os que saem SOZINHOS para o cliente</h3><p>Você só liga ou desliga. Saem de manhã e uma vez só.</p>' +
-      '<ul class="em-como-l">' + (auto.map((r) => '<li><span class="pill ' + (r.ligada ? 'pago' : 'neutro') + '">' + (r.ligada ? 'ligado' : 'desligado') + '</span> <b>' + esc(r.nome) + '</b>' + (r.descricao ? '<small>' + esc(r.descricao) + '</small>' : '') + '</li>').join('') || '<li>Nenhum.</li>') + '</ul>' +
-      '<button type="button" class="btn btn-o btn-mini" data-em-ir="auto">Ligar ou desligar em "O que sai e quando"</button></div></section>' +
+      TRES_AUTO.map(([k, rot, sub]) => { const r = auto.find((x) => x.chave === k); if (!r) return '';
+        return '<div class="b-li-chave">' + chaveB('data-auto', k, r.ligada, adm) + '<span><b>' + rot + '</b><small>' + sub(r.dias) + '</small></span></div>'; }).join('') +
+      (auto.some((r) => !TRES_AUTO.some((t) => t[0] === r.chave)) ? '<button type="button" class="b-link" data-em-ir="auto">Outros automáticos em "O que sai e quando"</button>' : '') + '</div></section>' +
     '<section class="card em-como-c"><div class="card-bd"><span class="em-como-n">3</span><h3>Avisos para a EQUIPE</h3><p>Tudo aparece no sistema (Início e Tarefas). Por e-mail, só o que estiver ligado em "O que sai e quando" (tarefa nova, tarefa para revisar, compromissos…).</p></div></section>' +
     '<section class="card em-como-c"><div class="card-bd"><span class="em-como-n em-como-x">!</span><h3>Quando dá errado</h3><p>Cliente sem e-mail, endereço errado ou Gmail fora do ar: o e-mail fica <b>Com erro</b> na Caixa de saída e aparece na faixa de Avisos do Início. Corrija o e-mail do cliente e clique em "Tentar de novo".</p>' +
       '<button type="button" class="btn btn-o btn-mini" data-em-ir="saida">Abrir a Caixa de saída</button></div></section></div></div>';
   corpo.onclick = async (ev) => {
     const ir = ev.target.closest('[data-em-ir]'); if (ir) { E.adm.emailAba = ir.dataset.emIr; return admEmail($('adm-corpo')); }
+    const ch = ev.target.closest('[data-auto]'); if (ch && adm) { await trocarRegraEmail(ch.dataset.auto, ch.getAttribute('aria-checked') !== 'true'); return admEmailComo(corpo); }
     const b = ev.target.closest('.em-modo [data-m]'); if (!b || !adm) return;
     const k = b.closest('[data-modo]').dataset.modo, novo = Object.assign({}, modo, { [k]: b.dataset.m });
     try { await q(sb.from('configuracoes').upsert({ chave: 'emails_guias_modo', valor: novo }, { onConflict: 'chave' })); aviso('✓ ' + MODOS_GUIA.find((x) => x[0] === k)[1] + ': ' + (b.dataset.m === 'rascunho' ? 'vão para o rascunho do Gmail.' : 'saem direto para o cliente.')); }
@@ -680,17 +694,41 @@ const EMAILS_EQUIPE = [['fluxo', 'Fluxo / sequência de tarefas', 'Quando algué
   ['resumo', 'Resumo do dia', 'Dias úteis, de manhã']];
 async function admEmailAuto(corpo) {
   const [eq, regras] = await Promise.all([q(sb.rpc('emails_equipe')).catch(() => ({})),
-    q(sb.from('regras_tarefas').select('chave, nome, descricao, ligada, oculta').eq('grupo', 'cliente_email').order('nome')).catch(() => [])]);
+    q(sb.from('regras_tarefas').select('chave, nome, descricao, ligada, oculta, dias').eq('grupo', 'cliente_email').order('nome')).catch(() => [])]);
   const adm = (E.perfil || window.ERP_EU || {}).papel === 'admin';
   const chave = (attr, k, on, rot, desc) => '<label class="em-auto-l"><input type="checkbox" ' + attr + '="' + esc(k) + '"' + (on ? ' checked' : '') + (adm ? '' : ' disabled') + '>' +
     '<span><b>' + esc(rot) + '</b><span class="sub">' + esc(desc || '') + '</span></span><span class="pill ' + (on ? 'pago' : 'neutro') + '">' + (on ? 'ligado' : 'desligado') + '</span></label>';
-  corpo.innerHTML = '<div class="em-auto">' +
-    '<div class="card"><div class="card-hd">👥 Para a equipe<span class="sub">Ligado = também chega por e-mail</span></div><div class="card-bd em-auto-g">' +
-      EMAILS_EQUIPE.map(([k, r, d]) => chave('data-eq', k, eq[k] !== false, r, d)).join('') + '</div></div>' +
-    '<div class="card"><div class="card-hd">🏢 Para os clientes<span class="sub">vale para todos; por cliente, use "Quem recebe"</span></div><div class="card-bd em-auto-g">' +
-      (regras.filter((r) => !r.oculta).map((r) => chave('data-eq-regra', r.chave, r.ligada, r.nome, r.descricao)).join('') || vazio('Nenhum e-mail automático para clientes.')) + '</div></div>' +
-    '<p class="dica">Cada pessoa ainda pode desligar os seus em ⋯ → Meus avisos por e-mail. Aqui vale para o escritório todo' + (adm ? '' : ' (só o administrador muda)') + '.</p></div>';
-  corpo.querySelectorAll('[data-eq]').forEach((c) => c.onchange = async () => {
+  // Backup 85 (AD4): como no ambiente — duas colunas; Clientes primeiro (os 2 manuais com Rascunho/Direto e as automáticas com o prazo em dias), Equipe ao lado
+  const modo = await modoEnvioGuias();
+  const segM = (k) => '<div class="b-seg em-modo" data-modo="' + k + '" role="group">' + [['rascunho', 'Rascunho'], ['direto', 'Direto']]
+    .map(([v, r]) => '<button type="button" class="b-seg-bt' + (modo[k] === v ? ' ativo' : '') + '" aria-selected="' + (modo[k] === v) + '" data-m="' + v + '"' + (adm ? '' : ' disabled') + '>' + r + '</button>').join('') + '</div>';
+  const vis = regras.filter((r) => !r.oculta), tres = TRES_AUTO.map((t) => [t, vis.find((r) => r.chave === t[0])]).filter((x) => x[1]);
+  corpo.innerHTML = '<div class="b-duas em-auto">' +
+    '<section class="card"><div class="card-hd">Para os clientes<span class="sub">manuais: rascunho ou direto · por cliente, use "Quem recebe"</span></div><div class="card-bd">' +
+      '<div class="b-li-chave"><span class="pill aberto">manual</span><span><b>Guias de parcelamento</b><small>Rotina → Guias do mês</small></span>' + segM('parcelamento') + '</div>' +
+      '<div class="b-li-chave"><span class="pill aberto">manual</span><span><b>Boleto/PIX de acordo</b><small>Acordos → Emitir</small></span>' + segM('acordo') + '</div>' +
+      tres.map(([t, r]) => '<div class="b-li-chave">' + chaveB('data-auto', r.chave, r.ligada, adm) + '<span><b>' + t[1] + '</b><small>' + (t[3] || t[2](r.dias)) + '</small></span>' +
+        (t[3] ? '<input class="b-in-dias" data-dias="' + esc(r.chave) + '" value="' + (Number(r.dias) || 0) + '" inputmode="numeric" aria-label="dias"' + (adm ? '' : ' disabled') + '>' : '') + '</div>').join('') +
+      (vis.length > tres.length ? '<div class="b-bloco"><h3>Outros automáticos do ERP</h3><div class="em-auto-g">' + vis.filter((r) => !TRES_AUTO.some((t) => t[0] === r.chave)).map((r) => chave('data-eq-regra', r.chave, r.ligada, r.nome, r.descricao)).join('') + '</div></div>' : '') +
+    '</div></section>' +
+    '<section class="card"><div class="card-hd">Para a equipe<span class="sub">ligado = também chega por e-mail</span></div><div class="card-bd">' +
+      EMAILS_EQUIPE.map(([k, r, d]) => '<div class="b-li-chave">' + chaveB('data-eq', k, eq[k] !== false, adm) + '<span><b>' + esc(r) + '</b><small>' + esc(d) + '</small></span></div>').join('') + '</div></section></div>' +
+    '<p class="dica">Cada pessoa ainda pode desligar os seus em ⋯ → Meus avisos por e-mail. Aqui vale para o escritório todo' + (adm ? '' : ' (só o administrador muda)') + '.</p>';
+  corpo.onclick = async (ev) => {
+    if (!adm) return;
+    const a = ev.target.closest('[data-auto]'); if (a) { await trocarRegraEmail(a.dataset.auto, a.getAttribute('aria-checked') !== 'true'); return admEmailAuto(corpo); }
+    const e = ev.target.closest('button[data-eq]'); if (e) { const lig = e.getAttribute('aria-checked') !== 'true';
+      try { await q(sb.rpc('salvar_email_equipe', { p_tipo: e.dataset.eq, p_ligado: lig }));
+        feitoDesfazer('E-mail "' + EMAILS_EQUIPE.find((x) => x[0] === e.dataset.eq)[1] + '" ' + (lig ? 'ligado.' : 'desligado.'), () => q(sb.rpc('salvar_email_equipe', { p_tipo: e.dataset.eq, p_ligado: !lig })), () => admEmailAuto(corpo)); }
+      catch (er) { aviso(erroAmigavel(er), true); } return admEmailAuto(corpo); }
+    const b = ev.target.closest('.em-modo [data-m]'); if (b) { const k = b.closest('[data-modo]').dataset.modo, novo = Object.assign({}, modo, { [k]: b.dataset.m });
+      try { await q(sb.from('configuracoes').upsert({ chave: 'emails_guias_modo', valor: novo }, { onConflict: 'chave' })); aviso('✓ ' + MODOS_GUIA.find((x) => x[0] === k)[1] + ': ' + (b.dataset.m === 'rascunho' ? 'vão para o rascunho do Gmail.' : 'saem direto para o cliente.')); }
+      catch (er) { aviso(erroAmigavel(er), true); } return admEmailAuto(corpo); }
+  };
+  corpo.querySelectorAll('[data-dias]').forEach((i) => i.onchange = async () => { const v = Math.max(0, Math.min(90, parseInt(i.value, 10) || 0)), k = i.dataset.dias, antes = (regras.find((r) => r.chave === k) || {}).dias;
+    try { await q(sb.from('regras_tarefas').update({ dias: v }).eq('chave', k)); feitoDesfazer('Prazo alterado para ' + v + ' dias.', () => q(sb.from('regras_tarefas').update({ dias: antes }).eq('chave', k)), () => admEmailAuto(corpo)); }
+    catch (er) { aviso(erroAmigavel(er), true); } admEmailAuto(corpo); });
+  corpo.querySelectorAll('input[data-eq]').forEach((c) => c.onchange = async () => {
     try { await q(sb.rpc('salvar_email_equipe', { p_tipo: c.dataset.eq, p_ligado: c.checked })); aviso('✓ E-mail "' + EMAILS_EQUIPE.find((x) => x[0] === c.dataset.eq)[1] + '" ' + (c.checked ? 'ligado.' : 'desligado.')); }
     catch (e) { c.checked = !c.checked; aviso(erroAmigavel(e), true); }
     admEmailAuto(corpo);
@@ -804,7 +842,7 @@ async function admEmailSaida(corpo) {
   corpo.querySelector('#em-revisar').onchange = (ev) => comBotao(ev.target, async () => { await q(sb.rpc('salvar_emails_revisar', { p: ev.target.checked })); await admEmailSaida(corpo); });
   const todos = ret.map((m) => m.id);
   if (corpo.querySelector('#em-env-todos')) corpo.querySelector('#em-env-todos').onclick = (ev) => comBotao(ev.currentTarget, acao(todos, 'liberar'));
-  if (corpo.querySelector('#em-desc-todos')) corpo.querySelector('#em-desc-todos').onclick = (ev) => { if (confirm('Descartar os ' + todos.length + ' e-mails? Eles não serão enviados.')) comBotao(ev.currentTarget, acao(todos, 'descartar')); };
+  if (corpo.querySelector('#em-desc-todos')) corpo.querySelector('#em-desc-todos').onclick = async (ev) => { if (await confirmarB('Descartar os ' + todos.length + ' e-mails? Eles não serão enviados.')) comBotao(ev.currentTarget, acao(todos, 'descartar')); };
   corpo.querySelectorAll('[data-em-env]').forEach((b) => b.onclick = () => comBotao(b, acao([b.dataset.emEnv], 'liberar')));
   corpo.querySelectorAll('[data-em-desc]').forEach((b) => b.onclick = () => comBotao(b, acao([b.dataset.emDesc], 'descartar')));
   corpo.querySelectorAll('[data-em-tentar]').forEach((b) => b.onclick = () => comBotao(b, async () => {

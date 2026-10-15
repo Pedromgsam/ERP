@@ -4,11 +4,14 @@
 // em abas. Clicar no cliente (tela Clientes) abre esta ficha.
 // ═══════════════════════════════════════════════════════════════════
 // Backup 49 (25): 7 abas — cada uma junta as partes antigas (as funções de ABA_FICHA continuam as mesmas, empilhadas)
-const ABAS_FICHA = [['resumo', 'Resumo'], ['contatos', 'Contatos e endereços'], ['socios', 'Sócios'], ['processos', 'Processos'],
-  ['financeiro', 'Financeiro e contratos'], ['documentos', 'Documentos'], ['historico', 'Histórico']];
+// Backup 85 (CL1/CL2): abas na ordem do ambiente — Resumo · Parcelamentos · Acordos · Processos · Financeiro · Documentos · E-mails · Linha do tempo;
+// "Contatos e endereços" e "Sócios" (só do ERP) continuam no fim (lista do Backup 85 para decidir)
+const ABAS_FICHA = [['resumo', 'Resumo'], ['parcelamentos', 'Parcelamentos'], ['acordos', 'Acordos'], ['processos', 'Processos'],
+  ['financeiro', 'Financeiro'], ['documentos', 'Documentos'], ['emails', 'E-mails'], ['historico', 'Linha do tempo'], ['contatos', 'Contatos e endereços'], ['socios', 'Sócios']];
 // Backup 53: Resumo na ordem Cadastro · Situação · Tarefas · Dados da Receita · Histórico de alterações (débitos ao lado das tarefas; sem certidões)
 const PARTES_FICHA = { resumo: ['resumo', 'receita'], contatos: ['contatos', 'enderecos', 'contas'], socios: ['socios'], processos: ['processos'],
-  financeiro: ['contratos', 'financeiro'], documentos: ['documentos'], historico: ['linha', 'tarefas'] };
+  financeiro: ['contratos', 'financeiro'], documentos: ['documentos', 'docsMes'], historico: ['linha', 'tarefas'],
+  parcelamentos: ['parcelamentos'], acordos: ['acordos'], emails: ['emails'] };
 // nome antigo de aba (atalhos de outras telas) → aba nova
 const ABA_NOVA = { enderecos: 'contatos', contas: 'contatos', contratos: 'financeiro', tarefas: 'historico', linha: 'historico', fiscal: 'resumo', receita: 'resumo' };
 
@@ -95,7 +98,7 @@ function formSubitem(cfg, item, clienteId, depois) {
   });
   const bx = j.querySelector('#btn-exc-sub');
   if (bx) bx.onclick = () => comBotao(bx, async () => {
-    if (!confirm('Excluir este(a) ' + cfg.um + '?')) return;
+    if (!await confirmarB('Excluir este(a) ' + cfg.um + '?')) return;
     await excluir(cfg.tabela, item.id);
     aviso('Excluído.'); fecharJanela(j); await depois();
   });
@@ -122,16 +125,21 @@ async function abrirFicha(id, aba) {
   const tel = cl.telefone, mail = cl.email;
   // Backup 74: cabeçalho como no ambiente de teste — grupo · tipo em cima (pequeno), o nome e, embaixo, CPF/CNPJ · sócio; o conteúdo continua o completo de antes
   const tipoCli = cl.tipo === 'Demanda' ? 'Serviço pontual' : cl.tipo;
+  // Backup 85 (CL4/JN2): como no ambiente — "Recebe e-mails" no alto à direita, as abas presas ao cabeçalho e os botões no rodapé
+  // ("Ver como o cliente vê", "Editar cadastro", Fechar); os atalhos do ERP (+ Lançar, WhatsApp, E-mail, etiquetas) continuam
   const j = abrirJanela({ titulo: cl.nome, larga: true, kick: [cl.grupos && cl.grupos.nome, tipoCli].filter(Boolean).join(' · '),
     sub: esc([mascaraDoc(cl.cpf_cnpj), cl.socio_admin ? 'sócio: ' + cl.socio_admin : '', cl.tipo_societario, cl.regime_tributario].filter(Boolean).join(' · ')),
+    dir: pillRecebeEmail(cl, true),
+    abas: '<div class="b-seg ficha-abas" id="fc-abas" role="tablist">' + ABAS_FICHA.map(([k, r]) => '<button type="button" class="b-seg-bt" role="tab" data-aba="' + k + '">' + r + '</button>').join('') + '</div>',
+    rodape: (cl.grupo_id ? '<button class="btn btn-o" type="button" id="fc-portal" style="margin-right:auto" title="Abre o portal do cliente deste grupo, do jeito que ele vê">' + iconeB('olho') + ' Ver como o cliente vê</button>' : '<span></span>') +
+      '<div class="acoes"><button class="btn btn-o" type="button" id="fc-editar">' + iconeB('lapis') + ' Editar cadastro</button><button class="btn btn-o" type="button" data-fechar>Fechar</button></div>',
     corpo:
-      // Backup 39: "Editar cadastro" em destaque, no canto de cima à direita (não some no meio dos atalhos)
-      '<div class="ficha-topo"><button class="btn btn-p ficha-bt-editar" id="fc-editar">✎ Editar cadastro</button><div class="ficha-id">' +
+      '<div class="ficha-topo"><div class="ficha-id">' +
       '<div class="ficha-sub">' + [cl.grupos && cl.grupos.nome ? esc(cl.grupos.nome) : '', esc(mascaraDoc(cl.cpf_cnpj) || ''), esc(cl.tipo_societario || ''), esc(cl.regime_tributario || '')].filter(Boolean).join(' · ') + '</div>' +
       '<div class="ficha-selos"><span class="pill ' + (cl.tipo === 'Inativo' ? 'neutro' : cl.tipo === 'Demanda' ? 'hoje' : 'aberto') + '">' + esc(cl.tipo === 'Demanda' ? 'Serviço pontual' : cl.tipo) + '</span> ' +
       pillPessoa(cl.responsavel) + ' ' + (cl.situacao_cadastral ? pillSitCad(cl.situacao_cadastral) + ' ' : '') + (cl.capag ? 'CAPAG ' + pillCapag(cl.capag) + ' ' : '') +
       etq.map((e) => e.etiquetas ? '<span class="pill" style="background:' + esc(e.etiquetas.cor) + '22;color:' + esc(e.etiquetas.cor) + '">' + esc(e.etiquetas.nome) + '</span>' : '').join(' ') +
-      ' ' + pillRecebeEmail(cl) + ' <button class="btn-etq" id="fc-etq" title="Etiquetas">+ etiqueta</button></div></div>' +
+      ' <button class="btn-etq" id="fc-etq" title="Etiquetas">+ etiqueta</button></div></div>' +
       // Backup 53: um botão só, "+ Lançar ▾", que abre os atalhos (tarefa, lançamento, documento, interação, reunião, indicação, lead)
       '<div class="ficha-atalhos"><span class="tf-cfg-wrap fc-lancar-wrap"><button class="btn btn-o btn-mini" id="fc-lancar" aria-expanded="false" aria-haspopup="true">+ Lançar ▾</button>' +
       '<span class="tf-cfg-menu fc-lancar-menu" id="fc-lancar-menu" hidden>' +
@@ -143,9 +151,7 @@ async function abrirFicha(id, aba) {
       (tel ? '<a class="btn btn-o btn-mini" target="_blank" rel="noopener" href="https://wa.me/' + (soDigitos(tel).length <= 11 ? '55' : '') + soDigitos(tel) + '">WhatsApp</a>' : '') +
       (mail ? '<a class="btn btn-o btn-mini" href="mailto:' + esc(mail) + '">E-mail</a>' : '') +
       // Backup 81 (M10): abre o portal do cliente como ele vê (prévia do grupo)
-      (cl.grupo_id ? '<button class="btn btn-o btn-mini" id="fc-portal" title="Abre o portal do cliente deste grupo, do jeito que ele vê">Ver como o cliente vê</button>' : '') +
       '</div></div>' +
-      '<div class="abas ficha-abas b-seg" id="fc-abas" role="tablist">' + ABAS_FICHA.map(([k, r]) => '<button type="button" class="b-seg-bt" role="tab" data-aba="' + k + '">' + r + '</button>').join('') + '</div>' +
       '<div id="fc-corpo" class="ficha-corpo"></div>' });
   j.querySelector('.janela').classList.add('ficha');
   const corpo = j.querySelector('#fc-corpo');
@@ -176,7 +182,7 @@ async function abrirFicha(id, aba) {
   j.querySelector('#fc-etq').onclick = () => janelaEtiquetas(cl, etq, reabrir);
   { const bp = j.querySelector('#fc-portal'); if (bp) bp.onclick = () => { fecharJanela(j); verComoCliente(cl.grupo_id); }; }
   const fcMail = j.querySelector('[data-cli-email]');
-  if (fcMail) fcMail.onclick = () => comBotao(fcMail, async () => { await trocarRecebeEmail([cl.id], cl.recebe_email === false); fcMail.outerHTML = pillRecebeEmail(cl);
+  if (fcMail) fcMail.onclick = () => comBotao(fcMail, async () => { await trocarRecebeEmail([cl.id], cl.recebe_email === false); fcMail.outerHTML = pillRecebeEmail(cl, true);
     const n = j.querySelector('[data-cli-email]'); if (n) n.onclick = fcMail.onclick; });
   const lead = j.querySelector('#fc-lead');
   if (lead) lead.onclick = async () => { if (!E._crmEtapas) E._crmEtapas = await q(sb.from('crm_etapas').select('*').order('ordem')).catch(() => []);
@@ -314,6 +320,50 @@ const ABA_FICHA = {
         : vazio('Nenhuma tarefa deste cliente.', '+ Nova tarefa', '#fc-nova-tf'));
     alvo.querySelector('#fc-nova-tf').onclick = () => formTarefa({ cliente_id: cl.id, grupo_id: cl.grupo_id, responsavel: cl.responsavel }, repinta);
     alvo.querySelectorAll('[data-editar-tf]').forEach((b) => b.onclick = () => formTarefa(ts.find((t) => t.id === b.dataset.editarTf), repinta));
+  },
+  // Backup 85 (CL2): parcelas dos parcelamentos desta empresa (pelo CNPJ ou pelo nome), com Emitir e Baixa na linha
+  async parcelamentos(alvo, cl) {
+    E.pc = E.pc || { grupo: '', chip: 'todos' };
+    const PA = E.pc.PA || (E.pc.PA = await dadosParcelamentos());
+    const doc = soDigitos(cl.cpf_cnpj || ''), nome = normalizar(cl.nome || '');
+    const meus = PA.filter((pa) => (doc && soDigitos(pa.cnpj || '') === doc) || (nome && normalizar(pa.empresa || '') === nome));
+    const L = [].concat(...meus.map((pa) => pa.parcelas));
+    if (!L.length) { alvo.innerHTML = vazioB({ icone: 'camadas', titulo: 'Nenhum parcelamento', frase: 'Esta empresa não tem parcelamento cadastrado.' }); return; }
+    tabelaB(alvo, { id: 'fc-parc-' + cl.id, linhas: L, unidade: ['parcela', 'parcelas'], contagem: true, altura: '360px', ord: { k: 'venc', dir: 1 },
+      abas: [{ id: 'apagar', rot: 'A pagar', f: (x) => !x.pago }, { id: 'pago', rot: 'Pagas', f: (x) => x.pago }], prazos: true, prazosAbas: ['apagar'],
+      venc: (x) => x.venc, somaB: (x) => x.valor, linhaCls: (x) => (!x.pago && x.venc && x.venc <= hojeISO() ? ' b-tr-venc' : ''),
+      colunas: colunasParcelas({ semGrupo: true }).filter((c) => c.k !== 'emp'), clique: (x) => janelaParcelamento(x.pa) });
+  },
+  async acordos(alvo, cl) {
+    E.ac = E.ac || { grupo: '', chip: 'todos' };
+    const T = E.ac.T || (E.ac.T = await dadosAcordos());
+    const nome = normalizar(cl.nome || '');
+    const L = T.filter((x) => nome && normalizar(x.devedor || '') === nome);
+    if (!L.length) { alvo.innerHTML = vazioB({ icone: 'contrato', titulo: 'Nenhum acordo', frase: 'Esta empresa não aparece como devedora em nenhum acordo.' }); return; }
+    const A = acordosDe(L), porId = {}; A.forEach((a) => a.parcelas.forEach((x) => { porId[x.id] = a; }));
+    tabelaB(alvo, { id: 'fc-ac-' + cl.id, linhas: L, unidade: ['parcela', 'parcelas'], contagem: true, altura: '360px', ord: { k: 'venc', dir: 1 },
+      abas: [{ id: 'apagar', rot: 'A pagar', f: (x) => !x.pago }, { id: 'pago', rot: 'Pagas', f: (x) => x.pago }],
+      venc: (x) => x.venc, somaB: (x) => x.valor, linhaCls: vencidaA,
+      colunas: colunasAcordos({ semGrupo: true }).filter((c) => !['dev'].includes(c.k)), clique: (x) => (porId[x.id] ? janelaAcordo(porId[x.id]) : janelaParcelaAc(x)) });
+  },
+  // e-mails que saíram (ou ficaram no rascunho / com erro) para este cliente
+  async emails(alvo, cl) {
+    const L = await q(sb.from('email_fila').select('id, assunto, para, status, erro, criado_em, enviado_em').eq('cliente_id', cl.id).order('criado_em', { ascending: false }).limit(200)).catch(() => []);
+    const ST = { enviado: ['Enviado', 'pago'], rascunho: ['No rascunho', 'aberto'], rascunho_salvo: ['No rascunho', 'aberto'], erro: ['Com erro', 'vencido'], pendente: ['Na fila', 'neutro'], retido: ['Retido', 'neutro'], cancelado: ['Cancelado', 'neutro'] };
+    if (!L.length) { alvo.innerHTML = vazioB({ icone: 'enviar', titulo: 'Nenhum e-mail para este cliente ainda', frase: 'Os e-mails de guias, recibos e cobranças aparecem aqui.' }); return; }
+    alvo.innerHTML = '<div class="b-lista">' + L.map((e) => { const st = ST[e.status] || [e.status, 'neutro'];
+      return '<div class="b-li"><span class="b-li-tx"><b>' + esc(e.assunto || '—') + '</b><small>' + dataBR(String(e.enviado_em || e.criado_em || '').slice(0, 10)) + ' · para ' + esc(e.para || '—') +
+        (e.status === 'erro' && e.erro ? ' · <span class="b-pz-r">' + esc(e.erro) + '</span>' : '') + '</small></span><span class="pill ' + st[1] + '">' + esc(st[0]) + '</span></div>'; }).join('') + '</div>';
+  },
+  // "Documentos do mês": o que o cliente mandou no mês passado (competência), por tipo
+  async docsMes(alvo, cl) {
+    const h = hojeISO(), ini = somarMeses(h.slice(0, 7) + '-01', -1), fim = h.slice(0, 7) + '-01';
+    const L = await q(sb.from('documentos').select('id, tipo, nome, criado_em').eq('cliente_id', cl.id).gte('criado_em', ini).lt('criado_em', somarMeses(fim, 1))).catch(() => []);
+    const mes = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'][+ini.slice(5, 7) - 1];
+    const tipos = [...new Set(L.map((d) => d.tipo || 'outros'))];
+    alvo.innerHTML = '<div class="b-bloco"><h3>Documentos do mês (' + mes + ' e este mês)</h3>' + (tipos.length ? '<div class="b-lista">' + tipos.map((t) => { const n = L.filter((d) => (d.tipo || 'outros') === t).length;
+      return '<div class="b-li"><span class="b-li-tx"><b>' + esc(t) + '</b></span><span class="b-ok-txt">✓ ' + plural(n, 'recebido', 'recebidos') + '</span></div>'; }).join('') + '</div>'
+      : '<p class="b-mudo">Nada recebido desde 1º de ' + mes + '.</p>') + '</div>';
   },
   documentos: (alvo, cl) => blocoDocumentos(alvo, { cliente_id: cl.id, grupo_id: cl.grupo_id }, { vazio: 'Nenhum documento. Envie contrato social, procuração, documentos pessoais…' }),
   async linha(alvo, cl) {

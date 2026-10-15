@@ -15,7 +15,7 @@ const ALFA = sql("select id from clientes where nome ilike 'alfa com%' limit 1")
     const ctx = await b.newContext({ viewport: { width: 1440, height: 1000 }, acceptDownloads: true });
     const p = await ctx.newPage();
     p.on('pageerror', (e) => erros.push(e.message));
-    p.on('dialog', (d) => d.accept());
+    p.on('dialog', (d) => d.accept()); await require('./confirmar-auto.js')(p);
     await p.goto(BASE + '/'); await p.waitForSelector('#ac-login-email', { state: 'visible' });
     await p.fill('#ac-login-email', 'pedro@teste'); await p.fill('#ac-login-senha', 'senha123'); await p.click('#ac-login-btn'); await p.waitForTimeout(3500);
     const abrir = async (suf) => { await p.goto(BASE + '/documentos/index.html' + (suf || '')); await p.waitForSelector('body.dc-pronto', { timeout: 15000 }); await p.waitForTimeout(500); };

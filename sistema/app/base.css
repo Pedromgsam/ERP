@@ -702,6 +702,7 @@ body.gx-barra-topo #gs-hd #gs-nome:not(#_){background:none;border:0;padding:0;fo
 .em-como-c ol{padding-left:18px;margin:6px 0 10px}
 .em-como-n{display:inline-grid;place-items:center;width:24px;height:24px;border-radius:999px;background:var(--primario);color:var(--on-primario);font:700 12px var(--font-ui)}
 .em-como-x{background:var(--red)}
+html[data-tema=escuro] .em-como-x{color:#000}   /* Backup 85: contraste do "!" no escuro (o vermelho do escuro é claro) */
 .em-como-m{display:flex;flex-direction:column;gap:6px;margin:10px 0 0}
 .em-como-m b{font-size:12.5px;color:var(--text2)}
 .em-como-m .b-seg{flex-direction:column;align-items:stretch}
@@ -968,3 +969,93 @@ html body.gx-barra-topo .gs #fa-filtros .b-fx input:not(#_){width:118px;height:3
 .gs .b-fa-sec{margin-top:18px}
 /* no escuro o branco translúcido clareia o azul e o número fica ilegível (3,3:1) — lá fica o fundo escurecido do Backup 82 */
 html[data-tema="escuro"] body.gx-barra-topo .gs .b-seg-bt[aria-selected="true"] .b-seg-n:not(#_){background:rgba(0,0,0,.28)}
+/* ═══════════ Backup 85 — itens do comparativo levados ao ERP (igual ao ambiente) ═══════════ */
+/* TB5: cada filtro com o nome em cima, alinhados pela base */
+html body.gx-barra-topo .gs .b-mais-filtros:not(#_){align-items:flex-end}
+.gs .b-campo{display:flex;flex-direction:column;gap:5px;min-width:0}
+.gs .b-campo > .b-rot{font-size:12px;font-weight:600;color:var(--text2)}
+.gs .b-campo select{min-width:150px}
+.gs .b-campo .b-fx > span:first-child{font-weight:400;color:var(--text3)}
+.gs .b-mais-filtros > .btn-g{margin-left:auto}
+/* TB4: barra das marcadas sempre visível com a marcação ligada */
+.gs .b-lote > b{color:var(--ink)}
+.gs .b-tr-mais td{text-align:center;padding:10px!important}
+/* TB6: botão "fantasma" do ambiente (bt-g) — Limpar filtros, Mostrar mais, Desmarcar */
+html body.gx-barra-topo .gs .btn.btn-g:not(#_){background:none;border-color:transparent;color:var(--text2);box-shadow:none}
+html body.gx-barra-topo .gs .btn.btn-g:not(#_):hover{background:var(--hover);color:var(--ink)}
+/* JN1: botão de fechar com o X desenhado */
+body.gx-barra-topo .gs .janela-hd > button[data-fechar]{display:inline-flex;align-items:center;justify-content:center;padding:0;color:var(--text2);background:none;border:0}
+body.gx-barra-topo .gs .janela-hd > button[data-fechar]:hover{background:var(--hover);color:var(--ink)}
+body.gx-barra-topo .gs .janela-hd > button[data-fechar] .b-ic{width:18px;height:18px}
+/* JN3/JN5: confirmação dentro da página e janela de baixa (resumo do ambiente) */
+.gs .b-conf-resumo{border:1px solid var(--border);border-radius:10px;padding:12px 14px;display:flex;flex-direction:column;gap:3px;margin:0 0 14px}
+.gs .b-conf-resumo b{font-size:14px;color:var(--ink)}
+.gs .b-conf-resumo span{color:var(--text3);font-size:12.5px}
+.gs .b-conf-resumo .b-conf-val{font-size:17px;font-weight:700;color:var(--ink)}
+.gs .b-conf-resumo .b-conf-av{color:var(--blue-d,var(--primario));font-weight:600}
+.gs .b-conf-tx{margin:0;color:var(--text2);font-size:13.5px;line-height:1.5}
+.gs .janela-conf .janela-rp .btn .b-ic,.gs .janela-baixa .janela-rp .btn .b-ic{width:15px;height:15px;margin-right:2px}
+html body.gx-barra-topo .gs .btn.btn-perigo:not(#_){background:var(--red);border-color:var(--red);color:#fff}
+/* IN3: faixa sem pendência */
+.gs .ini-tudo-ok{display:inline-flex;align-items:center;gap:7px;color:var(--green-d);font-size:12.5px;font-weight:600}
+.gs .ini-tudo-ok .b-ic{width:16px;height:16px}
+/* BG1: caixa de comandos (Ctrl+K) como no ambiente */
+.gs .fundo.b-paleta{align-items:flex-start;justify-content:center;padding:10vh 16px 16px}
+.gs .b-paleta-box{width:min(640px,100%);background:var(--surface);border:1px solid var(--border);border-radius:14px;box-shadow:var(--shadow-lg,0 20px 50px rgba(0,0,0,.25));overflow:hidden;display:flex;flex-direction:column;max-height:70vh}
+.gs .b-paleta-in{display:flex;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid var(--line,var(--border));color:var(--text3)}
+.gs .b-paleta-in .b-ic{width:18px;height:18px}
+.gs .b-paleta-in input{border:0!important;outline:0;background:none!important;flex:1;font-size:15px;color:var(--ink);box-shadow:none!important;padding:0;height:auto}
+.gs .b-paleta-res{overflow:auto;padding:6px}
+.gs .b-paleta-grp{font-size:11px;font-weight:700;color:var(--text3);padding:8px 10px 4px;text-transform:uppercase;letter-spacing:.06em}
+.gs .b-paleta-res .bg-it{display:flex;gap:10px;align-items:center;width:100%;border:0;background:none;text-align:left;padding:8px 10px;border-radius:8px;cursor:pointer;font-size:13px;color:var(--text)}
+.gs .b-paleta-res .bg-it .b-ic{width:16px;height:16px;color:var(--text3);flex:none}
+.gs .b-paleta-res .bg-it .bg-tx{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.gs .b-paleta-res .bg-it small{margin-left:auto;color:var(--text3);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:50%}
+.gs .b-paleta-res .bg-it.bg-sel,.gs .b-paleta-res .bg-it:hover{background:var(--primario-lt,var(--hover))}
+.gs .b-paleta-pe{display:flex;gap:14px;padding:8px 16px;border-top:1px solid var(--line,var(--border));font-size:11.5px;color:var(--text3)}
+.gs .b-mudo{color:var(--text3);font-size:12.5px;margin:10px 2px 0}
+/* PA5/AC4/RO3: janela "Emitir" (passos 1-2-3, uma linha por guia) */
+.gs .b-passos3{display:flex;gap:6px;margin:0 0 12px;flex-wrap:wrap}
+.gs .b-passos3 span{font-size:12px;font-weight:600;color:var(--text3);background:var(--surface2,var(--bg));border:1px solid var(--line,var(--border));border-radius:999px;padding:3px 10px}
+.gs .b-passos3 span.b-on{color:var(--primario);border-color:var(--primario);background:var(--primario-lt,var(--blue-lt))}
+.gs .b-eg-rola{max-height:320px}
+.gs .b-tab-eg td{vertical-align:top}
+.gs .b-eg-conf small{display:block}
+.gs .b-eg-anexar .b-ic{width:14px;height:14px}
+.gs .b-vermelho{color:var(--red-d)}
+.gs .janela-emitir textarea#eg-texto{min-height:150px}
+/* PA1/AC2: "Mais dados" do ERP dentro da janela, recolhido */
+.gs .b-mais-dados{margin:2px 0 12px}
+.gs .b-mais-dados > summary{cursor:pointer;font-size:12.5px;font-weight:600;color:var(--text2);padding:4px 0}
+.gs .b-mais-dados[open] > summary{margin-bottom:8px}
+/* Backup 85 (FI13/FI3): lista de escolha (Recibo), prévia do e-mail e o Tipo do lançamento — como no ambiente */
+.gs .b-lista{display:flex;flex-direction:column;gap:6px}
+.gs .b-li{display:flex;align-items:center;gap:10px;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:9px 12px;min-width:0}
+.gs .b-li-bt{width:100%;text-align:left;cursor:pointer;font:inherit;color:inherit}
+.gs .b-li-bt:hover{border-color:var(--primario)}
+.gs .b-li-tx{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
+.gs .b-li-tx b{font-weight:600;color:var(--text);font-size:13px}
+.gs .b-li-tx small{font-size:12px;color:var(--text3)}
+.gs .b-previa-email{border:1px solid var(--border);border-radius:10px;overflow:hidden}
+.gs .b-previa-email .b-pe-hd{background:var(--primario);color:var(--on-cor);padding:10px 14px;font-weight:700;font-size:13px}
+.gs .b-previa-email .b-pe-bd{padding:14px;font-size:13px;line-height:1.55;background:var(--surface);color:var(--text)}
+.gs .b-fl-tipo{margin-bottom:12px}
+.gs .b-bloco{display:flex;flex-direction:column;gap:10px;margin-top:14px}
+.gs .b-bloco h3{margin:0;font-size:12px;font-weight:600;color:var(--text3);display:flex;align-items:center;gap:10px}
+.gs .b-bloco h3::after{content:"";flex:1;height:1px;background:var(--line)}
+/* Backup 85 (JN2): abas da janela presas ao cabeçalho, como no ambiente */
+.gs .janela > .j-abas,.janela > .j-abas{display:flex;gap:2px;border-bottom:1px solid var(--line);padding:8px 20px;flex-wrap:wrap;flex:none;background:var(--surface)}
+.janela > .j-abas .b-seg{flex-wrap:wrap}
+/* Backup 85 (AD3/AD4): chave liga/desliga, linha com chave, campo de dias e duas colunas — como no ambiente */
+.gs .b-chave{position:relative;width:38px;height:22px;border-radius:999px;background:var(--surface2);border:1px solid var(--border);cursor:pointer;flex:none;padding:0}
+.gs .b-chave::after{content:"";position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:999px;background:var(--text3);transition:left .15s}
+.gs .b-chave[aria-checked="true"]{background:var(--green)}
+.gs .b-chave[aria-checked="true"]::after{left:18px;background:var(--surface)}
+.gs .b-chave:disabled{opacity:.55;cursor:not-allowed}
+.gs .b-li-chave{display:flex;gap:12px;align-items:center;padding:8px 0;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.gs .b-li-chave:last-child{border-bottom:0}
+.gs .b-li-chave > span:not(.pill){flex:1;min-width:180px;display:flex;flex-direction:column}
+.gs .b-li-chave small{color:var(--text3);font-size:12px}
+.gs .b-in-dias{width:64px;height:30px;text-align:center}
+.gs .b-duas{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;align-items:start}
+@media (max-width:900px){.gs .b-duas{grid-template-columns:1fr}}

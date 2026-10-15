@@ -51,7 +51,9 @@ function pintarPortal() {
       (g0 ? '' : '') + '</div>';
   }
   el.innerHTML = topo + '<div class="pt-portal" id="pt-portal"><div class="pt-topo"><div><b>Araújo &amp; Castro</b><small>Portal do cliente</small></div>' +
-    '<div class="pt-eu"><b>' + esc(nome) + '</b><small>' + plural(emp.length, 'empresa', 'empresas') + '</small></div></div>' +
+    '<div class="pt-eu"><b>' + esc(nome) + '</b><small>' + plural(emp.length, 'empresa', 'empresas') + '</small></div>' +
+    // Backup 85 (PT2): "Falar com o escritório" (WhatsApp do escritório, com a mensagem já começada)
+    (zapPortal(nome) ? '<a class="btn btn-o btn-mini pt-zap" id="pt-zap" target="_blank" rel="noopener" href="' + esc(zapPortal(nome)) + '">' + iconeB('enviar') + 'Falar com o escritório</a>' : '') + '</div>' +
     '<div class="b-seg pt-abas" id="pt-abas" role="tablist">' + ABAS_PORTAL.filter((a) => ve.has(a[0])).map((a) => '<button type="button" role="tab" class="b-seg-bt" data-pt="' + a[0] + '" aria-selected="' + (a[0] === E.pt.aba) + '">' + esc(a[1]) + '</button>').join('') + '</div>' +
     '<div id="pt-corpo" class="pt-corpo"></div></div>';
   if (!cli) {
@@ -77,6 +79,20 @@ function prazoPt(venc, pago, pagoEm) {
   return '<span class="' + (d <= 0 ? 'b-pz-r' : d < 3 ? 'b-pz-a' : d < 10 ? 'b-pz-b' : 'b-pz-g') + '">' + (d < 0 ? Math.abs(d) + ' d atraso' : d === 0 ? 'vence hoje' : d + (d === 1 ? ' dia' : ' dias')) + '</span>';
 }
 const vencidaPt = (x) => !x.pago && x.vencimento && isoPt(x.vencimento) <= hojeISO();
+// Backup 85 (PT2): link do WhatsApp do escritório (o telefone vem de configurações → documentos_escritorio)
+function zapPortal(nome) {
+  const t = soDigitos(((E.pt.dados || {}).escritorio || {}).whatsapp || ''); if (t.length < 10) return '';
+  return 'https://wa.me/' + (t.length <= 11 ? '55' : '') + t + '?text=' + encodeURIComponent('Olá! Sou do ' + (nome || 'cliente') + '. ');
+}
+// Backup 85 (PT3): recibo do honorário pago — abre pronto para imprimir ou salvar em PDF (o modelo completo, com número, sai por e-mail)
+function reciboPortal(l) {
+  const D = E.pt.dados || {}, quem = ((D.grupos || [])[0] || {}).nome || '';
+  const w = window.open('', '_blank'); if (!w) { aviso('O navegador bloqueou a janela: libere os pop-ups para baixar o recibo.', true); return; }
+  w.document.write('<!doctype html><meta charset="utf-8"><title>Recibo ' + esc(String(l.descricao || '').slice(0, 40)) + '</title><style>body{font:15px/1.6 Arial,sans-serif;max-width:640px;margin:40px auto;color:#222}h1{font-size:20px}.v{font-size:22px;font-weight:700}@media print{button{display:none}}</style>' +
+    '<h1>Araújo &amp; Castro — Recibo</h1><p class="v">' + brl(+l.valor || 0) + '</p><p>Recebemos de ' + esc(quem) + ' a quantia de ' + brl(+l.valor || 0) + ', referente a ' + esc(l.descricao || 'honorários') +
+    ', paga em ' + dataBR(isoPt(l.data_pagamento || l.vencimento)) + '.</p><p>' + dataBR(hojeISO()) + '</p><p>Araújo &amp; Castro Advocacia</p><button onclick="print()">Imprimir ou salvar em PDF</button>');
+  w.document.close();
+}
 const baixarPt = (caminho, rot) => '<button type="button" class="b-bt-emitir pt-baixar" data-pt-baixar="' + esc(caminho) + '">' + esc(rot || 'Baixar') + '</button>';
 const pillPt = (atr, conc) => conc ? '<span class="b-pill b-g">Concluído</span>' : atr ? '<span class="b-pill b-r">' + plural(atr, 'parcela', 'parcelas') + ' em atraso</span>' : '<span class="b-pill b-g">Em dia</span>';
 
@@ -128,14 +144,12 @@ function pintarAbaPortal(el) {
           vazio: { titulo: 'Nada recebido ainda', frase: 'Assim que entrar algum valor, ele aparece aqui.' } }); } };
     }), 'Nenhuma execução');
   } else if (aba === 'contratos') {
-    el.innerHTML = '<div id="pt-ct"></div>';
-    tabelaB($('pt-ct'), { id: 'pt-ct', linhas: D.contratos || [], unidade: ['contrato', 'contratos'], ord: { k: 'ini', dir: -1 }, busca: (c) => c.descricao + ' ' + c.cliente,
-      colunas: [{ k: 'd', rot: 'Contrato', html: (c) => esc(c.descricao || '—') + '<small class="b-sub">' + esc(c.cliente || '') + '</small>', ord: (c) => c.descricao },
-        { k: 'mod', rot: 'Tipo', html: (c) => esc(c.modalidade || '—'), ord: (c) => c.modalidade },
-        { k: 'ini', rot: 'Desde', cls: 'b-cen b-data', html: (c) => (c.inicio ? dataBR(c.inicio) : '—'), ord: (c) => c.inicio || '' },
-        { k: 'v', rot: 'Valor', cls: 'b-dir b-val', html: (c) => (c.valor_mensal ? brl(+c.valor_mensal) + '<small class="b-sub">por mês</small>' : c.valor_total ? brl(+c.valor_total) : '—'), ord: (c) => +(c.valor_mensal || c.valor_total || 0) },
-        { k: 'st', rot: 'Situação', cls: 'b-cen', html: (c) => '<span class="b-pill ' + (/ativo|vigente|assinado/i.test(c.status || '') ? 'b-g' : 'b-a') + '">' + esc(c.status || '—') + '</span>', ord: (c) => c.status }],
-      vazio: { titulo: 'Nenhum contrato', frase: 'Os contratos com o escritório aparecem aqui.' } });
+    // Backup 85 (PT4/PT3): lista simples, como no ambiente — o valor fica na linha de baixo; "Baixar" quando o PDF do contrato está no sistema
+    const C = (D.contratos || []).slice().sort((x, y) => String(y.inicio || '').localeCompare(String(x.inicio || '')));
+    el.innerHTML = C.length ? '<div class="b-lista">' + C.map((c) => '<div class="b-li"><span class="b-li-tx"><b>' + esc(c.descricao || '—') + '</b><small>' +
+      esc([c.modalidade, c.inicio ? 'desde ' + dataBR(c.inicio) : '', c.valor_mensal ? brl(+c.valor_mensal) + ' por mês' : c.valor_total ? brl(+c.valor_total) : '', c.cliente].filter(Boolean).join(' · ')) + '</small></span>' +
+      '<span class="b-pill ' + (/ativo|vigente|assinado/i.test(c.status || '') ? 'b-g' : 'b-a') + '">' + esc(c.status || '—') + '</span>' + (c.arquivo ? baixarPt(c.arquivo) : '') + '</div>').join('') + '</div>'
+      : vazioB({ icone: 'contrato', titulo: 'Nenhum contrato', frase: 'Os contratos com o escritório aparecem aqui.' });
   } else if (aba === 'financeiro') {
     const emp = E.pt.fin || 'escritorio';
     el.innerHTML = '<div class="b-seg" id="pt-fin-emp" role="tablist">' + [['escritorio', 'Jurídico (advocacia)'], ['contabilidade', 'Contabilidade']].map((x) => '<button type="button" role="tab" class="b-seg-bt" data-emp="' + x[0] + '" aria-selected="' + (x[0] === emp) + '">' + x[1] + '</button>').join('') + '</div><div id="pt-fin"></div>';
@@ -146,7 +160,8 @@ function pintarAbaPortal(el) {
       colunas: [{ k: 'd', rot: 'Descrição', html: (l) => esc(l.descricao || '—'), ord: (l) => l.descricao },
         { k: 'v', rot: 'Valor', cls: 'b-dir b-val', soma: true, html: (l) => brl(+l.valor || 0), ord: (l) => +l.valor || 0 },
         { k: 'venc', rot: 'Vencimento', cls: 'b-cen b-data', html: (l) => (l.vencimento ? dataBR(isoPt(l.vencimento)) : '—'), ord: (l) => isoPt(l.vencimento) || '9' },
-        { k: 'pz', rot: 'Situação', cls: 'b-cen b-prazo', html: (l) => prazoPt(l.vencimento, l.pago, l.data_pagamento), ord: false }],
+        { k: 'pz', rot: 'Situação', cls: 'b-cen b-prazo', html: (l) => prazoPt(l.vencimento, l.pago, l.data_pagamento), ord: false },
+        { k: 'r', rot: '', cls: 'b-dir b-c-acoes', ord: false, html: (l) => (l.pago ? '<button type="button" class="b-bt-emitir pt-baixar" data-pt-recibo="' + esc(l.id) + '">Baixar recibo</button>' : '') }],
       vazio: { titulo: 'Nada aqui', frase: 'Não há honorários nesta aba.' } });
   } else if (aba === 'documentos') {
     el.innerHTML = '<div id="pt-docs"></div>';
@@ -159,6 +174,7 @@ function pintarAbaPortal(el) {
   }
   el.onclick = async (ev) => {
     const t = ev.target.closest('[data-pt-ir]'); if (t) { E.pt.aba = t.dataset.ptIr; pintarPortal(); return; }
+    const rc = ev.target.closest('[data-pt-recibo]'); if (rc) { ev.stopPropagation(); const l = (D.financeiro || []).find((x) => String(x.id) === rc.dataset.ptRecibo); if (l) reciboPortal(l); return; }
     const b = ev.target.closest('[data-pt-baixar]'); if (!b) return;
     ev.stopPropagation();
     const { data, error } = await sb.storage.from('documentos').createSignedUrl(b.dataset.ptBaixar, 300);
@@ -183,7 +199,7 @@ function cartoesPortal(el, tipo, itens, vazio) {
   $('pt-cards-' + tipo).addEventListener('click', (ev) => { const c = ev.target.closest('[data-pt-cg]'); if (!c || ev.target.closest('.b-cg-det')) return; E.pt.aberto[tipo] = E.pt.aberto[tipo] === c.dataset.ptCg ? '' : c.dataset.ptCg; cartoesPortal(el, tipo, itens, vazio); });
 }
 function tabParcelasPortal(det, id, L, rotGuia) {
-  tabelaB(det, { id, linhas: L, unidade: ['parcela', 'parcelas'], ord: { k: 'n', dir: 1 }, ordAbas: { pg: { k: 'n', dir: -1 } },
+  tabelaB(det, { id, linhas: L, unidade: ['parcela', 'parcelas'], contagem: true, ord: { k: 'n', dir: 1 }, ordAbas: { pg: { k: 'n', dir: -1 } },
     abas: [{ id: 'ab', rot: 'A pagar', f: (x) => !x.pago }, { id: 'pg', rot: 'Pagas', f: (x) => !!x.pago }, { id: 'todas', rot: 'Todas', f: () => true }],
     valor: (x) => +x.valor || 0, linhaCls: (x) => (vencidaPt(x) ? ' b-tr-venc' : ''),
     colunas: [{ k: 'n', rot: 'Parcela', cls: 'b-cen', html: (x) => esc(x.numero || '—') + (x.tot ? ' de ' + x.tot : ''), ord: (x) => +x.numero || 0 },

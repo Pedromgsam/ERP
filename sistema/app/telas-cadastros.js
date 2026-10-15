@@ -52,9 +52,9 @@ TELAS.clientes = async function () {
   }
 };
 // Backup 49: a chave única "Recebe e-mails do escritório" (Sim/Não) — um clique na linha ou vários de uma vez
-function pillRecebeEmail(c) {
+function pillRecebeEmail(c, longo) {   // Backup 85 (CL4): longo = "Recebe e-mails" / "Não recebe e-mails" (no alto da ficha, como no ambiente)
   const on = c.recebe_email !== false;
-  return '<button type="button" class="pill cli-email ' + (on ? 'pago' : 'neutro') + '" data-cli-email="' + c.id + '" title="' + (on ? 'Recebe os e-mails do escritório — clique para NÃO receber' : 'NÃO recebe e-mails — clique para voltar a receber') + '">' + (on ? '✉ Sim' : '✕ Não') + '</button>';
+  return '<button type="button" class="pill cli-email ' + (on ? 'pago' : 'neutro') + '" data-cli-email="' + c.id + '" title="' + (on ? 'Recebe os e-mails do escritório — clique para NÃO receber' : 'NÃO recebe e-mails — clique para voltar a receber') + '">' + (longo ? (on ? 'Recebe e-mails' : 'Não recebe e-mails') : (on ? '✉ Sim' : '✕ Não')) + '</button>';
 }
 async function trocarRecebeEmail(ids, recebe) {
   await q(sb.rpc('clientes_recebe_email', { p_ids: ids, p_recebe: recebe }));
@@ -290,7 +290,7 @@ async function formCliente(cl, depois, abaInicial) {   // Backup 50: abaInicial 
     if (!f.nome.value.trim()) { irAba('id'); throw new Error('Preencha o nome.'); }
     if (f.grupo_novo.checked && !f.grupo.value.trim()) { irAba('class'); throw new Error('Escreva o nome do grupo novo (ou desmarque "É um grupo novo").'); }
     if (soDigitos(f.cpf_cnpj.value) !== soDigitos(cl.cpf_cnpj || '')) await conferirDoc();
-    if (repetidos.length && !confirm('Já existe cliente com este CPF/CNPJ: ' + repetidos.map((x) => x.nome).join(', ') + '.\n\nCadastrar mesmo assim?')) return;
+    if (repetidos.length && !await confirmarB('Já existe cliente com este CPF/CNPJ: ' + repetidos.map((x) => x.nome).join(', ') + '.\n\nCadastrar mesmo assim?')) return;
     const num = (n) => { const t = f[n].value.trim(); if (!t) return null; const v = lerValor(t); if (isNaN(v)) throw new Error('Valor inválido em ' + n.toUpperCase().replace(/_/g, ' ') + '.'); return v; };
     const grupo_id = f.grupo_novo.checked ? await grupoPorNome(f.grupo.value) : (f.grupo_sel.value || null);
     const dados = {
@@ -326,7 +326,7 @@ async function formCliente(cl, depois, abaInicial) {   // Backup 50: abaInicial 
   });
   const bx = j.querySelector('#btn-excluir-cli');
   if (bx) bx.onclick = () => comBotao(bx, async () => {
-    if (!confirm('Excluir o cliente "' + cl.nome + '"? Esta ação não pode ser desfeita.')) return;
+    if (!await confirmarB('Excluir o cliente "' + cl.nome + '"? Esta ação não pode ser desfeita.')) return;
     await excluir('clientes', cl.id);
     aviso('Cliente excluído.'); fecharJanela(j);
     await apos();
@@ -360,7 +360,7 @@ async function pintarContratos(buscar) {
   const recebido = (c) => soma((c.lancamentos || []).filter((p) => p.pago), (p) => p.valor);
   const atraso = (c) => (c.lancamentos || []).some((p) => !p.pago && p.vencimento < h);
   const proxReaj = (c) => (c.status === 'Ativo' && c.modalidade === 'consultoria' && c.forma_valor !== 'salario_minimo' ? aniversarioContrato(c, hoje) : null);
-  tabelaB($('ctr-corpo'), { id: 'contratos', linhas: _contratos, chave: (c) => String(c.id), unidade: ['contrato', 'contratos'], dicaBusca: 'Buscar',
+  tabelaB($('ctr-corpo'), { id: 'contratos', contagem: true, linhas: _contratos, chave: (c) => String(c.id), unidade: ['contrato', 'contratos'], dicaBusca: 'Buscar',
     abas: [{ id: 'Ativo', rot: 'Ativos', f: (c) => c.status === 'Ativo' }, { id: 'Aguardando assinatura', rot: 'Aguardando assinatura', f: (c) => c.status === 'Aguardando assinatura' },
       { id: 'Encerrado', rot: 'Encerrados', f: (c) => c.status === 'Encerrado' }, { id: 'Cancelado', rot: 'Cancelados', f: (c) => c.status === 'Cancelado' }, { id: 'todos', rot: 'Todos', f: () => true }],
     busca: (c) => [c.descricao, c.clientes && c.clientes.nome, c.clientes && c.clientes.cpf_cnpj, c.clientes && c.clientes.grupos && c.clientes.grupos.nome].join(' '),
@@ -429,7 +429,7 @@ function ligarReajustes(reaj) {
     const tr = b.closest('tr'); const r = reaj.find((x) => x.c.id === tr.dataset.reaj);
     const pct = lerValor(tr.querySelector('.ctr-reaj-pct').value) || 0, v = novoValor(tr);
     if (!(v > 0) || pct <= 0) throw new Error('Informe o % do reajuste.');
-    if (!confirm('Aplicar reajuste de ' + String(pct).replace('.', ',') + '% em "' + r.c.descricao + '"?\n\nNovo valor: ' + brl(v) + '/mês a partir de ' + dataBR(iso(r.anv)).slice(3) + '.')) return;
+    if (!await confirmarB('Aplicar reajuste de ' + String(pct).replace('.', ',') + '% em "' + r.c.descricao + '"?\n\nNovo valor: ' + brl(v) + '/mês a partir de ' + dataBR(iso(r.anv)).slice(3) + '.')) return;
     await q(sb.rpc('registrar_aditivo', { p_contrato: r.c.id, p: { tipo: 'valor', forma: 'fixo', valor_mensal: v, a_partir: iso(r.anv).slice(0, 7) + '-01',
       descricao: 'Reajuste anual de ' + String(pct).replace('.', ',') + '% (de ' + brl(r.c.valor_mensal) + ' para ' + brl(v) + ')' } }));
     aviso('✓ Reajuste aplicado — as mensalidades em aberto já estão com o valor novo.'); await pintarContratos(true);
@@ -704,37 +704,54 @@ async function _detalheContrato(id) {
     ['Situação', pillSituacaoCtr(ct)],
     ['Financeiro', atrasadas.length ? '<span class="pill vencido">' + plural(atrasadas.length, 'parcela em atraso', 'parcelas em atraso') + ' · ' + brl(soma(atrasadas, (p) => p.valor)) + '</span>' : '<span class="pill pago">em dia</span>']];
   const pctRec = total > 0 ? Math.round(recebido / total * 100) : 0;
+  // Backup 85 (CT3): janela no desenho do ambiente — 4 campos à vista (Valor, Início, Reajuste, Êxito), a tabela "Lançamentos deste contrato
+  // no Financeiro" e, no rodapé, "Marcar como assinado" e "Aplicar reajuste". A ficha completa, aditivos, êxito, documentos, avulso e
+  // "Ligar lançamentos" continuam (o usuário decide depois o que tirar — lista do Backup 85).
+  ct.contratos_aditivos = aditivos;
+  const reajAgora = reajustesProximos([ct])[0];
+  const fichaVis = [['Valor', ct.modalidade === 'consultoria' ? valorContratoTexto(ct) + ' / mês' : brl(total)], ['Início', dataBR(ct.inicio_vigencia || ct.inicio_competencia || ct.data_contrato)],
+    ['Reajuste', reajAgora ? dataBR(iso(reajAgora.anv)) : ct.modalidade === 'consultoria' && ct.forma_valor === 'salario_minimo' ? 'pelo salário mínimo' : '—'],
+    ['Êxito', ct.percentual_exito ? String(ct.percentual_exito).replace('.', ',') + '%' : '—']];
   const j = abrirJanela({
-    titulo: '📄 Ficha do contrato — ' + ct.descricao, larga: true,
+    kick: (ct.modalidade === 'consultoria' ? 'Consultoria' : 'Serviço pontual') + (ct.servico ? ' · ' + ct.servico : ''), titulo: ct.descricao || 'Contrato',
+    sub: esc(ct.clientes ? ct.clientes.nome : '—'), dir: pillSituacaoCtr(ct), larga: true,
     corpo:
       (ct.status === 'Aguardando assinatura' ? '<div class="faixa-aprov tem" id="ctr-assinatura"><span class="faixa-ic" aria-hidden="true">⏳</span><div><b>Aguardando a assinatura do cliente</b>' +
-        '<div class="sub">O financeiro, o onboarding e o aviso à equipe acontecem quando você marcar como assinado. Anexe o PDF assinado em "Documentos do contrato", abaixo.</div></div>' +
-        '<div class="acoes"><button class="btn btn-p" type="button" id="ctr-assinar">✓ Marcar como assinado</button></div></div>' : '') +
-      '<div class="ctr-ficha">' + ficha.map(([r, v]) => '<div><span>' + r + '</span><b>' + (/^</.test(v) ? v : esc(v)) + '</b></div>').join('') + '</div>' +
-      (ct.modalidade === 'consultoria' ? '' : '<div class="ctr-barra" title="Recebido × previsto"><div style="width:' + pctRec + '%"></div></div><div class="sub" style="margin:-4px 0 12px">' + pctRec + '% do previsto já recebido</div>') +
-      '<div class="kpis" style="margin-bottom:12px">' +
-      kpi('Cliente', '<span style="font-family:var(--font-d);font-size:16px">' + esc(ct.clientes ? ct.clientes.nome : '—') + '</span>', '', 'Contrato de ' + dataBR(ct.data_contrato)) +
-      (ct.modalidade === 'consultoria' ? kpi('Consultoria mensal', valorContratoTexto(ct), '', ct.rescindido_em ? 'rescindido em ' + dataBR(ct.rescindido_em) : 'vence dia ' + ct.dia_vencimento + ' do mês seguinte · até a rescisão') : '') +
-      kpi('Recebido', brl(recebido), 'verde', parc.filter((p) => p.pago).length + ' de ' + parc.length + ' parcela(s)') +
-      kpi('Falta receber', brl(total - recebido), 'ambar', ct.percentual_exito ? '+ ' + String(ct.percentual_exito).replace('.', ',') + '% de êxito' : ct.status) +
-      '</div>' +
-      (ct.obs ? '<div class="dica" style="margin-bottom:12px">' + esc(ct.obs) + '</div>' : '') +
-      '<div class="card" style="margin:0">' + tabelaLancamentos(parc, { compacta: true }) + '</div>' +
-      '<div style="margin-top:10px"><button class="btn btn-o btn-mini" id="ctr-add-parc">+ Lançar valor avulso neste contrato</button> ' +
-        '<button class="btn btn-o btn-mini" id="ctr-vincular" title="Implantação: liga a este contrato lançamentos que já estão no Financeiro (não cria nada novo)">🔗 Ligar lançamentos que já existem</button>' +
-        (ct.sem_financeiro ? ' <span class="pill neutro" title="Contrato de implantação: o sistema não gera parcelas nem mensalidades">implantação</span>' : '') + '</div>' +
+        '<div class="sub">O financeiro, o onboarding e o aviso à equipe acontecem quando você marcar como assinado (botão no rodapé). Anexe o PDF assinado em "Documentos do contrato", abaixo.</div></div></div>' : '') +
+      '<div class="b-ficha">' + fichaVis.map(([r, v]) => '<div><span>' + r + '</span><b>' + esc(v) + '</b></div>').join('') + '</div>' +
+      '<details class="b-mais-dados"><summary>Mais dados do contrato</summary><div class="ctr-ficha">' + ficha.map(([r, v]) => '<div><span>' + r + '</span><b>' + (/^</.test(v) ? v : esc(v)) + '</b></div>').join('') + '</div>' +
+      (ct.obs ? '<div class="dica" style="margin-top:8px">' + esc(ct.obs) + '</div>' : '') + '</details>' +
+      numsFaixa([['Recebido', esc(brl(recebido)), parc.filter((p) => p.pago).length + ' de ' + parc.length + ' parcela(s)', 'b-verde'],
+        ['Falta receber', esc(brl(total - recebido)), ct.percentual_exito ? '+ ' + String(ct.percentual_exito).replace('.', ',') + '% de êxito' : (ct.modalidade === 'consultoria' ? 'até a rescisão' : pctRec + '% do previsto já recebido')],
+        ['Em atraso', atrasadas.length ? esc(brl(soma(atrasadas, (p) => p.valor))) : 'nada', atrasadas.length ? plural(atrasadas.length, 'parcela', 'parcelas') : '', atrasadas.length ? 'b-verm' : '']]) +
+      '<div class="b-bloco"><h3>Lançamentos deste contrato no Financeiro</h3><div class="card" style="margin:0">' + tabelaLancamentos(parc, { compacta: true }) + '</div>' +
+      '<div style="margin-top:10px"><button class="btn btn-g btn-mini" id="ctr-add-parc">' + iconeB('mais') + ' Lançar valor avulso neste contrato</button> ' +
+        '<button class="btn btn-g btn-mini" id="ctr-vincular" title="Implantação: liga a este contrato lançamentos que já estão no Financeiro (não cria nada novo)">Ligar lançamentos que já existem</button>' +
+        (ct.sem_financeiro ? ' <span class="pill neutro" title="Contrato de implantação: o sistema não gera parcelas nem mensalidades">implantação</span>' : '') + '</div></div>' +
       (ct.percentual_exito ? blocoExito(ct, exitos) : '') +
       '<div class="card" style="margin:14px 0 0"><div class="card-bd" id="ctr-docs"></div></div>' + blocoAditivos(ct, aditivos),
     rodape:
-      (E.perfil.papel === 'admin' ? '<button class="btn btn-x" id="btn-excluir-ctr" type="button">Excluir contrato</button>' : '<span></span>') +
-      '<div class="acoes">' + (ct.modalidade === 'consultoria' && !ct.rescindido_em ? '<button class="btn btn-x" id="btn-rescindir-ctr" type="button">Rescindir</button>' : '') +
-      '<button class="btn btn-o" id="btn-editar-ctr" type="button">Editar contrato</button></div>'
+      (E.perfil.papel === 'admin' ? '<button class="btn btn-g" id="btn-excluir-ctr" type="button" style="margin-right:auto">' + iconeB('lixo') + ' Excluir contrato</button>' : '<span></span>') +
+      '<div class="acoes">' + (ct.modalidade === 'consultoria' && !ct.rescindido_em ? '<button class="btn btn-o" id="btn-rescindir-ctr" type="button">Rescindir</button>' : '') +
+      '<button class="btn btn-o" id="btn-editar-ctr" type="button">' + iconeB('lapis') + ' Editar</button>' +
+      (reajAgora ? '<button class="btn btn-o" id="ctr-reaj" type="button">Aplicar reajuste</button>' : '') +
+      '<button class="btn btn-o" type="button" data-fechar>Fechar</button>' +
+      (ct.status === 'Aguardando assinatura' ? '<button class="btn btn-p" type="button" id="ctr-assinar">' + iconeB('check') + ' Marcar como assinado</button>' : '') + '</div>'
   });
+  { const rj = j.querySelector('#ctr-reaj');
+    if (rj) rj.onclick = () => comBotao(rj, async () => {
+      const pct = await indiceReajustePadrao(), v = Math.round(Number(ct.valor_mensal) * (1 + pct / 100) * 100) / 100;
+      if (!await confirmarB({ titulo: 'Aplicar reajuste de ' + String(pct).replace('.', ',') + '%?', sub: esc(ct.descricao), ok: 'Aplicar',
+        resumo: '<span>De ' + brl(ct.valor_mensal) + ' para</span><span class="b-conf-val">' + brl(v) + '</span>', texto: 'Para usar outro índice (IPCA, IGP-M), aplique pela lista "Reajustes próximos" em Contratos.' })) return;
+      await q(sb.rpc('registrar_aditivo', { p_contrato: ct.id, p: { tipo: 'valor', forma: 'fixo', valor_mensal: v, a_partir: iso(reajAgora.anv).slice(0, 7) + '-01',
+        descricao: 'Reajuste anual de ' + String(pct).replace('.', ',') + '% (de ' + brl(ct.valor_mensal) + ' para ' + brl(v) + ')' } }));
+      aviso('✓ Reajuste aplicado — as mensalidades em aberto já estão com o valor novo.'); fecharJanela(j); await detalheContrato(id);
+    }); }
   const reabrir = async () => { fecharJanela(j); await detalheContrato(id); };
   ligarAcoesLancamentos(j, reabrir);
   const btAssinar = j.querySelector('#ctr-assinar');
   if (btAssinar) btAssinar.onclick = () => comBotao(btAssinar, async () => {
-    if (!confirm('Marcar o contrato como assinado? O sistema lança o financeiro, cria o onboarding e avisa a equipe.')) return;
+    if (!await confirmarB('Marcar o contrato como assinado? O sistema lança o financeiro, cria o onboarding e avisa a equipe.')) return;
     const r = await q(sb.rpc('contrato_assinar', { p_contrato: id, p_data: null }));
     aviso('✓ Contrato assinado: ' + plural((r && r.lancamentos) || 0, 'lançamento', 'lançamentos') + ' no financeiro.'); await reabrir();
   });
@@ -752,7 +769,7 @@ async function _detalheContrato(id) {
   };
   const bx = j.querySelector('#btn-excluir-ctr');
   if (bx) bx.onclick = () => comBotao(bx, async () => {
-    if (!confirm('Excluir o contrato e TODAS as parcelas dele? Esta ação não pode ser desfeita.')) return;
+    if (!await confirmarB('Excluir o contrato e TODAS as parcelas dele? Esta ação não pode ser desfeita.')) return;
     await excluir('contratos', id);
     aviso('Contrato excluído.'); fecharJanela(j); await recarregar();
   });

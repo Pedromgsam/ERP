@@ -6674,3 +6674,93 @@ do $$ begin
 exception when others then raise notice 'Sem permissão em storage.objects: o cliente ainda não baixa arquivos pelo portal.';
 end $$;
 -- ═══ fim do Backup 84 ═══
+
+-- ═══ Backup 85 ═══
+-- Financeiro → Recibo → "Mandar por e-mail" (como no ambiente de teste): manda o recibo de um honorário JÁ recebido, com o PDF anexo.
+-- A ref leva a hora, para poder mandar de novo (a automática "email_pr:<id>" só sai uma vez).
+create or replace function public.enviar_recibo_email(p_lanc uuid) returns jsonb
+language plpgsql security definer set search_path = public as $$
+declare l record; r jsonb; m record; v_ref text; ok boolean; c record;
+begin
+  select * into l from public.lancamentos where id = p_lanc;
+  if not found then raise exception 'Lançamento não encontrado.'; end if;
+  if not public.pode(case when l.empresa = 'contabilidade' then 'financeiro_contab' else 'financeiro_juridico' end, 'editar') then
+    raise exception 'permission denied: sem acesso para mandar recibo.'; end if;
+  if not coalesce(l.pago, false) then raise exception 'Este honorário ainda não foi recebido.'; end if;
+  if l.cliente_id is null and l.grupo_id is null then raise exception 'Este lançamento não tem cliente: não há para quem mandar.'; end if;
+  select * into c from public.contato_do_cliente(l.cliente_id, l.grupo_id, 'recibo');
+  if coalesce(c.email, '') = '' then raise exception 'Este cliente não tem e-mail para recibos: cadastre em Clientes → ficha → Contatos.'; end if;
+  r := public.recibo_dados(l.id);
+  select * into m from public.modelo_email('recibo', jsonb_build_object('valor', r->>'valor_txt', 'extenso', r->>'extenso', 'data_pagamento', r->>'data'));
+  v_ref := 'email_pr:' || l.id || ':m' || floor(extract(epoch from clock_timestamp()))::bigint;
+  ok := public.email_cliente_enviar('email_pr', v_ref, l.cliente_id, l.grupo_id, 'recibo', m.assunto, m.texto, '[]'::jsonb, false,
+    jsonb_build_object('tipo', 'recibo', 'arquivo', 'Recibo ' || (r->>'numero') || '.pdf', 'dados', r));
+  if not ok then raise exception 'O recibo não foi para a fila: o cliente está marcado para NÃO receber e-mails (ou o e-mail é de demonstração).'; end if;
+  return jsonb_build_object('ref', v_ref, 'para', c.email);
+end $$;
+revoke all on function public.enviar_recibo_email(uuid) from public, anon;
+grant execute on function public.enviar_recibo_email(uuid) to authenticated;
+-- Portal (PT2/PT3): o WhatsApp do escritório e o PDF do contrato para baixar
+create or replace function public.portal_cliente(p_grupo uuid default null) returns jsonb
+language plpgsql stable security definer set search_path = public as $$
+declare meus uuid[]; ve_pr uuid[]; ve_par uuid[]; ve_ac uuid[]; ve_ex uuid[]; ve_ct uuid[]; ve_fin uuid[]; ve_doc uuid[];
+begin
+  meus := public.portal_grupos_de(p_grupo);
+  select coalesce(array_agg(id) filter (where 'processos' = any(portal_ve)), '{}'), coalesce(array_agg(id) filter (where 'parcelamentos' = any(portal_ve)), '{}'), coalesce(array_agg(id) filter (where 'acordos' = any(portal_ve)), '{}'),
+         coalesce(array_agg(id) filter (where 'execucoes' = any(portal_ve)), '{}'), coalesce(array_agg(id) filter (where 'contratos' = any(portal_ve)), '{}'),
+         coalesce(array_agg(id) filter (where 'financeiro' = any(portal_ve)), '{}'), coalesce(array_agg(id) filter (where 'documentos' = any(portal_ve)), '{}')
+    into ve_pr, ve_par, ve_ac, ve_ex, ve_ct, ve_fin, ve_doc from public.grupos where id = any(meus);
+  return jsonb_build_object(
+    -- Backup 85 (PT2): o WhatsApp/e-mail do escritório para o botão "Falar com o escritório"
+    'escritorio', (select jsonb_build_object('whatsapp', coalesce(valor->>'whatsapp', valor->'advogados'->0->>'telefone', ''), 'email', coalesce(valor->>'email', ''))
+                   from public.configuracoes where chave = 'documentos_escritorio'),
+    'grupos', (select coalesce(jsonb_agg(jsonb_build_object('id', g.id, 'nome', g.nome, 've', g.portal_ve) order by g.nome), '[]') from public.grupos g where g.id = any(meus)),
+    'clientes', (select coalesce(jsonb_agg(jsonb_build_object('id', c.id, 'nome', c.nome, 'cpf_cnpj', c.cpf_cnpj, 'grupo_id', c.grupo_id) order by c.nome), '[]')
+                 from public.clientes c where c.grupo_id = any(meus)),
+    'processos', (select coalesce(jsonb_agg(jsonb_build_object('id', p.id, 'grupo_id', p.grupo_id, 'numero', p.numero, 'competencia', p.competencia, 'natureza', p.natureza,
+                    'autor', p.autor, 'reu', p.reu, 'status', p.status, 'valor', p.valor, 'ultima_movimentacao', p.ultima_movimentacao, 'ultima_movimentacao_em', p.ultima_movimentacao_em)
+                    order by p.ultima_movimentacao_em desc nulls last, p.numero), '[]')
+                  from public.processos p where p.grupo_id = any(ve_pr) and p.carteira = 'Ativo'),
+    'parcelamentos', (select coalesce(jsonb_agg(jsonb_build_object('id', pa.id, 'grupo_id', pa.grupo_id, 'empresa', pa.empresa, 'cnpj', pa.cnpj, 'local', pa.local, 'natureza', pa.natureza,
+                          'numero', pa.numero, 'total_parcelas', pa.total_parcelas, 'emitimos_guia', pa.emitimos_guia, 'valor_ultima_parcela', pa.valor_ultima_parcela,
+                          'parcelas', (select coalesce(jsonb_agg(jsonb_build_object('id', x.id, 'numero', x.numero, 'vencimento', x.vencimento, 'valor', x.valor, 'pago', x.pago,
+                              'data_pagamento', x.data_pagamento, 'emitida', x.emitida_em is not null, 'guia', d.caminho) order by x.vencimento), '[]')
+                            from public.parcelas x left join public.documentos d on d.id = x.guia_doc where x.parcelamento_id = pa.id))), '[]')
+                      from public.parcelamentos pa where pa.grupo_id = any(ve_par)),
+    'acordos', (select coalesce(jsonb_agg(jsonb_build_object('id', a.id, 'grupo_id', a.grupo_id, 'processo', a.processo, 'devedor', a.devedor, 'credor', a.credor, 'parcela', a.parcela, 'total_parcelas', a.total_parcelas,
+                    'valor', a.valor, 'vencimento', a.vencimento, 'pago', a.pago, 'forma', a.forma_pagamento, 'emitida', a.emitida_em is not null, 'data_pagamento', a.data_pagamento, 'guia', d.caminho) order by a.vencimento), '[]')
+                from public.acordos a left join public.documentos d on d.id = a.guia_doc where a.grupo_id = any(ve_ac)),
+    'execucoes', (select coalesce(jsonb_agg(jsonb_build_object('id', e.id, 'grupo_id', e.grupo_id, 'numero', e.numero, 'executado', e.executado, 'valor_execucao', e.valor_execucao,
+                    'situacao', e.situacao, 'ajuizada_em', e.ajuizada_em,
+                    'recebimentos', (select coalesce(jsonb_agg(jsonb_build_object('data', r.data, 'valor', r.valor) order by r.data desc), '[]') from public.execucao_recebimentos r where r.execucao_id = e.id))), '[]')
+                  from public.execucoes e where e.grupo_id = any(ve_ex)),
+    'contratos', (select coalesce(jsonb_agg(jsonb_build_object('id', ct.id, 'descricao', ct.descricao, 'modalidade', ct.modalidade, 'status', ct.status, 'inicio', coalesce(ct.inicio_vigencia, ct.data_contrato),
+                    'valor_mensal', ct.valor_mensal, 'valor_total', ct.valor_total, 'cliente', c.nome,
+                    -- Backup 85 (PT3): o PDF do contrato (o documento mais novo ligado ao contrato) para o botão "Baixar"
+                    'arquivo', (select d.caminho from public.documentos d where d.contrato_id = ct.id and not d.arquivado and d.tipo <> 'certificado' order by d.criado_em desc limit 1)) order by ct.data_contrato desc), '[]')
+                  from public.contratos ct join public.clientes c on c.id = ct.cliente_id where c.grupo_id = any(ve_ct)),
+    'financeiro', (select coalesce(jsonb_agg(jsonb_build_object('id', l.id, 'descricao', l.descricao, 'valor', l.valor, 'vencimento', l.vencimento, 'pago', l.pago,
+                    'data_pagamento', l.data_pagamento, 'empresa', l.empresa) order by l.vencimento), '[]')
+                   from public.lancamentos l where l.tipo = 'receita' and not l.redutor and not l.perda
+                    and coalesce(l.grupo_id, (select c.grupo_id from public.clientes c where c.id = l.cliente_id)) = any(ve_fin)),
+    'documentos', (select coalesce(jsonb_agg(jsonb_build_object('id', d.id, 'nome', d.nome, 'tipo', d.tipo, 'criado_em', d.criado_em, 'validade', d.validade, 'caminho', d.caminho) order by d.criado_em desc), '[]')
+                   from public.documentos d where d.liberado_cliente and not d.arquivado and d.tipo <> 'certificado'
+                    and coalesce(d.grupo_id, (select c.grupo_id from public.clientes c where c.id = d.cliente_id)) = any(ve_doc))
+  );
+end $$;
+revoke all on function public.portal_cliente(uuid) from public, anon;
+grant execute on function public.portal_cliente(uuid) to authenticated;
+-- o cliente também baixa o contrato do grupo dele (quando o grupo vê "Contratos" no portal)
+create or replace function public.portal_pode_arquivo(p_caminho text) returns boolean
+language sql stable security definer set search_path = public as $$
+  select public.papel_atual() = 'cliente' and exists (
+    select 1 from public.documentos d
+     where d.caminho = p_caminho and not d.arquivado and d.tipo <> 'certificado'
+       and coalesce(d.grupo_id, (select c.grupo_id from public.clientes c where c.id = d.cliente_id)) in (select grupo_id from public.perfil_grupos where perfil_id = auth.uid())
+       and (d.liberado_cliente or exists (select 1 from public.parcelas x where x.guia_doc = d.id) or exists (select 1 from public.acordos x where x.guia_doc = d.id)
+            or (d.contrato_id is not null and exists (select 1 from public.contratos ct join public.clientes c on c.id = ct.cliente_id join public.grupos g on g.id = c.grupo_id
+                                                      where ct.id = d.contrato_id and 'contratos' = any(g.portal_ve)))));
+$$;
+revoke all on function public.portal_pode_arquivo(text) from public, anon;
+grant execute on function public.portal_pode_arquivo(text) to authenticated;
+-- ═══ fim do Backup 85 ═══

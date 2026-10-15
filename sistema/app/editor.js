@@ -7,6 +7,8 @@
 // Tudo grava direto no Supabase e o ERP recarrega os dados na hora.
 // ═══════════════════════════════════════════════════════════════════
 (function () {
+  // Backup 85 (JN3): confirmação dentro da página (a do Gestão); sem ela, a caixinha do navegador
+  const confirmarPag = (t) => (window.GS && window.GS.confirmarB ? window.GS.confirmarB(t) : Promise.resolve(window.confirm(t)));
   const sb = window.SB;
   const esc = (v) => String(v == null ? '' : v).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const pad = (n) => String(n).padStart(2, '0');
@@ -215,7 +217,7 @@
     if (!nome) return null;
     const achado = _grupos.find((g) => g.nome.trim().toLowerCase() === nome.toLowerCase());
     if (achado) return achado.id;
-    if (!confirm('O grupo "' + nome + '" não existe. Criar agora?')) throw new Error('Escolha um grupo existente.');
+    if (!await confirmarPag('O grupo "' + nome + '" não existe. Criar agora?')) throw new Error('Escolha um grupo existente.');
     const { data, error } = await sb.from('grupos').insert({ nome }).select('id,nome').single();
     if (error) throw error;
     _grupos.push(data);
@@ -333,8 +335,12 @@
         if (extra && extra.depoisDeGravar) await extra.depoisDeGravar(salvo, jan);
         fecharJanela();
         aviso('✓ Gravado no banco de dados.');
-        gravou((id ? 'Alterou ' : 'Incluiu ') + def.nome.toLowerCase() + ' — ' + rotuloReg(salvo),
-          id && ajuste && ajuste.pago ? () => desfazerBaixa(tabela, id) : null);
+        // Backup 85 (JN4): "Desfazer" também ao incluir e ao alterar (volta os campos que mudaram / apaga o que foi incluído)
+        const antes = {}; if (id) Object.keys(d).forEach((k) => { if (k in reg) antes[k] = reg[k]; });
+        const volta = id && ajuste && ajuste.pago ? () => desfazerBaixa(tabela, id)
+          : id ? (Object.keys(antes).length ? async () => { const r = await sb.from(tabela).update(antes).eq('id', id); if (r.error) throw r.error; aviso('Desfeito.'); recarregar(); } : null)
+          : salvo && salvo.id ? async () => { const r = await sb.from(tabela).delete().eq('id', salvo.id); if (r.error) throw r.error; aviso('Desfeito.'); recarregar(); } : null;
+        gravou((id ? 'Alterou ' : 'Incluiu ') + def.nome.toLowerCase() + ' — ' + rotuloReg(salvo), volta);
         recarregar();
       } catch (e) {
         msg.textContent = '⚠ ' + erroAmigavel(e) + ' Nada foi perdido: corrija e tente de novo.';
@@ -350,11 +356,14 @@
     });
     const ex = jan.querySelector('[data-a=excluir]');
     if (ex) ex.addEventListener('click', async () => {
-      if (!confirm('Excluir este registro? Essa ação fica registrada no Histórico.')) return;
+      if (!await confirmarPag('Excluir este registro? Essa ação fica registrada no Histórico.')) return;
       const { data, error } = await sb.from(tabela).delete().eq('id', id).select('id');
       if (error) { msg.textContent = '⚠ ' + erroAmigavel(error); return; }
       if (!data || !data.length) { msg.textContent = '⚠ Só o administrador pode excluir este tipo de registro.'; return; }
-      fecharJanela(); aviso('✓ Excluído.'); gravou('Excluiu ' + def.nome.toLowerCase() + ' — ' + rotuloReg(reg)); recarregar();
+      // Backup 85 (JN4): o Desfazer grava de volta a linha inteira (mesmo id)
+      const linha = {}; Object.keys(reg).forEach((k) => { if (k[0] !== '_') linha[k] = reg[k]; });
+      fecharJanela(); aviso('✓ Excluído.'); gravou('Excluiu ' + def.nome.toLowerCase() + ' — ' + rotuloReg(reg),
+        linha.id ? async () => { const r = await sb.from(tabela).insert(linha); if (r.error) { aviso('Não deu para desfazer: ' + erroAmigavel(r.error), true); return; } aviso('Desfeito.'); recarregar(); } : null); recarregar();
     });
     const hi = jan.querySelector('[data-a=historico]');
     if (hi) hi.addEventListener('click', () => verAlteracoes(tabela, id, def.nome + ' — ' + rotuloReg(reg)));
@@ -465,10 +474,12 @@
   async function perguntar(tabela, reg) {
     const GS = window.GS;
     if (!GS || !GS.perguntarBaixa) return confirm('Confirmar o pagamento?') ? { pago: true, data_pagamento: hojeISO() } : null;
-    if (tabela === 'parcelas') return GS.perguntarBaixa({ despesa: true, titulo: 'Pagamento da parcela — confirme', valor: reg && reg.valor != null ? Number(reg.valor) : null,
-      descricao: 'Parcela ' + ((reg && reg.numero) || '') + (reg && reg._empresa ? ' — ' + reg._empresa : '') + (reg && reg.vencimento ? ' · venc. ' + brData(reg.vencimento) : '') });
+    if (tabela === 'parcelas') return GS.perguntarBaixa({ despesa: true, titulo: 'Lançar o pagamento desta parcela?', valor: reg && reg.valor != null ? Number(reg.valor) : null,
+      sub: (reg && reg._empresa) || '', descricao: 'Parcela ' + ((reg && reg.numero) || ''), linha: reg && reg.vencimento ? 'vencimento ' + brData(reg.vencimento) : '' });
     return GS.perguntarBaixa({ acordo: tabela === 'acordos', valor: reg && reg.valor, despesa: tabela === 'lancamentos' && reg && reg.tipo === 'despesa' && !reg.redutor,
-      descricao: reg ? (tabela === 'acordos' ? 'Parcela ' + (reg.parcela || '') + (reg.total_parcelas ? '/' + reg.total_parcelas : '') + ' — ' + (reg.credor || reg.processo || '') : reg.descricao) : '' });
+      descricao: reg ? (tabela === 'acordos' ? 'Parcela ' + (reg.parcela || '') + (reg.total_parcelas ? ' de ' + reg.total_parcelas : '') + (reg.processo ? ' · processo ' + reg.processo : '') : reg.descricao) : '',
+      sub: reg && tabela === 'acordos' ? (reg.devedor || '') + (reg.credor ? ' · deve a ' + reg.credor : '') : '', linha: reg && reg.vencimento ? 'vencimento ' + brData(reg.vencimento) : '',
+      aviso: tabela === 'lancamentos' && reg && reg.tipo !== 'despesa' && GS.avisoRecibo ? await GS.avisoRecibo(reg.cliente_id) : '' });
   }
   // opc.dados = confirmação já feita por quem chamou (a Rotina pergunta antes de marcar a tela)
   async function baixaRapida(tabela, id, opc) {
