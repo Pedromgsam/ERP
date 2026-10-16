@@ -327,9 +327,12 @@ function fluxoDoMes(empresa) {
   const recebido = somaV(doMes.filter((l) => l._c === 'recebido')), atraso = somaV(doMes.filter((l) => l._c === 'areceber' && l.vencimento < h)),
     aReceber = somaV(doMes.filter((l) => l._c === 'areceber' && l.vencimento >= h)), previsto = recebido + atraso + aReceber;
   const pc = (v) => (previsto > 0 ? Math.max(0, v / previsto * 100) : 0);
+  // Backup 90 (P2): Recebido comparado ao mês anterior (só aparece no visual premium)
+  const kAnt = (() => { const [a, m] = k.split('-').map(Number); return m === 1 ? (a - 1) + '-12' : a + '-' + String(m - 1).padStart(2, '0'); })();
+  const recAnt = somaV(rec.filter((l) => l._c === 'recebido' && String(l.vencimento || '').startsWith(kAnt)));
   return '<section class="b-fin-cartao b-fluxo" id="fa-fluxo"><div class="b-fin-hd b-fluxo-hd"><div><h3>Fluxo do mês</h3><p>Honorários com vencimento no mês: quanto estava previsto e como está.</p></div>' +
     '<div class="b-fluxo-nav"><button type="button" class="b-bt-f" data-fm="-1" aria-label="Mês anterior">‹</button><b>' + esc(rotMesB(k)) + '</b><button type="button" class="b-bt-f" data-fm="1" aria-label="Próximo mês">›</button></div></div>' +
-    numsFaixa([['Previsto no mês', brl(previsto), 'tudo o que vence no mês'], ['Recebido', brl(recebido), previsto ? Math.round(pc(recebido)) + '% do previsto' : '', 'b-verde'],
+    numsFaixa([['Previsto no mês', brl(previsto), 'tudo o que vence no mês'], ['Recebido', brl(recebido) + ' ' + tendB(recebido, recAnt, 'sobe'), previsto ? Math.round(pc(recebido)) + '% do previsto' : '', 'b-verde'],
       ['Em atraso (deste mês)', brl(atraso), 'venceu e não entrou', atraso ? 'b-verm' : ''], ['A receber', brl(aReceber), 'ainda vai vencer']]) +
     '<div class="b-fluxo-barra" role="img" aria-label="Recebido ' + brl(recebido) + ', em atraso ' + brl(atraso) + ', a receber ' + brl(aReceber) + '">' +
       '<span class="b-fx-rec" style="width:' + pc(recebido) + '%" title="Recebido ' + esc(brl(recebido)) + '"></span><span class="b-fx-atr" style="width:' + pc(atraso) + '%" title="Em atraso ' + esc(brl(atraso)) + '"></span><span class="b-fx-arec" style="width:' + pc(aReceber) + '%" title="A receber ' + esc(brl(aReceber)) + '"></span></div>' +

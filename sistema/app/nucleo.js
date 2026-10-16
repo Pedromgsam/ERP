@@ -686,6 +686,14 @@ function ligarMinB(chave, ids) {
   bt.onclick = () => { const abrir = bt.getAttribute('aria-expanded') !== 'true'; bt.setAttribute('aria-expanded', String(abrir)); try { localStorage.setItem('erp_min_' + chave, abrir ? '0' : '1'); } catch (e) { /* vale só agora */ } aplicar(); };
   aplicar();
 }
+// Backup 90 (P2, só aparece no visual premium — base.css esconde .b-tend): ▲/▼ e quanto mudou desde o mês anterior. bom = 'sobe' | 'desce' (qual direção é boa notícia)
+function tendB(atual, antes, bom) {
+  if (!(antes > 0) || atual == null || !isFinite(atual)) return '';
+  const pc = (atual - antes) / antes * 100, r = Math.round(Math.abs(pc));
+  if (!r) return '<em class="b-tend b-tend-igual" title="Igual ao mês anterior">= 0%</em>';
+  const sobe = pc > 0, cls = (sobe === (bom !== 'desce')) ? 'b-tend-bom' : 'b-tend-ruim';
+  return '<em class="b-tend ' + cls + '" title="' + (sobe ? 'Subiu' : 'Caiu') + ' ' + r + '% em relação ao mês anterior">' + (sobe ? '▲' : '▼') + ' ' + r + '%</em>';
+}
 function numsFaixa(itens) {
   return '<div class="b-nums b-nums-faixa b-nums-' + itens.length + '">' + itens.map((i) => '<div><span>' + esc(i[0]) + '</span><b class="' + (i[3] || '') + '">' + i[1] + '</b>' + (i[2] ? '<small>' + esc(i[2]) + '</small>' : '') + '</div>').join('') + '</div>';
 }

@@ -1,117 +1,114 @@
 /* ═══════════════════════════════════════════════════════════════════════════
-   Backup 89 — VISUAL PREMIUM (o novo "ambiente de teste")
+   VISUAL PREMIUM (o "ambiente de teste") — Backup 89, revisto no Backup 90
    Liga em ⋯ (barra do alto) → "Visual premium (teste)", ou com ?visual=premium no endereço.
    É o MESMO ERP (mesmos dados e funções); só muda a aparência, e só no navegador de quem ligou.
    Tudo aqui vale apenas com html[data-visual="premium"]; sem isso, nada muda.
-   Paleta do ERP antigo (versão HTML): marinho #1B2A4A, azul #2563EB, dourado #C9A84C.
-   Letras: títulos e cabeçalho das tabelas em Playfair Display; números em JetBrains Mono; o resto em Inter.
+   Backup 90 (respostas de 16/10): LETRAS e CORES = as do ERP normal. Do ERP antigo ficam só a barra lateral (marinho, com o dourado
+   nos títulos das seções e no item escolhido) e os botões principais (marinho). Ficam do premium: cartões autônomos nos números,
+   tabelas dentro de cartões com a 1ª linha azul e letra branca (tabela sem listras), filtro Grupo/Empresa em pílula, ícones das
+   telas em azul, fio azul/dourado no cartão do gráfico ao passar o mouse, P2 (▲/▼ no número) e P7 (gráfico com área).
    ═══════════════════════════════════════════════════════════════════════════ */
 :root[data-visual="premium"]{
-  --pm-navy:#1B2A4A;--pm-navy2:#243659;--pm-navy3:#2E5EAA;--pm-blue:#2563EB;--pm-blue-d:#1D4ED8;--pm-gold:#C9A84C;--pm-gold-lt:#F5EDD6;
-  --pm-bg:#F0F2F7;--pm-card:#FFFFFF;--pm-borda:rgba(27,42,74,.10);--pm-borda-forte:rgba(27,42,74,.18);
-  --pm-sombra:0 1px 2px rgba(16,24,40,.05),0 1px 3px rgba(16,24,40,.06);--pm-sombra-alta:0 10px 28px rgba(16,24,40,.12);
-  --pm-zebra:rgba(27,42,74,.025);--pm-hover:rgba(37,99,235,.07);--pm-limpar:#DC2626;
-  --pm-titulo:'Playfair Display',Georgia,serif;--pm-num:'JetBrains Mono',ui-monospace,monospace;
-  /* os tokens do ERP passam a usar a paleta antiga */
-  --primario:#1B2A4A;--primario-hover:#243659;--on-primario:#FFFFFF;--selecao:#1B2A4A;--on-selecao:#FFFFFF;--primario-lt:#E8EEF8;--link:#2563EB;
-  --bg:#F0F2F7;--th-bg:#1B2A4A;--th-fg:#FFFFFF;--titulo:#1B2A4A;
+  --pm-navy:#1B2A4A;--pm-navy2:#243659;--pm-navy3:#2E5EAA;--pm-gold:#C9A84C;
+  --pm-borda:var(--border,rgba(27,42,74,.10));--pm-sombra:0 1px 2px rgba(16,24,40,.05),0 1px 3px rgba(16,24,40,.06);--pm-sombra-alta:0 10px 28px rgba(16,24,40,.12);
+  --pm-limpar:#DC2626;
+  /* só a barra lateral troca de cor (ERP antigo) */
   --lado-bg:#1B2A4A;--lado-fg:rgba(255,255,255,.78);--lado-fg-2:rgba(255,255,255,.55);--lado-sec:rgba(201,168,76,.75);--lado-linha:rgba(201,168,76,.18);
   --lado-ativo-bg:rgba(201,168,76,.14);--lado-ativo-fg:#E2C77A;--lado-hover:rgba(255,255,255,.06);
 }
 :root[data-visual="premium"][data-tema="escuro"]{
-  --pm-navy:#0F1B33;--pm-navy2:#16243F;--pm-blue:#6E97DB;--pm-blue-d:#8DB0EA;--pm-gold:#D6B865;--pm-gold-lt:rgba(214,184,101,.14);
-  --pm-bg:#060B16;--pm-card:#0D1527;--pm-borda:rgba(255,255,255,.08);--pm-borda-forte:rgba(255,255,255,.16);
-  --pm-sombra:0 1px 2px rgba(0,0,0,.5);--pm-sombra-alta:0 12px 30px rgba(0,0,0,.6);--pm-zebra:rgba(255,255,255,.025);--pm-hover:rgba(110,151,219,.10);--pm-limpar:#F87171;
-  --primario:#2E5EAA;--primario-hover:#3A6CBD;--on-primario:#FFFFFF;--selecao:#2E5EAA;--primario-lt:rgba(110,151,219,.16);--link:#8DB0EA;
-  --bg:#060B16;--surface:#0D1527;--th-bg:#16243F;--th-fg:#E8EDF7;--titulo:#E8EDF7;--lado-bg:#0A1326;
+  --pm-navy:#16243F;--pm-navy2:#1E3052;--pm-sombra:0 1px 2px rgba(0,0,0,.5);--pm-sombra-alta:0 12px 30px rgba(0,0,0,.6);--pm-limpar:#F87171;--lado-bg:#0A1326;
 }
-
-/* ── fundo com "halos" discretos nas cores da casa ── */
-html[data-visual="premium"] body.gx-barra-topo{background:var(--pm-bg) radial-gradient(1200px 520px at 100% -10%,rgba(37,99,235,.07),transparent 60%) fixed,
-  radial-gradient(900px 420px at -10% 110%,rgba(201,168,76,.07),transparent 60%) fixed}
-html[data-visual="premium"] body.gx-barra-topo #main:not(#_),html[data-visual="premium"] body.gx-barra-topo .gs-area:not(#_){background:transparent}
 
 /* ── faixa "teste" no pé da tela ── */
 #gx-faixa-premium{position:fixed;left:50%;bottom:14px;transform:translateX(-50%);z-index:3000;display:flex;align-items:center;gap:12px;padding:7px 8px 7px 16px;
-  border-radius:999px;background:#1B2A4A;color:#F5EDD6;font:600 12px 'Inter',system-ui,sans-serif;box-shadow:0 8px 24px rgba(0,0,0,.25);border:1px solid rgba(201,168,76,.45)}
-#gx-faixa-premium button{border:0;border-radius:999px;padding:5px 12px;background:#C9A84C;color:#1B2A4A;font:700 12px 'Inter',system-ui,sans-serif;cursor:pointer}
+  border-radius:999px;background:#1B2A4A;color:#F5EDD6;font:600 12px var(--font-ui,'Inter',system-ui,sans-serif);box-shadow:0 8px 24px rgba(0,0,0,.25);border:1px solid rgba(201,168,76,.45)}
+#gx-faixa-premium button{border:0;border-radius:999px;padding:5px 12px;background:#C9A84C;color:#1B2A4A;font:700 12px var(--font-ui,'Inter',system-ui,sans-serif);cursor:pointer}
 
-/* ── barra do alto e lateral ── */
-html[data-visual="premium"] body.gx-barra-topo #gs-hd:not(#_){background:var(--pm-card)!important;border-bottom:1px solid var(--pm-borda)!important;box-shadow:0 1px 0 rgba(201,168,76,.35)}
+/* ── 4 / 4.1 / 4.2: barra lateral do ERP antigo (marinho), dourado nos títulos das seções e no item escolhido ── */
 html[data-visual="premium"] body.gx-barra-topo #gs-lado:not(#_){background:linear-gradient(180deg,#1B2A4A 0%,#18253F 100%)!important;border-right:1px solid rgba(201,168,76,.18)}
 html[data-visual="premium"][data-tema="escuro"] body.gx-barra-topo #gs-lado:not(#_){background:linear-gradient(180deg,#0B152A 0%,#081022 100%)!important}
-html[data-visual="premium"] body.gx-barra-topo #gs-lado .gl-nome:not(#_){font-family:var(--pm-titulo);color:var(--pm-gold);font-size:19px;letter-spacing:-.01em}
-html[data-visual="premium"] body.gx-barra-topo #gs-lado .gl-nome small:not(#_){font-family:'Inter',sans-serif;color:rgba(255,255,255,.45);letter-spacing:.08em;text-transform:uppercase;font-size:9.5px}
+html[data-visual="premium"] body.gx-barra-topo #gs-lado .gl-nome:not(#_){color:var(--pm-gold)}
 html[data-visual="premium"] body.gx-barra-topo #gs-lado .tn-sec:not(#_){color:rgba(201,168,76,.8)}
 html[data-visual="premium"] body.gx-barra-topo #gs-lado :is(.tn-it,.tn-menu button).on:not(#_),
 html[data-visual="premium"] body.gx-barra-topo #gs-lado :is(.tn-it,.tn-menu button)[aria-current]:not(#_){background:rgba(201,168,76,.14)!important;color:#E9CF86!important;box-shadow:inset 3px 0 0 #C9A84C}
 
-/* ── títulos: Playfair, marinho ── */
-html[data-visual="premium"] body.gx-barra-topo .gs .b-cab h1:not(#_),html[data-visual="premium"] body.gx-barra-topo .gs .titulo-pag h1:not(#_){font-family:var(--pm-titulo)!important;font-size:24px!important;font-weight:700!important;color:var(--titulo)!important;letter-spacing:-.01em}
-html[data-visual="premium"] body.gx-barra-topo .gs .b-cab-ic:not(#_){background:linear-gradient(135deg,#1B2A4A,#2E5EAA);color:#F5EDD6;border:0;box-shadow:var(--pm-sombra)}
-html[data-visual="premium"] body.gx-barra-topo .gs :is(.b-sec h2,.b-sec-tit h2,.b-quadro-hd h2,.b-fin-hd h3,.ini-sec-hd h2,.b-bloco h3):not(#_){font-family:var(--pm-titulo)!important;font-weight:700!important;color:var(--titulo)!important;letter-spacing:-.01em}
+/* ── 4: botões principais em marinho (ERP antigo) ── */
+html[data-visual="premium"] body.gx-barra-topo .gs .btn.btn-p:not(#_),html[data-visual="premium"] body.gx-barra-topo .gs .b-bt.btn-p:not(#_){background:#1B2A4A!important;border-color:#1B2A4A!important;color:#FFFFFF!important}
+html[data-visual="premium"] body.gx-barra-topo .gs .btn.btn-p:hover:not(#_){background:#243659!important;border-color:#243659!important}
+html[data-visual="premium"] body.gx-barra-topo .tn-lancar-bt:not(#_){background:#1B2A4A!important;border-color:#1B2A4A!important;color:#FFFFFF!important}
+html[data-visual="premium"] body.gx-barra-topo .tn-lancar-bt:hover:not(#_){background:#243659!important}
 
-/* ── 1.2: os números viram CARTÕES AUTÔNOMOS (cada um com a sua borda colorida à esquerda) ── */
-html[data-visual="premium"] body.gx-barra-topo .gs .b-nums.b-nums-faixa:not(#_){display:grid!important;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:14px!important;background:none!important;border:0!important;box-shadow:none!important;padding:0!important;border-radius:0!important}
-html[data-visual="premium"] body.gx-barra-topo .gs .b-nums.b-nums-faixa > div:not(#_){background:var(--pm-card)!important;border:1px solid var(--pm-borda)!important;border-left:3px solid var(--pm-blue)!important;border-radius:14px!important;
-  padding:16px 18px 14px!important;box-shadow:var(--pm-sombra);transition:box-shadow .2s,transform .2s;min-height:92px}
+/* ── 7: ícone de cada tela em azul (degradê), como no premium ── */
+html[data-visual="premium"] body.gx-barra-topo .gs .b-cab-ic:not(#_){background:linear-gradient(135deg,#1B2A4A,#2E5EAA);color:#FFFFFF;border:0;box-shadow:var(--pm-sombra)}
+
+/* ── 1: os números viram CARTÕES AUTÔNOMOS (cores e letras do ERP normal) ── */
+html[data-visual="premium"] body.gx-barra-topo .gs .b-nums.b-nums-faixa:not(#_){display:grid!important;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px!important;background:none!important;border:0!important;box-shadow:none!important;padding:0!important;border-radius:0!important}
+html[data-visual="premium"] body.gx-barra-topo .gs .b-nums.b-nums-faixa > div:not(#_){background:var(--surface)!important;border:1px solid var(--pm-borda)!important;border-left:3px solid var(--primario)!important;border-radius:14px!important;
+  padding:16px 18px 14px!important;box-shadow:var(--pm-sombra);transition:box-shadow .2s,transform .2s;min-height:92px;min-width:0}
 html[data-visual="premium"] body.gx-barra-topo .gs .b-nums.b-nums-faixa > div:hover:not(#_){box-shadow:var(--pm-sombra-alta);transform:translateY(-2px)}
-html[data-visual="premium"] body.gx-barra-topo .gs .b-nums.b-nums-faixa > div:has(> b.b-verm):not(#_){border-left-color:#DC2626!important}
-html[data-visual="premium"] body.gx-barra-topo .gs .b-nums.b-nums-faixa > div:has(> b.b-verde):not(#_){border-left-color:#16A34A!important}
-html[data-visual="premium"] body.gx-barra-topo .gs .b-nums.b-nums-faixa > div > span:not(#_){font:700 10.5px var(--font-ui)!important;letter-spacing:.08em;text-transform:uppercase;color:var(--text3)!important}
-html[data-visual="premium"] body.gx-barra-topo .gs .b-nums.b-nums-faixa > div > b:not(#_){font-family:var(--pm-num)!important;font-size:22px!important;font-weight:700!important;letter-spacing:-.02em;color:var(--pm-blue-d)!important;margin-top:8px;display:block}
-html[data-visual="premium"] body.gx-barra-topo .gs .b-nums.b-nums-faixa > div > b.b-verm:not(#_){color:#DC2626!important}
-html[data-visual="premium"] body.gx-barra-topo .gs .b-nums.b-nums-faixa > div > b.b-verde:not(#_){color:#16A34A!important}
-html[data-visual="premium"][data-tema="escuro"] body.gx-barra-topo .gs .b-nums.b-nums-faixa > div > b:not(.b-verm):not(.b-verde):not(#_){color:var(--pm-blue-d)!important}
-html[data-visual="premium"] body.gx-barra-topo .gs .b-nums.b-nums-faixa > div > small:not(#_){font-size:11px!important;color:var(--text3)!important;margin-top:6px}
+html[data-visual="premium"] body.gx-barra-topo .gs .b-nums.b-nums-faixa > div:has(> b.b-verm):not(#_){border-left-color:var(--red)!important}
+html[data-visual="premium"] body.gx-barra-topo .gs .b-nums.b-nums-faixa > div:has(> b.b-verde):not(#_){border-left-color:var(--green)!important}
+html[data-visual="premium"] body.gx-barra-topo .gs .b-nums.b-nums-faixa > div > b:not(#_){margin-top:6px;display:block}
+/* Painel: o "RFB · PGFN · AGE/MG" do Passivo total quebra linha dentro do cartão (antes cortava em "…") */
+html[data-visual="premium"] body.gx-barra-topo .gs .b-nums.b-nums-faixa > div > small:not(#_){white-space:normal!important;overflow:visible!important;text-overflow:clip!important;margin-top:6px;line-height:1.4}
 
-/* ── 1.2: TODAS as tabelas dentro de cartões; 1.3: a 1ª linha (títulos) em marinho ── */
-html[data-visual="premium"] body.gx-barra-topo .gs :is(.b-quadro,.b-fin-cartao,.b-bloco,.b-faixa-av,.cg,.b-cg,.card,.cc):not(#_){background:var(--pm-card)!important;border:1px solid var(--pm-borda)!important;border-radius:16px!important;box-shadow:var(--pm-sombra)!important}
-html[data-visual="premium"] body.gx-barra-topo .gs .b-quadro:not(#_){overflow:hidden;padding:0}
+/* ── P2: ▲/▼ e quanto mudou desde o mês anterior ── */
+html[data-visual="premium"] .gs .b-tend:not(#_){display:inline-flex;align-items:center;vertical-align:middle;margin-left:8px;padding:2px 7px;border-radius:999px;font:600 11px var(--font-ui);font-style:normal;white-space:nowrap}
+html[data-visual="premium"] .gs .b-tend.b-tend-bom:not(#_){background:var(--green-lt,#DCFCE7);color:var(--green,#16A34A)}
+html[data-visual="premium"] .gs .b-tend.b-tend-ruim:not(#_){background:var(--red-lt,#FEE2E2);color:var(--red,#DC2626)}
+html[data-visual="premium"] .gs .b-tend.b-tend-igual:not(#_){background:var(--surface2,#F3F4F6);color:var(--text3)}
+
+/* ── P7: gráfico de linha com a área em degradê azul, grade leve e o último ponto destacado ── */
+html[data-visual="premium"] .gs .b-glin-fill:not(#_){display:inline}
+html[data-visual="premium"] .gs .b-glin-grade:not(#_){display:inline;stroke:var(--line,rgba(0,0,0,.08));stroke-width:1;stroke-dasharray:3 4}
+html[data-visual="premium"] .gs .b-glin-g0{stop-color:var(--primario);stop-opacity:.22}
+html[data-visual="premium"] .gs .b-glin-g1{stop-color:var(--primario);stop-opacity:0}
+html[data-visual="premium"] .gs .b-glin-p.b-glin-ult:not(#_){width:13px;height:13px;background:var(--primario);border:3px solid var(--surface);box-shadow:0 0 0 4px color-mix(in srgb,var(--primario) 22%,transparent)}
+
+/* ── 2: tabelas dentro de cartões (moldura branca em volta) e 3: 1ª linha azul com letra branca (letra do ERP normal) ── */
+html[data-visual="premium"] body.gx-barra-topo .gs :is(.b-quadro,.b-fin-cartao,.b-cg,.card):not(#_){border-radius:16px!important;box-shadow:var(--pm-sombra)!important}
+html[data-visual="premium"] body.gx-barra-topo .gs .b-quadro:not(#_){background:var(--surface)!important;border:1px solid var(--pm-borda)!important;padding:8px!important;box-shadow:0 2px 6px rgba(16,24,40,.06),0 8px 24px rgba(16,24,40,.06)!important}
+html[data-visual="premium"] body.gx-barra-topo .gs .b-quadro > .b-rola:not(#_){border:0!important;border-radius:10px;overflow:auto}
+html[data-visual="premium"] body.gx-barra-topo .gs .b-quadro > .b-quadro-hd:not(#_){padding:6px 8px 10px}
 html[data-visual="premium"] body.gx-barra-topo .gs :is(.b-fin-cartao,.b-cg):not(#_){position:relative;transition:box-shadow .22s,transform .22s}
 html[data-visual="premium"] body.gx-barra-topo .gs :is(.b-fin-cartao,.b-cg):hover:not(#_){box-shadow:var(--pm-sombra-alta)!important}
+/* Financeiro: o cartão do gráfico ganha o fio azul e dourado ao passar o mouse */
 html[data-visual="premium"] body.gx-barra-topo .gs .b-fin-cartao::before{content:"";position:absolute;inset:0 0 auto;height:2px;border-radius:16px 16px 0 0;background:linear-gradient(90deg,#2E5EAA,#C9A84C 85%);opacity:0;transition:opacity .22s}
 html[data-visual="premium"] body.gx-barra-topo .gs .b-fin-cartao:hover::before{opacity:1}
-html[data-visual="premium"] body.gx-barra-topo .gs table.b-tab thead th:not(#_){background:var(--pm-navy)!important;color:#FFFFFF!important;font-family:var(--pm-titulo)!important;font-size:12px!important;font-weight:700!important;
-  text-transform:none!important;letter-spacing:0!important;border-bottom:0!important}
-html[data-visual="premium"] body.gx-barra-topo .gs table.b-tab thead th[aria-sort]:not(#_),html[data-visual="premium"] body.gx-barra-topo .gs table.b-tab thead th.b-ord:hover:not(#_){color:#E9CF86!important}
-html[data-visual="premium"] body.gx-barra-topo .gs table.b-tab tbody tr:nth-child(even) td:not(#_){background:var(--pm-zebra)}
-html[data-visual="premium"] body.gx-barra-topo .gs table.b-tab tbody tr.b-cl:hover td:not(#_){background:var(--pm-hover)!important}
-html[data-visual="premium"] body.gx-barra-topo .gs table.b-tab td.b-val:not(#_){font-family:var(--pm-num)!important;font-size:12.5px!important}
-/* tabelas antigas (Rotina, Clientes, Administração…) */
-html[data-visual="premium"] body.gx-barra-topo .gs :is(.tw,.tabela-wrap,.cli-tabela) table thead th:not(#_){background:var(--pm-navy)!important;color:#FFFFFF!important;font-family:var(--pm-titulo)!important;text-transform:none!important;letter-spacing:0!important}
+html[data-visual="premium"] body.gx-barra-topo .gs table.b-tab thead th:not(#_),
+html[data-visual="premium"] body.gx-barra-topo .gs :is(.tw,.tabela-wrap,.cli-tabela) table thead th:not(#_){background:var(--pm-navy)!important;color:#FFFFFF!important;border-bottom:0!important}
+html[data-visual="premium"] body.gx-barra-topo .gs table.b-tab thead th:first-child:not(#_){border-top-left-radius:10px}
+html[data-visual="premium"] body.gx-barra-topo .gs table.b-tab thead th:last-child:not(#_){border-top-right-radius:10px}
+html[data-visual="premium"] body.gx-barra-topo .gs table.b-tab thead th[aria-sort]:not(#_),html[data-visual="premium"] body.gx-barra-topo .gs table.b-tab thead th.b-ord:hover:not(#_){color:#FFFFFF!important}
+/* 8: tabela sem listras — da 2ª linha em diante o fundo é sempre branco (só a linha sob o mouse muda) */
+html[data-visual="premium"] body.gx-barra-topo .gs :is(table.b-tab,.tw table,.tabela-wrap table,.cli-tabela table) tbody tr:not(:hover) > td:not(#_){background:var(--surface)!important}
 
-/* ── 1.5: filtro de Grupo/Empresa = barra marinho, "Limpar" sempre à vista em vermelho suave ── */
-html[data-visual="premium"] body.gx-barra-topo .gs .b-fsus.b-fsus-fixo:not(#_){background:transparent;border:0;box-shadow:none}
+/* ── 5: filtro de Grupo/Empresa = barra marinho, "Limpar" sempre à vista em vermelho suave ── */
+html[data-visual="premium"] body.gx-barra-topo .gs .b-fsus.b-fsus-fixo:not(#_){background:transparent;border:0;box-shadow:none;gap:0;align-items:center}
 html[data-visual="premium"] body.gx-barra-topo .gs .b-fsus.b-fsus-fixo > :first-child{margin-left:auto}
-html[data-visual="premium"] body.gx-barra-topo .gs .b-fsus.b-fsus-fixo:not(#_){gap:0}
-html[data-visual="premium"] body.gx-barra-topo .gs .b-fsus .b-fsus-rot:not(#_){display:inline-block;padding:8px 4px 8px 14px;margin-left:auto;background:var(--pm-navy);color:rgba(201,168,76,.9);font:700 10px var(--font-ui);letter-spacing:.12em;text-transform:uppercase;border-radius:999px 0 0 999px}
-html[data-visual="premium"] body.gx-barra-topo .gs .b-fsus .b-fsus-c:not(#_){background:var(--pm-navy);padding:5px 6px;margin:0}
+html[data-visual="premium"] body.gx-barra-topo .gs .b-fsus .b-fsus-rot:not(#_){display:inline-block;margin-left:auto;background:var(--pm-navy);color:rgba(201,168,76,.9);font-weight:700;font-size:10px;letter-spacing:.12em;text-transform:uppercase}
+html[data-visual="premium"] body.gx-barra-topo .gs .b-fsus .b-fsus-c:not(#_){background:var(--pm-navy)}
 html[data-visual="premium"] body.gx-barra-topo .gs .b-fsus .b-fsus-c > span:not(#_){display:none}
 html[data-visual="premium"] body.gx-barra-topo .gs .b-fsus select:not(#_){background-color:var(--pm-navy2)!important;color:#FFFFFF!important;border:1px solid rgba(255,255,255,.14)!important;border-radius:999px!important;padding:5px 30px 5px 12px!important;font-weight:600!important;
   background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23C9A84C' stroke-width='1.6' fill='none'/%3E%3C/svg%3E")!important;background-repeat:no-repeat!important;background-position:right 11px center!important}
-html[data-visual="premium"] body.gx-barra-topo .gs .b-fsus .b-fsus-limpar:not(#_),html[data-visual="premium"] body.gx-barra-topo .gs .b-fsus .b-fsus-limpar.b-fsus-limpar-x:not(#_){display:inline-flex;align-items:center;gap:5px;background:var(--pm-navy);color:#FCA5A5;text-decoration:none;font:600 12px var(--font-ui);
-  padding:5px 14px 5px 6px;border-radius:0 999px 999px 0;margin:0}
+html[data-visual="premium"] body.gx-barra-topo .gs .b-fsus .b-fsus-limpar:not(#_),html[data-visual="premium"] body.gx-barra-topo .gs .b-fsus .b-fsus-limpar.b-fsus-limpar-x:not(#_){display:inline-flex;align-items:center;gap:5px;background:var(--pm-navy);color:#FCA5A5;text-decoration:none;font-weight:600;font-size:12px}
 html[data-visual="premium"] body.gx-barra-topo .gs .b-fsus .b-fsus-limpar:not(#_)::before{content:"✕";display:inline-grid;place-items:center;background:rgba(220,38,38,.18);border:1px solid rgba(248,113,113,.4);border-radius:999px;padding:3px 9px;color:#FCA5A5;font-size:11px}
-html[data-visual="premium"] body.gx-barra-topo .gs .b-fsus .b-fsus-limpar.b-fsus-limpar-x:not(#_){opacity:.75}
-html[data-visual="premium"] body.gx-barra-topo .gs .b-fsus.b-fsus-fixo > .b-fsus-c:last-of-type{border-radius:0}
-
-/* ── controles: escolhido em marinho, botões principais em marinho com hover azul ── */
-html[data-visual="premium"] body.gx-barra-topo .gs .b-seg:not(#_){background:var(--pm-card);border-color:var(--pm-borda)!important;box-shadow:var(--pm-sombra)}
-html[data-visual="premium"] body.gx-barra-topo .gs .b-seg-bt[aria-selected="true"]:not(#_),html[data-visual="premium"] body.gx-barra-topo .gs .b-seg-bt[aria-pressed="true"]:not(#_){background:var(--pm-navy)!important;color:#FFFFFF!important;box-shadow:inset 0 -2px 0 #C9A84C}
-html[data-visual="premium"] body.gx-barra-topo .gs .btn.btn-p:not(#_),html[data-visual="premium"] body.gx-barra-topo .gs .b-bt.btn-p:not(#_){background:linear-gradient(180deg,#243659,#1B2A4A)!important;border-color:#1B2A4A!important;color:#FFFFFF!important;box-shadow:0 1px 2px rgba(16,24,40,.2)}
-html[data-visual="premium"] body.gx-barra-topo .gs .btn.btn-p:hover:not(#_){background:linear-gradient(180deg,#2E5EAA,#2563EB)!important;border-color:#2563EB!important}
-html[data-visual="premium"] body.gx-barra-topo .tn-lancar-bt:not(#_){background:linear-gradient(180deg,#243659,#1B2A4A)!important;border:1px solid rgba(201,168,76,.45)!important;color:#F5EDD6!important}
-
-/* ── janelas: cabeçalho com o fio dourado ── */
-html[data-visual="premium"] body.gx-barra-topo .gs .janela:not(#_){border-radius:18px!important;border:1px solid var(--pm-borda);box-shadow:0 24px 60px rgba(16,24,40,.28)!important}
-html[data-visual="premium"] body.gx-barra-topo .gs .janela-hd:not(#_){border-bottom:1px solid var(--pm-borda);background:linear-gradient(180deg,rgba(201,168,76,.06),transparent)}
-html[data-visual="premium"] body.gx-barra-topo .gs .janela-hd h2:not(#_){font-family:var(--pm-titulo)!important;font-size:19px!important}
-html[data-visual="premium"] body.gx-barra-topo .gs .j-kick:not(#_){color:#B08A2E!important;letter-spacing:.1em;text-transform:uppercase;font-size:10.5px!important;font-weight:700!important}
-/* barra de filtros: uma pílula contínua da mesma altura (rótulo · listas · Limpar) */
-html[data-visual="premium"] body.gx-barra-topo .gs .b-fsus.b-fsus-fixo:not(#_){align-items:center}
+/* uma pílula contínua da mesma altura (rótulo · listas · Limpar) */
 html[data-visual="premium"] body.gx-barra-topo .gs .b-fsus.b-fsus-fixo > :is(.b-fsus-rot,.b-fsus-c,.b-fsus-limpar):not(#_){height:42px;display:inline-flex;align-items:center;box-sizing:border-box;margin:0;border-radius:0}
 html[data-visual="premium"] body.gx-barra-topo .gs .b-fsus.b-fsus-fixo > .b-fsus-rot:not(#_){border-radius:999px 0 0 999px;padding:0 6px 0 16px}
 html[data-visual="premium"] body.gx-barra-topo .gs .b-fsus.b-fsus-fixo > .b-fsus-c:not(#_){padding:0 3px}
 html[data-visual="premium"] body.gx-barra-topo .gs .b-fsus.b-fsus-fixo > .b-fsus-limpar:not(#_){border-radius:0 999px 999px 0;padding:0 14px 0 6px;opacity:1}
 html[data-visual="premium"] body.gx-barra-topo .gs .b-fsus.b-fsus-fixo > .b-fsus-limpar.b-fsus-limpar-x:not(#_){color:rgba(252,165,165,.7)}
+
+/* ── janelas: cantos e sombra do premium (cores e letras do normal) ── */
+html[data-visual="premium"] body.gx-barra-topo .gs .janela:not(#_){border-radius:18px!important;box-shadow:0 24px 60px rgba(16,24,40,.28)!important}
+
+/* ── celular: o filtro vira UMA caixa marinho (as listas uma embaixo da outra) e a faixa "teste" fica curta ── */
+@media (max-width:600px){
+  html[data-visual="premium"] body.gx-barra-topo .gs .b-fsus.b-fsus-fixo:not(#_){background:var(--pm-navy);border-radius:16px;padding:10px 12px;gap:8px;margin:0 0 14px}
+  html[data-visual="premium"] body.gx-barra-topo .gs .b-fsus.b-fsus-fixo > :is(.b-fsus-rot,.b-fsus-c,.b-fsus-limpar):not(#_){height:auto;background:transparent;border-radius:0;padding:0;margin:0}
+  html[data-visual="premium"] body.gx-barra-topo .gs .b-fsus.b-fsus-fixo > .b-fsus-c:not(#_){flex:1 1 100%}
+  html[data-visual="premium"] body.gx-barra-topo .gs .b-fsus.b-fsus-fixo > .b-fsus-c select:not(#_){width:100%}
+  #gx-faixa-premium{white-space:nowrap;font-size:11px;padding:5px 6px 5px 12px;bottom:calc(var(--bn-h,64px) + 10px)}
+}

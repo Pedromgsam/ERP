@@ -721,6 +721,19 @@ O que mudou:
 
 Ainda falta (próxima rodada): apagar o ERP antigo (ERP.html, remendos e blocos antigos do design.css).
 
+## Backup 90 — Visual premium ajustado (só o premium muda; o ERP normal fica igual)
+1. Merge da pull request.
+2. **Não há SQL** nesta versão.
+3. **Ctrl+Shift+R** no ERP. Para ver: ⋯ (barra do alto) → "✦ Visual premium (teste)".
+
+O que mudou no visual premium (respostas de 16/10):
+- **Letras e cores = as do ERP normal.** Do ERP antigo ficaram só a **barra lateral** (marinho, com o dourado nos títulos das seções e no item escolhido) e os **botões principais** (marinho). Saíram o azul nos valores, o dourado dos detalhes, o fundo com "halos" e as letras Playfair/JetBrains.
+- **Números em cartões separados**, com as cores do normal (borda azul; vermelha no passivo em disputa; verde no ativo). No Painel, o "RFB · PGFN · AGE/MG" do Passivo total quebra linha e cabe no cartão.
+- **Tabelas dentro de cartões**: moldura branca em volta, 1ª linha em azul com letra branca (letra do normal), **sem listras** (fundo sempre branco).
+- Ficam como estavam: filtro Grupo/Empresa em pílula marinho com "Limpar filtro" sempre à vista, ícones das telas em azul, fio azul e dourado no cartão do gráfico ao passar o mouse. No celular o filtro vira uma caixa marinho.
+- **P2:** ▲/▼ e quanto mudou desde o mês anterior no Passivo total (Painel; descer = verde) e no Recebido do Fluxo do mês (Financeiro; subir = verde).
+- **P7:** gráfico da Evolução do passivo com a área em degradê azul, grade leve e o último ponto destacado.
+
 ## Backup 89 — Visual premium (novo ambiente de teste), Início "Hoje" e os ajustes pedidos
 1. Merge da pull request.
 2. **SQL no Supabase** (Raw → Ctrl+A/Ctrl+C → conferir a última linha "fim do Backup 89" → Run).
@@ -733,7 +746,7 @@ O que mudou:
 - **D2:** cabeçalho com no máximo dois botões; em Publicações, "Marcar todas as novas como lidas" foi para o ⋯.
 - **D4:** linhas das tabelas um pouco mais baixas; com um grupo escolhido no alto, a coluna Grupo some (Painel, Processos, Parcelamentos, Acordos).
 - **D5:** clicar num lançamento abre o detalhe no molde único (tipo em cima, números, ficha, Editar no rodapé; Recibo por e-mail/WhatsApp quando pago); clicar numa tarefa da Lista abre o detalhe curto (Concluir · Editar · Ficha completa), o mesmo do calendário.
-- **D6/D7:** modo escuro conferido tela a tela; no tablet a lateral encolhe sozinha; no celular o cabeçalho da tela empilha, a barra do alto não quebra e os filtros do alto rolam para o lado.
+- **D6/D7:** modo escuro conferido tela a tela; no tablet a lateral encolhe sozinha; no celular o cabeçalho da tela empilha, a barra do alto não quebra e os filtros do alto ficam um embaixo do outro.
 - **Tarefas:** trocar o tipo na "Nova tarefa" (Tarefa ↔ Rotina ↔ Reunião ↔ Audiência) troca a janela no lugar, sem fechar e abrir, e leva junto o que já foi digitado; o dia escolhido na Rotina ficou legível.
 - **Publicações:** aparecem TODOS os advogados do escritório citados na intimação (cada um do lado que representa) e todos recebem o e-mail do dia.
 - **Financeiro:** o Fluxo do mês voltou ao cálculo anterior (base = o que vence no mês), sem a linha "Fora deste mês"; o gráfico da Contabilidade usa o mesmo verde e vermelho do gráfico do Jurídico.
