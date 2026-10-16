@@ -133,9 +133,14 @@ function graficoLinhaB(pontos) {
   if (!ps.length) return '<p class="b-barras-vazio">Sem passivo lançado no período.</p>';
   const vs = ps.map((p) => p.v), max = Math.max(...vs), min = Math.min(...vs), rng = (max - min) || 1;
   const xy = ps.map((p, i) => [ps.length > 1 ? i / (ps.length - 1) * 100 : 50, 8 + (1 - (p.v - min) / rng) * 84]);
+  const gid = 'b-glin-g' + (graficoLinhaB.n = (graficoLinhaB.n || 0) + 1);
   return '<div class="b-glin"><div class="b-glin-y"><span>' + esc(brlCurto(max)) + '</span><span>' + esc(brlCurto(min)) + '</span></div><div class="b-glin-area">' +
-    '<svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"><polyline points="' + xy.map((q) => q.join(',')).join(' ') + '" fill="none" stroke="var(--primario)" stroke-width="2.5" vector-effect="non-scaling-stroke"/></svg>' +
-    xy.map((q, i) => '<span class="b-glin-p" style="left:' + q[0] + '%;top:' + q[1] + '%" title="' + esc(ps[i].dica || ps[i].rot + ': ' + brl(ps[i].v)) + '"></span>').join('') + '</div>' +
+    // Backup 90 (P7): área em degradê, grade leve e o último ponto destacado — desenhados sempre, mas só aparecem no visual premium (base.css esconde)
+    '<svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"><defs><linearGradient id="' + gid + '" x1="0" y1="0" x2="0" y2="1"><stop offset="0" class="b-glin-g0"/><stop offset="1" class="b-glin-g1"/></linearGradient></defs>' +
+      [25, 50, 75].map((y) => '<line class="b-glin-grade" x1="0" x2="100" y1="' + y + '" y2="' + y + '" vector-effect="non-scaling-stroke"/>').join('') +
+      (xy.length > 1 ? '<polygon class="b-glin-fill" fill="url(#' + gid + ')" points="' + xy[0][0] + ',100 ' + xy.map((q) => q.join(',')).join(' ') + ' ' + xy[xy.length - 1][0] + ',100"/>' : '') +
+      '<polyline points="' + xy.map((q) => q.join(',')).join(' ') + '" fill="none" stroke="var(--primario)" stroke-width="2.5" vector-effect="non-scaling-stroke"/></svg>' +
+    xy.map((q, i) => '<span class="b-glin-p' + (i === xy.length - 1 ? ' b-glin-ult' : '') + '" style="left:' + q[0] + '%;top:' + q[1] + '%" title="' + esc(ps[i].dica || ps[i].rot + ': ' + brl(ps[i].v)) + '"></span>').join('') + '</div>' +
     '<div class="b-glin-x">' + ps.map((p) => '<small>' + esc(p.rot) + '</small>').join('') + '</div></div>';
 }
 function graficoColunasB(meses, series, opc) {

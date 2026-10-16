@@ -89,6 +89,9 @@ async function evolucaoPE() {
   const ms = meses.filter((m) => comDado.has(m));
   while (ms.length > 1 && !tot(ms[0])) ms.shift();   // meses do começo com passivo zero não entram (a linha não "cai para zero")
   gr.innerHTML = graficoLinhaB(ms.map((m) => ({ rot: rot(m), v: tot(m), dica: rot(m) + ': ' + brl(tot(m)) })));
+  // Backup 90 (P2): ▲/▼ no Passivo total em relação ao mês anterior (passivo que desce = bom); só aparece no visual premium
+  const bPass = document.querySelector('#pe-nums .b-nums-faixa > div:first-child > b');
+  if (bPass) { const v = bPass.querySelector('.b-tend'); if (v) v.remove(); if (ms.length > 1) bPass.insertAdjacentHTML('beforeend', ' ' + tendB(tot(ms[ms.length - 1]), tot(ms[ms.length - 2]), 'desce')); }
 }
 
 // Backup 84: o negociado em uma palavra, como no ambiente — "R$ 42 mil neg.", "R$ 8 mil neg." (abaixo de R$ 1.000, o valor inteiro)

@@ -691,6 +691,14 @@ function ligarMinB(chave, ids) {
   bt.onclick = () => { const abrir = bt.getAttribute('aria-expanded') !== 'true'; bt.setAttribute('aria-expanded', String(abrir)); try { localStorage.setItem('erp_min_' + chave, abrir ? '0' : '1'); } catch (e) { /* vale só agora */ } aplicar(); };
   aplicar();
 }
+// Backup 90 (P2, só aparece no visual premium — base.css esconde .b-tend): ▲/▼ e quanto mudou desde o mês anterior. bom = 'sobe' | 'desce' (qual direção é boa notícia)
+function tendB(atual, antes, bom) {
+  if (!(antes > 0) || atual == null || !isFinite(atual)) return '';
+  const pc = (atual - antes) / antes * 100, r = Math.round(Math.abs(pc));
+  if (!r) return '<em class="b-tend b-tend-igual" title="Igual ao mês anterior">= 0%</em>';
+  const sobe = pc > 0, cls = (sobe === (bom !== 'desce')) ? 'b-tend-bom' : 'b-tend-ruim';
+  return '<em class="b-tend ' + cls + '" title="' + (sobe ? 'Subiu' : 'Caiu') + ' ' + r + '% em relação ao mês anterior">' + (sobe ? '▲' : '▼') + ' ' + r + '%</em>';
+}
 function numsFaixa(itens) {
   return '<div class="b-nums b-nums-faixa b-nums-' + itens.length + '">' + itens.map((i) => '<div><span>' + esc(i[0]) + '</span><b class="' + (i[3] || '') + '">' + i[1] + '</b>' + (i[2] ? '<small>' + esc(i[2]) + '</small>' : '') + '</div>').join('') + '</div>';
 }
@@ -1286,9 +1294,14 @@ function graficoLinhaB(pontos) {
   if (!ps.length) return '<p class="b-barras-vazio">Sem passivo lançado no período.</p>';
   const vs = ps.map((p) => p.v), max = Math.max(...vs), min = Math.min(...vs), rng = (max - min) || 1;
   const xy = ps.map((p, i) => [ps.length > 1 ? i / (ps.length - 1) * 100 : 50, 8 + (1 - (p.v - min) / rng) * 84]);
+  const gid = 'b-glin-g' + (graficoLinhaB.n = (graficoLinhaB.n || 0) + 1);
   return '<div class="b-glin"><div class="b-glin-y"><span>' + esc(brlCurto(max)) + '</span><span>' + esc(brlCurto(min)) + '</span></div><div class="b-glin-area">' +
-    '<svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"><polyline points="' + xy.map((q) => q.join(',')).join(' ') + '" fill="none" stroke="var(--primario)" stroke-width="2.5" vector-effect="non-scaling-stroke"/></svg>' +
-    xy.map((q, i) => '<span class="b-glin-p" style="left:' + q[0] + '%;top:' + q[1] + '%" title="' + esc(ps[i].dica || ps[i].rot + ': ' + brl(ps[i].v)) + '"></span>').join('') + '</div>' +
+    // Backup 90 (P7): área em degradê, grade leve e o último ponto destacado — desenhados sempre, mas só aparecem no visual premium (base.css esconde)
+    '<svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"><defs><linearGradient id="' + gid + '" x1="0" y1="0" x2="0" y2="1"><stop offset="0" class="b-glin-g0"/><stop offset="1" class="b-glin-g1"/></linearGradient></defs>' +
+      [25, 50, 75].map((y) => '<line class="b-glin-grade" x1="0" x2="100" y1="' + y + '" y2="' + y + '" vector-effect="non-scaling-stroke"/>').join('') +
+      (xy.length > 1 ? '<polygon class="b-glin-fill" fill="url(#' + gid + ')" points="' + xy[0][0] + ',100 ' + xy.map((q) => q.join(',')).join(' ') + ' ' + xy[xy.length - 1][0] + ',100"/>' : '') +
+      '<polyline points="' + xy.map((q) => q.join(',')).join(' ') + '" fill="none" stroke="var(--primario)" stroke-width="2.5" vector-effect="non-scaling-stroke"/></svg>' +
+    xy.map((q, i) => '<span class="b-glin-p' + (i === xy.length - 1 ? ' b-glin-ult' : '') + '" style="left:' + q[0] + '%;top:' + q[1] + '%" title="' + esc(ps[i].dica || ps[i].rot + ': ' + brl(ps[i].v)) + '"></span>').join('') + '</div>' +
     '<div class="b-glin-x">' + ps.map((p) => '<small>' + esc(p.rot) + '</small>').join('') + '</div></div>';
 }
 function graficoColunasB(meses, series, opc) {
@@ -2097,9 +2110,12 @@ function fluxoDoMes(empresa) {
   const recebido = somaV(doMes.filter((l) => l._c === 'recebido')), atraso = somaV(doMes.filter((l) => l._c === 'areceber' && l.vencimento < h)),
     aReceber = somaV(doMes.filter((l) => l._c === 'areceber' && l.vencimento >= h)), previsto = recebido + atraso + aReceber;
   const pc = (v) => (previsto > 0 ? Math.max(0, v / previsto * 100) : 0);
+  // Backup 90 (P2): Recebido comparado ao mês anterior (só aparece no visual premium)
+  const kAnt = (() => { const [a, m] = k.split('-').map(Number); return m === 1 ? (a - 1) + '-12' : a + '-' + String(m - 1).padStart(2, '0'); })();
+  const recAnt = somaV(rec.filter((l) => l._c === 'recebido' && String(l.vencimento || '').startsWith(kAnt)));
   return '<section class="b-fin-cartao b-fluxo" id="fa-fluxo"><div class="b-fin-hd b-fluxo-hd"><div><h3>Fluxo do mês</h3><p>Honorários com vencimento no mês: quanto estava previsto e como está.</p></div>' +
     '<div class="b-fluxo-nav"><button type="button" class="b-bt-f" data-fm="-1" aria-label="Mês anterior">‹</button><b>' + esc(rotMesB(k)) + '</b><button type="button" class="b-bt-f" data-fm="1" aria-label="Próximo mês">›</button></div></div>' +
-    numsFaixa([['Previsto no mês', brl(previsto), 'tudo o que vence no mês'], ['Recebido', brl(recebido), previsto ? Math.round(pc(recebido)) + '% do previsto' : '', 'b-verde'],
+    numsFaixa([['Previsto no mês', brl(previsto), 'tudo o que vence no mês'], ['Recebido', brl(recebido) + ' ' + tendB(recebido, recAnt, 'sobe'), previsto ? Math.round(pc(recebido)) + '% do previsto' : '', 'b-verde'],
       ['Em atraso (deste mês)', brl(atraso), 'venceu e não entrou', atraso ? 'b-verm' : ''], ['A receber', brl(aReceber), 'ainda vai vencer']]) +
     '<div class="b-fluxo-barra" role="img" aria-label="Recebido ' + brl(recebido) + ', em atraso ' + brl(atraso) + ', a receber ' + brl(aReceber) + '">' +
       '<span class="b-fx-rec" style="width:' + pc(recebido) + '%" title="Recebido ' + esc(brl(recebido)) + '"></span><span class="b-fx-atr" style="width:' + pc(atraso) + '%" title="Em atraso ' + esc(brl(atraso)) + '"></span><span class="b-fx-arec" style="width:' + pc(aReceber) + '%" title="A receber ' + esc(brl(aReceber)) + '"></span></div>' +
@@ -10645,6 +10661,9 @@ async function evolucaoPE() {
   const ms = meses.filter((m) => comDado.has(m));
   while (ms.length > 1 && !tot(ms[0])) ms.shift();   // meses do começo com passivo zero não entram (a linha não "cai para zero")
   gr.innerHTML = graficoLinhaB(ms.map((m) => ({ rot: rot(m), v: tot(m), dica: rot(m) + ': ' + brl(tot(m)) })));
+  // Backup 90 (P2): ▲/▼ no Passivo total em relação ao mês anterior (passivo que desce = bom); só aparece no visual premium
+  const bPass = document.querySelector('#pe-nums .b-nums-faixa > div:first-child > b');
+  if (bPass) { const v = bPass.querySelector('.b-tend'); if (v) v.remove(); if (ms.length > 1) bPass.insertAdjacentHTML('beforeend', ' ' + tendB(tot(ms[ms.length - 1]), tot(ms[ms.length - 2]), 'desce')); }
 }
 
 // Backup 84: o negociado em uma palavra, como no ambiente — "R$ 42 mil neg.", "R$ 8 mil neg." (abaixo de R$ 1.000, o valor inteiro)
