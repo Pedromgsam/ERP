@@ -440,11 +440,11 @@ function baixarArquivo(nome, conteudo, tipo) {
 // ─────────────────────────── janelas ───────────────────────────────
 // Backup 63 (reforma): a janela no CENTRO é a única para criar, editar e ver detalhes — kick (linha azul acima do título),
 // sub (linha cinza abaixo) e dir (selo/pílula à direita, antes do ×) são opcionais
-function abrirJanela({ titulo, corpo, rodape, larga, kick, sub, dir, abas }) {   // Backup 85 (JN2): abas = html preso ao cabeçalho (fica parado ao rolar)
+function abrirJanela({ titulo, corpo, rodape, larga, kick, sub, dir, abas, noLugarDe }) {   // Backup 89: noLugarDe = troca a janela aberta por esta, sem fechar/abrir (ex.: Tarefa → Reunião)   // Backup 85 (JN2): abas = html preso ao cabeçalho (fica parado ao rolar)
   // Backup 87: título como no ambiente — sem o emoji/sinal do começo ("✎ Editar…", "📝 Novo aditivo", "+ Nova…")
   titulo = String(titulo == null ? '' : titulo).replace(/^[^\p{L}\p{N}"'(]+(?=\p{L}|\p{N})/u, '');
   const fundo = document.createElement('div');
-  fundo.className = 'fundo';
+  fundo.className = 'fundo' + (noLugarDe ? ' j-troca' : '');
   fundo.innerHTML =
     '<div class="janela' + (larga ? ' larga' : '') + '" role="dialog" aria-modal="true">' +
     '<div class="janela-hd">' + (kick || sub ? '<div class="j-tit">' + (kick ? '<span class="j-kick">' + esc(kick) + '</span>' : '') : '') + '<h2>' + esc(titulo) + '</h2>' +
@@ -456,6 +456,7 @@ function abrirJanela({ titulo, corpo, rodape, larga, kick, sub, dir, abas }) {  
   fundo.addEventListener('mousedown', (ev) => { if (ev.target === fundo) fecharJanela(fundo); });
   fundo.querySelector('[data-fechar]').onclick = () => fecharJanela(fundo);
   $('janelas').appendChild(fundo);
+  if (noLugarDe && noLugarDe.parentNode) { noLugarDe._aoFechar = null; noLugarDe.remove(); }
   const primeiro = fundo.querySelector('input:not([type=hidden]):not([type=checkbox]),select,textarea');
   if (primeiro) setTimeout(() => primeiro.focus(), 50);
   return fundo;
@@ -608,10 +609,23 @@ const ICONES_B = {
 };
 function iconeB(k) { return '<svg class="b-ic" viewBox="0 0 24 24" aria-hidden="true">' + (ICONES_B[k] || '') + '</svg>'; }
 // 1) cabeçalho da tela: ícone + título + frase; à direita "Atualizar" e o botão principal
-function cabecalhoTela({ icone, titulo, frase, atualizar, botao, extra }) {
+// Backup 89 (D2): no máximo dois botões à vista no cabeçalho — as ações raras vão para o "⋯".
+// itens: [[id, rótulo] | html]; cada item é um botão com o MESMO id de antes (quem ligava o clique pelo id continua funcionando)
+function maisB(itens, rotulo) {
+  itens = (itens || []).filter(Boolean); if (!itens.length) return '';
+  return '<span class="b-mais-wrap"><button type="button" class="b-ic-bt b-mais-bt" aria-haspopup="menu" aria-expanded="false" title="' + esc(rotulo || 'Mais ações') + '" aria-label="' + esc(rotulo || 'Mais ações') + '">⋯</button>' +
+    '<div class="b-mais-menu" role="menu" hidden>' + itens.map((i) => (Array.isArray(i) ? '<button type="button" role="menuitem" class="b-mais-it" id="' + esc(i[0]) + '">' + esc(i[1]) + '</button>' : i)).join('') + '</div></span>';
+}
+document.addEventListener('click', (ev) => {
+  const bt = ev.target.closest('.b-mais-bt');
+  document.querySelectorAll('.b-mais-menu:not([hidden])').forEach((m) => { if (!bt || m.previousElementSibling !== bt) { m.hidden = true; m.previousElementSibling.setAttribute('aria-expanded', 'false'); } });
+  if (bt) { const m = bt.nextElementSibling; m.hidden = !m.hidden; bt.setAttribute('aria-expanded', String(!m.hidden)); return; }
+  const it = ev.target.closest('.b-mais-menu .b-mais-it'); if (it) setTimeout(() => { const m = it.closest('.b-mais-menu'); if (m) { m.hidden = true; m.previousElementSibling.setAttribute('aria-expanded', 'false'); } }, 0);
+});
+function cabecalhoTela({ icone, titulo, frase, atualizar, botao, extra, mais }) {
   // Backup 82 (ambiente): "Atualizar" virou um botão só com o ícone; `extra` = outros botões antes do principal (ex.: "Guias do mês")
   return '<div class="b-cab"><div class="b-cab-ic">' + iconeB(icone || 'camadas') + '</div><div class="b-cab-tx"><h1>' + esc(titulo) + '</h1>' + (frase ? '<p>' + esc(frase) + '</p>' : '') + '</div>' +
-    '<div class="b-cab-acoes">' + (atualizar ? '<button type="button" class="b-ic-bt" id="' + esc(atualizar) + '" title="Atualizar" aria-label="Atualizar">' + iconeB('atualizar') + '</button>' : '') + (extra || '') +
+    '<div class="b-cab-acoes">' + (atualizar ? '<button type="button" class="b-ic-bt" id="' + esc(atualizar) + '" title="Atualizar" aria-label="Atualizar">' + iconeB('atualizar') + '</button>' : '') + (extra || '') + maisB(mais) +
     (botao ? '<button type="button" class="btn btn-p b-bt" id="' + esc(botao.id) + '">' + iconeB('mais') + esc(botao.rotulo) + '</button>' : '') + '</div></div>';
 }
 // tela vazia que explica e oferece o próximo passo: {icone, titulo, frase, botao: {rotulo, seletor}}
@@ -655,9 +669,10 @@ function segFiltroB(id, attr, opcoes, valor, rotulo) {
 function marcarSegB(caixa, bt) { if (caixa) caixa.querySelectorAll('.b-seg-bt').forEach((x) => { const on = x === bt; x.setAttribute('aria-pressed', on); x.setAttribute('aria-selected', on); }); }
 // Backup 88: o filtro de Grupo/Empresa fica À DIREITA e FIXO no alto ao rolar a tela (b-fsus-fixo)
 function filtroSusB(id, campos) {
-  return '<div class="b-fsus b-fsus-fixo" id="' + id + '">' + campos.map((c) => '<label class="b-fsus-c"><span>' + esc(c.rot) + '</span><select data-fsus="' + c.k + '" aria-label="' + esc(c.rot) + '"><option value="">' + esc(c.todos) + '</option>' +
+  return '<div class="b-fsus b-fsus-fixo" id="' + id + '"><span class="b-fsus-rot">Filtros</span>' + campos.map((c) => '<label class="b-fsus-c"><span>' + esc(c.rot) + '</span><select data-fsus="' + c.k + '" aria-label="' + esc(c.rot) + '"><option value="">' + esc(c.todos) + '</option>' +
     c.opcoes.map((o) => '<option' + (o === c.v ? ' selected' : '') + '>' + esc(o) + '</option>').join('') + '</select></label>').join('') +
-    (campos.some((c) => c.v) ? '<button type="button" class="b-fsus-limpar" data-fsus-limpar>Limpar filtro</button>' : '') + '</div>';
+    // Backup 89: o "Limpar" sempre existe; sem filtro ligado ele fica escondido no visual normal e à vista (apagado) no visual premium
+    '<button type="button" class="b-fsus-limpar' + (campos.some((c) => c.v) ? '' : ' b-fsus-limpar-x') + '" data-fsus-limpar>Limpar filtro</button>' + '</div>';
 }
 function ligarFiltroSusB(id, estado, depois) {
   const el = $(id); if (!el) return;
@@ -1335,13 +1350,16 @@ TELAS.inicio = async function () {
   const h = new Date(), hora = h.getHours(), saud = hora < 12 ? 'Bom dia' : hora < 18 ? 'Boa tarde' : 'Boa noite';
   const dataLonga = h.toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' });
   // Backup 82 (E3 aprovado): os cartões grandes viraram a faixa "Financeiro · Escritório" em pílulas, como no ambiente; avisos e conferências entram na linha do Escritório
+  // Backup 89 (I1): Início "Hoje" — saudação, UMA faixa de avisos (até 5, só o que pede ação), "Para hoje" (atrasadas + vencendo hoje, com Concluir)
+  // e Lembretes em pequeno ao lado. Saiu "Próximos 7 dias" (está em Tarefas → Calendário); "Ver como" foi para o ⋯.
+  const adm = (E.perfil || {}).papel === 'admin' && typeof pessoasFiltro === 'function';
   $('conteudo').innerHTML =
-    cabecalhoTela({ icone: 'inicio', titulo: saud + ', ' + primeiroNomeUsuario(), frase: dataLonga, botao: { id: 'lemb-novo', rotulo: 'Lembrete' } }) +
+    cabecalhoTela({ icone: 'inicio', titulo: saud + ', ' + primeiroNomeUsuario(), frase: dataLonga, botao: { id: 'lemb-novo', rotulo: 'Lembrete' },
+      mais: adm ? ['<div class="b-mais-rot">Ver o dia de</div>'].concat(pessoasFiltro().map((n) => '<button type="button" role="menuitem" class="b-mais-it" data-ini-vercomo="' + esc(primeiroNome(n)) + '">' + esc(nomeCurto(n)) + '</button>')) : null }) +
     '<div id="ini-valid"></div>' +
-    '<section class="b-faixa-av ini-faixa" id="ini-faixa"><div class="b-faixa-lin" id="ini-lin-fin"><span class="b-faixa-rot">Financeiro</span><div class="ini-conf-l" id="ini-resumo-fin"></div></div>' +
-      '<div class="b-faixa-lin"><span class="b-faixa-rot">Escritório</span><div class="ini-conf-l"><span id="ini-resumo" class="ini-pills"></span></div></div></section>' +
-    '<div class="ini-b74"><section class="ini-col"><div class="ini-sec-hd"><div><h2>Meu dia</h2><p>Hoje e o que atrasou</p></div><div class="b-chips ini-quem" id="ini-quem" role="group" aria-label="De quem"></div></div><div id="ini-dia"></div></section>' +
-    '<section class="ini-col"><div id="ini-lembretes"></div><div class="ini-sec-hd ini-sec-hd2"><div><h2>Próximos 7 dias</h2></div></div><div id="ini-prox"></div></section></div>';
+    '<section class="b-faixa-av ini-faixa ini-faixa-1" id="ini-faixa"><div class="b-faixa-lin"><span class="b-faixa-rot">Avisos</span><div class="ini-conf-l"><span id="ini-resumo" class="ini-pills"></span><span id="ini-resumo-fin" hidden></span></div></div></section>' +
+    '<div class="ini-b74 ini-b89"><section class="ini-col"><div class="ini-sec-hd"><div><h2 id="ini-dia-tit">Para hoje</h2><p id="ini-dia-sub">Atrasadas e o que vence hoje</p></div><div id="ini-quem"></div></div><div id="ini-dia"></div></section>' +
+    '<section class="ini-col ini-col-lemb"><div id="ini-lembretes"></div></section></div>';
   // Backup 83: sem o calendário ("Minha fila de trabalho") no Início — a agenda fica só em Tarefas (Semana · Calendário)
   $('lemb-novo').onclick = () => formLembrete();
   verComoIni();
@@ -1358,40 +1376,36 @@ ICONES_B.inicio = ICONES_B.inicio || '<rect x="3.5" y="3.5" width="7" height="7"
 const TIPO_ITEM_INI = { reuniao: 'Reunião', audiencia: 'Audiência', compromisso: 'Compromisso', tarefa: 'Tarefa', rotina: 'Rotina' };
 // Backup 82: "Ver como" (como no ambiente) — o administrador vê o dia de outra pessoa da equipe
 function verComoIni() {
-  if ((E.perfil || {}).papel !== 'admin' || typeof pessoasFiltro !== 'function') return;
-  const ac = document.querySelector('#panel-hoje .b-cab-acoes, #conteudo .b-cab-acoes'); if (!ac) return;
+  // Backup 89 (I1/D2): "Ver o dia de" está no ⋯ do cabeçalho (só o administrador)
   E.ini = E.ini || { quem: 'eu' };
-  const pes = pessoasFiltro();
-  ac.insertAdjacentHTML('afterbegin', '<label class="ini-vercomo"><span>Ver como</span><select id="ini-vercomo">' +
-    pes.map((n) => '<option value="' + esc(primeiroNome(n)) + '"' + ((E.ini.pessoa || primeiroNome(meuNome())) === primeiroNome(n) ? ' selected' : '') + '>' + esc(nomeCurto(n)) + '</option>').join('') + '</select></label>');
-  $('ini-vercomo').onchange = (ev) => { E.ini.pessoa = ev.target.value === primeiroNome(meuNome()) ? '' : ev.target.value; E.ini.quem = 'eu'; meuDia(); };
+  const cab = document.querySelector('#conteudo .b-cab'); if (!cab) return;
+  cab.addEventListener('click', (ev) => { const b = ev.target.closest('[data-ini-vercomo]'); if (!b) return;
+    E.ini.pessoa = b.dataset.iniVercomo === primeiroNome(meuNome()) ? '' : b.dataset.iniVercomo; E.ini.quem = 'eu'; meuDia(); });
 }
 async function meuDia() {
-  const el = $('ini-dia'), elP = $('ini-prox'); if (!el) return;
+  const el = $('ini-dia'); if (!el) return;
   E.ini = E.ini || { quem: 'eu' };
   const h = hojeISO(), lim = somarDias(h, 7);
   const L = await buscarTodos(() => sb.from('tarefas').select('id, titulo, prazo, prazo_fatal, hora, responsavel, participantes, revisor, status, tipo_agenda, chave_regra, recorrencia, cliente_id, grupo_id')
-    .not('status', 'in', '(concluida,cancelada)').lte('prazo', lim).order('prazo')).catch(() => []);
+    .not('status', 'in', '(concluida,cancelada)').lte('prazo', h).order('prazo')).catch(() => []);   // Backup 89: só até hoje (os próximos dias estão em Tarefas)
   const daPessoa = (t, p) => [t.responsavel, t.revisor].concat(String(t.participantes || '').split(',')).some((n) => n && primeiroNome(n) === p);
   const doDono = (t) => E.ini.quem === 'todos' || (E.ini.pessoa ? daPessoa(t, E.ini.pessoa) : ehMinha(t));
   const linha = (t) => { const tipo = TIPO_ITEM_INI[tipoItemAgenda(t)] || 'Tarefa', atr = t.prazo < h;
-    const sub = [String(t.responsavel || '').split(' ')[0], t.prazo_fatal ? '<b class="ini-fatal">prazo fatal' + (t.prazo_fatal !== t.prazo ? ' ' + dataBR(t.prazo_fatal).slice(0, 5) : '') + '</b>' : ''].filter(Boolean).join(' · ');
+    const sub = [String(t.responsavel || '').split(' ')[0]].filter(Boolean).join(' · ');   // Backup 88/89: sem "prazo fatal"
     return '<div class="ini-it' + (atr ? ' ini-it-atr' : '') + '" data-ini-t="' + t.id + '" tabindex="0"><span class="ini-tipo">' + esc(tipo) + '</span><div class="ini-it-tx"><b>' + esc(t.titulo) + '</b>' + (sub ? '<small>' + sub + '</small>' : '') + '</div>' +
       '<span class="ini-dt' + (atr ? ' ini-dt-atr' : '') + '">' + (t.hora ? esc(String(t.hora).slice(0, 5)) + ' · ' : '') + dataBR(t.prazo).slice(0, 5) + '</span>' +
       '<button type="button" class="b-bt-baixa" data-ini-ok="' + t.id + '">Concluir</button></div>'; };
   const pintar = () => {
-    $('ini-quem').innerHTML = [['eu', E.ini.pessoa ? 'Só ' + E.ini.pessoa.charAt(0).toUpperCase() + E.ini.pessoa.slice(1) : 'Só eu'], ['todos', 'Equipe toda']].map(([v, r]) => '<button type="button" class="b-chip" data-ini-quem="' + v + '" aria-pressed="' + (E.ini.quem === v) + '">' + r + '</button>').join('');
+    $('ini-quem').innerHTML = segFiltroB('', 'data-ini-quem', [['eu', E.ini.pessoa ? 'Só ' + E.ini.pessoa.charAt(0).toUpperCase() + E.ini.pessoa.slice(1) : 'Só eu'], ['todos', 'Equipe toda']], E.ini.quem, 'De quem');
     const hoje = L.filter((t) => t.prazo && t.prazo <= h && doDono(t)).sort((a, b) => String(a.prazo).localeCompare(String(b.prazo)) || String(a.hora || '').localeCompare(String(b.hora || '')));
-    const prox = L.filter((t) => t.prazo && t.prazo > h && t.prazo <= lim && doDono(t));
+    const nAtr = hoje.filter((t) => t.prazo < h).length, nHoje = hoje.length - nAtr;
+    const sub = $('ini-dia-sub'); if (sub) sub.textContent = hoje.length ? [nAtr ? plural(nAtr, 'atrasada', 'atrasadas') : '', nHoje ? plural(nHoje, 'vence hoje', 'vencem hoje').replace(/^1 vencem/, '1 vence') : ''].filter(Boolean).join(' · ') : 'Atrasadas e o que vence hoje';
     el.innerHTML = hoje.length ? '<div class="ini-lista">' + hoje.map(linha).join('') + '</div>' : '<div class="ini-vazio">' + vazioB({ icone: 'ok', titulo: 'Nada para hoje', frase: 'Nenhuma tarefa vence hoje nem está atrasada.' }) + '</div>';
-    elP.innerHTML = prox.length ? '<div class="ini-lista">' + prox.slice(0, 6).map(linha).join('') + '</div>' + (prox.length > 6 ? '<button type="button" class="b-link ini-mais" data-ini-tarefas>Ver as ' + prox.length + ' em Tarefas</button>' : '')
-      : '<div class="ini-vazio-p">Nada marcado para os próximos 7 dias.</div>';
   };
   pintar();
   const raiz = el.closest('.ini-b74');
   raiz.onclick = (ev) => {
     const q2 = ev.target.closest('[data-ini-quem]'); if (q2) { E.ini.quem = q2.dataset.iniQuem; return pintar(); }
-    if (ev.target.closest('[data-ini-tarefas]')) return nav(null, 'tarefas');
     const ok = ev.target.closest('[data-ini-ok]');
     if (ok) { ev.stopPropagation(); const id = ok.dataset.iniOk, t = L.find((x) => x.id === id); return comBotao(ok, async () => {
       await q(sb.from('tarefas').update({ status: 'concluida' }).eq('id', id));
@@ -1644,10 +1658,13 @@ async function cardResumoEscritorio() {
   if (tAtr) esc2.push(pil('tarefas', tAtr, pl(tAtr, 'tarefa atrasada', 'tarefas atrasadas'), 'critico'));
   if (emailsErro) esc2.push(pil('emails', emailsErro, pl(emailsErro, 'e-mail com erro', 'e-mails com erro'), 'critico'));
   if (certs) esc2.push(pil('certificados', certs, pl(certs, 'certificado vencendo', 'certificados vencendo'), 'atencao'));
-  const tudoEmDia = !esc2.length;
-  // Backup 86 (M31): sem a pílula do CRM
-  const lf = $('ini-resumo-fin'); if (lf) { lf.innerHTML = finP.join(''); const lin = $('ini-lin-fin'); if (lin) lin.hidden = !finP.length; }
-  el.innerHTML = (tudoEmDia ? '<span class="ini-tudo-ok">' + iconeB('ok') + 'Nada pendente aqui. Tudo em dia.</span>' : '') + esc2.join('');
+  // Backup 89 (I1): UMA faixa "Avisos" — Financeiro e Escritório juntos, os críticos primeiro, no máximo 5 à vista (o resto em "+N")
+  const todosP = finP.concat(esc2), peso = (h2) => (/b-av-critico/.test(h2) ? 0 : /b-av-atencao/.test(h2) ? 1 : 2);
+  todosP.sort((a2, b2) => peso(a2) - peso(b2));
+  const vis5 = todosP.slice(0, 5), resto = todosP.slice(5);
+  el.innerHTML = (!todosP.length ? '<span class="ini-tudo-ok">' + iconeB('ok') + 'Nada pendente. Tudo em dia.</span>' : '') + vis5.join('') +
+    (resto.length ? '<span class="ini-pil-resto" hidden>' + resto.join('') + '</span><button type="button" class="b-link ini-pil-mais" id="ini-pil-mais">+' + resto.length + '</button>' : '');
+  const pm = $('ini-pil-mais'); if (pm) pm.onclick = () => { el.querySelector('.ini-pil-resto').hidden = false; pm.remove(); };
   const raiz = $('ini-faixa') || el;
   raiz.querySelectorAll('[data-ini-ir]').forEach((b) => b.onclick = () => abrirDaFaixa(b.dataset.iniIr));
 }
@@ -1898,7 +1915,7 @@ function listaFin(empresa, corpo) {
       aviso('✓ Baixa de ' + plural(alvo.length, 'lançamento', 'lançamentos') + ' em ' + dataBR(bx.data_pagamento) + '.'); await el._lancDepois(); } },
     { rot: 'Cobrar as marcadas', icone: 'enviar', quando: (l) => l._c === 'areceber' && !l.redutor, fn: async (marc) => { cobrarVarios(marc.filter((l) => l._c === 'areceber' && !l.redutor)); return false; } }],
     loteBotao: true,
-    clique: (l) => formLancamento(l, el._lancDepois),   // Backup 85 (FI12): como no ambiente, abre direto o formulário (o detalhe fica no botão "Detalhe")
+    clique: (l) => detalheLancamento(l.id),   // Backup 89 (D5): a linha abre o detalhe (molde único); "Editar" fica no rodapé
     vazio: { titulo: 'Nenhum lançamento aqui', frase: 'Troque a aba ou limpe os filtros.' } });
   if (!el._lancLigado) {
     el._lancLigado = true;
@@ -2021,9 +2038,9 @@ function analiseFin(empresa, corpo) {
   const meses = chaves.length ? mesesEntre(chaves[0], chaves[chaves.length - 1]) : [hojeISO().slice(0, 7)];   // sem nada no período: o mês atual (o gráfico aparece vazio, com a legenda)
   let graf;
   if (contab) {
-    graf = cartaoFin('Recebido × pago mês a mês', 'Passe o mouse na coluna para ver o valor.',   // Backup 88: texto pedido; verde/vermelho como no Jurídico
-      '<div class="b-fin-graf">' + graficoColunasB(meses, [{ nome: 'Recebido', cor: 'var(--green)', valores: meses.map((k) => somaV(receita.filter((l) => dataLanc(l).startsWith(k)))) },
-        { nome: 'Pago (despesas)', cor: 'var(--red)', valores: meses.map((k) => somaV(pagos.filter((l) => dataLanc(l).startsWith(k)))) }], { titulo: 'Recebido e pago por mês' }) + '</div>');
+    graf = cartaoFin('Recebido × pago mês a mês', 'Passe o mouse na coluna para ver o valor.',   // Backup 88: texto pedido; Backup 89: verde/vermelho = os tons do gráfico do Jurídico
+      '<div class="b-fin-graf">' + graficoColunasB(meses, [{ nome: 'Recebido', cor: corBarraPessoa('Pedro'), valores: meses.map((k) => somaV(receita.filter((l) => dataLanc(l).startsWith(k)))) },
+        { nome: 'Pago (despesas)', cor: corBarraPessoa('Emanuelle'), valores: meses.map((k) => somaV(pagos.filter((l) => dataLanc(l).startsWith(k)))) }], { titulo: 'Recebido e pago por mês' }) + '</div>');
   } else {
     const quem = [...new Set(receita.map(quemLanc))].sort((a, b) => a.localeCompare(b, 'pt-BR'));
     graf = cartaoFin('Recebido mês a mês', 'Empilhado por pessoa. Passe o mouse na coluna para ver o valor.',
@@ -2073,23 +2090,20 @@ function analiseFin(empresa, corpo) {
 // Base = honorários (receitas) com VENCIMENTO no mês; o atraso dos meses anteriores e o que entrou neste mês de outros meses aparecem à parte.
 const somarMesB = (k, n) => { const [a, m] = k.split('-').map(Number), d = new Date(a, m - 1 + n, 1); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0'); };
 function fluxoDoMes(empresa) {
-  // Backup 88: "Recebido" = o que ENTROU no mês (pela data do pagamento) — o mesmo número da Análise com "Mês passado"/"Este mês".
-  // Antes o Recebido daqui era "o que venceu no mês e já foi pago" (mesmo pago em outro mês) e a soma não batia com a Análise.
+  // Backup 89: de volta ao cálculo do Backup 79 (a pedido): base = honorários com VENCIMENTO no mês; sem a linha "Fora deste mês" (saiu no Backup 88)
   const F = estadoFin(empresa), an = F.an, k = an.fluxoMes || hojeISO().slice(0, 7), h = hojeISO();
   const rec = filtrarFin(empresa, ['recebido', 'areceber'], true);
   const doMes = rec.filter((l) => String(l.vencimento || '').startsWith(k));
-  const entrou = rec.filter((l) => l._c === 'recebido' && dataLanc(l).startsWith(k));
-  const recebido = somaV(entrou), dosVenc = somaV(entrou.filter((l) => String(l.vencimento || '').startsWith(k))), deOutros = recebido - dosVenc;
-  const atraso = somaV(doMes.filter((l) => l._c === 'areceber' && l.vencimento < h)), aReceber = somaV(doMes.filter((l) => l._c === 'areceber' && l.vencimento >= h));
-  const previsto = somaV(doMes), pagoPrev = somaV(doMes.filter((l) => l._c === 'recebido'));
-  const pc = (v) => (previsto > 0 ? Math.max(0, Math.min(100, v / previsto * 100)) : 0);
-  return '<section class="b-fin-cartao b-fluxo" id="fa-fluxo"><div class="b-fin-hd b-fluxo-hd"><div><h3>Fluxo do mês</h3><p>O que entrou no mês e como estão os honorários que vencem nele.</p></div>' +
+  const recebido = somaV(doMes.filter((l) => l._c === 'recebido')), atraso = somaV(doMes.filter((l) => l._c === 'areceber' && l.vencimento < h)),
+    aReceber = somaV(doMes.filter((l) => l._c === 'areceber' && l.vencimento >= h)), previsto = recebido + atraso + aReceber;
+  const pc = (v) => (previsto > 0 ? Math.max(0, v / previsto * 100) : 0);
+  return '<section class="b-fin-cartao b-fluxo" id="fa-fluxo"><div class="b-fin-hd b-fluxo-hd"><div><h3>Fluxo do mês</h3><p>Honorários com vencimento no mês: quanto estava previsto e como está.</p></div>' +
     '<div class="b-fluxo-nav"><button type="button" class="b-bt-f" data-fm="-1" aria-label="Mês anterior">‹</button><b>' + esc(rotMesB(k)) + '</b><button type="button" class="b-bt-f" data-fm="1" aria-label="Próximo mês">›</button></div></div>' +
-    numsFaixa([['Recebido no mês', brl(recebido), deOutros ? brl(dosVenc) + ' deste mês + ' + brl(deOutros) + ' de outros meses' : 'pela data do pagamento', 'b-verde'],
-      ['Previsto (vence no mês)', brl(previsto), previsto ? Math.round(pc(pagoPrev)) + '% já pago' : ''],
+    numsFaixa([['Previsto no mês', brl(previsto), 'tudo o que vence no mês'], ['Recebido', brl(recebido), previsto ? Math.round(pc(recebido)) + '% do previsto' : '', 'b-verde'],
       ['Em atraso (deste mês)', brl(atraso), 'venceu e não entrou', atraso ? 'b-verm' : ''], ['A receber', brl(aReceber), 'ainda vai vencer']]) +
-    '<div class="b-fluxo-barra" role="img" aria-label="Pago ' + brl(pagoPrev) + ', em atraso ' + brl(atraso) + ', a receber ' + brl(aReceber) + '">' +
-      '<span class="b-fx-rec" style="width:' + pc(pagoPrev) + '%" title="Já pago ' + esc(brl(pagoPrev)) + '"></span><span class="b-fx-atr" style="width:' + pc(atraso) + '%" title="Em atraso ' + esc(brl(atraso)) + '"></span><span class="b-fx-arec" style="width:' + pc(aReceber) + '%" title="A receber ' + esc(brl(aReceber)) + '"></span></div></section>';
+    '<div class="b-fluxo-barra" role="img" aria-label="Recebido ' + brl(recebido) + ', em atraso ' + brl(atraso) + ', a receber ' + brl(aReceber) + '">' +
+      '<span class="b-fx-rec" style="width:' + pc(recebido) + '%" title="Recebido ' + esc(brl(recebido)) + '"></span><span class="b-fx-atr" style="width:' + pc(atraso) + '%" title="Em atraso ' + esc(brl(atraso)) + '"></span><span class="b-fx-arec" style="width:' + pc(aReceber) + '%" title="A receber ' + esc(brl(aReceber)) + '"></span></div>' +
+    '</section>';
 }
 // ── Backup 79: RESULTADO DO MÊS (como no ambiente de teste): entradas, saídas e resultado de cada mês do período ──
 function resultadoMeses(meses, receita, pagos, contab) {
@@ -2538,33 +2552,32 @@ async function cobrarWhatsApp(id) {
   return j;
 }
 async function detalheLancamento(id) {
-  const l = (await q(sb.from('lancamentos').select('*, grupos(nome), clientes(nome), contratos(descricao, modalidade, servico)').eq('id', id)))[0];
+  const l = (await q(sb.from('lancamentos').select('*, grupos(nome), clientes(nome, cpf_cnpj), contratos(descricao, modalidade, servico)').eq('id', id)))[0];
   if (!l) return aviso('Lançamento não encontrado (pode ter sido excluído ou ser de outra área).', true);
-  const lin = (rot, v) => v ? '<div class="tf-lin"><span>' + rot + '</span><div>' + v + '</div></div>' : '';
-  const empresa = l.empresa === 'contabilidade' ? 'Contabilidade' : 'Jurídico';
-  const j = abrirJanela({ titulo: (l.tipo === 'despesa' ? 'Despesa' : l.redutor ? 'Redutor de receita' : 'Honorário') + ' — ' + empresa, larga: true,
-    corpo: '<div class="tf-ficha"><div class="tf-ficha-hd"><h3>' + esc(l.descricao) + '</h3><div class="tf-selos">' + pillSit(l) +
-        (l.servico ? ' <span class="pill neutro">' + esc(l.servico) + '</span>' : '') + (l.categoria ? ' <span class="pill neutro">' + esc(l.categoria) + '</span>' : '') + '</div></div>' +
-      '<div class="tf-grade">' +
-        lin('Valor', '<b>' + (l.redutor || l.tipo === 'despesa' ? '− ' : '') + brl(l.valor) + '</b>') +
-        lin('Vencimento', dataBR(l.vencimento)) + lin('Recebido em', l.pago ? dataBR(l.data_pagamento) + (l.forma_pagamento ? ' · ' + esc(l.forma_pagamento) : '') : '') +
-        lin('Grupo', esc((l.grupos && l.grupos.nome) || '')) + lin('Cliente', esc((l.clientes && l.clientes.nome) || '')) + lin('Favorecido', esc(l.favorecido || '')) +
-        lin('Responsável', l.responsavel ? pillPessoa(l.responsavel) : '') + lin('Área do serviço', esc(l.servico || '')) + lin('Tipo', esc(l.categoria || '')) +
-        lin('Referência', esc(l.referencia || '')) + lin('Situação da cobrança', esc(l.cobranca || '')) +
-        lin('Contrato', l.contratos ? esc(l.contratos.descricao) + (l.contratos.modalidade === 'consultoria' ? ' <span class="sub">(consultoria mensal)</span>' : '') : '') +
-      '</div>' + (l.obs ? '<div class="tf-bloco"><div class="secao">Observação</div><div class="tf-texto">' + esc(l.obs).replace(/\n/g, '<br>') + '</div></div>' : '') + '</div>',
-    rodape: '<span>' + (l.contrato_id ? '<button class="btn btn-o btn-mini" type="button" id="dl-ctr">Abrir contrato</button> ' : '') +
-        (l.cliente_id ? '<button class="btn btn-o btn-mini" type="button" id="dl-cli">Ficha do cliente</button>' : '') +
-        // Backup 32: recibo já preenchido na Central de Documentos (valor, data, forma e cliente)
-        '</span>' +
-      '<div class="acoes">' + (l.pago && l.tipo === 'receita' && !l.redutor ? '<button class="btn btn-o" type="button" id="dl-recibo" title="Recibo deste pagamento na Central de Documentos (já preenchido)">🧾 Recibo</button>' : '') +
-      '<button class="btn btn-o" type="button" data-editar="' + l.id + '">✎ Editar</button>' +
-      (!l.pago && !l.perda ? '<button class="btn btn-v" type="button" data-pagar="' + l.id + '">✓ ' + (l.tipo === 'despesa' && !l.redutor ? 'Pago' : 'Recebido') + '</button>' : '') + '</div>' });
+  // Backup 89 (D5): o MESMO molde das outras janelas de detalhe — tipo em cima, nome grande, faixa de números, ficha em duas colunas e botões no rodapé
+  const empresa = l.empresa === 'contabilidade' ? 'Contabilidade' : 'Jurídico', h = hojeISO();
+  const tipo = l.tipo === 'despesa' && !l.redutor ? 'Despesa' : l.redutor ? 'Comissão (redutor)' : 'Honorário';
+  const quem = (l.grupos && l.grupos.nome) || (l.clientes && l.clientes.nome) || l.favorecido || '';
+  const d = l.vencimento ? Math.round((new Date(l.vencimento + 'T12:00:00') - new Date(h + 'T12:00:00')) / 864e5) : null;
+  const prazo = l.perda ? ['Situação', 'Prejuízo', ''] : l.pago ? [l.tipo === 'despesa' && !l.redutor ? 'Pago em' : 'Recebido em', dataBR(l.data_pagamento) || '—', 'b-verde']
+    : d == null ? ['Prazo', '—', ''] : ['Prazo', d < 0 ? Math.abs(d) + ' d atraso' : d === 0 ? 'vence hoje' : d + (d === 1 ? ' dia' : ' dias'), d <= 0 ? 'b-verm' : ''];
+  const campo = (rot, v) => (v ? '<div><span>' + rot + '</span><b>' + v + '</b></div>' : '');
+  const j = abrirJanela({ kick: tipo + ' · ' + empresa, titulo: l.descricao || tipo, sub: esc(quem + (l.clientes && l.grupos && l.clientes.nome !== quem ? ' · ' + l.clientes.nome : '')), dir: pillSit(l), larga: true,
+    corpo: numsFaixa([['Valor', (l.redutor || (l.tipo === 'despesa') ? '− ' : '') + brl(l.valor), l.forma_pagamento || '', l.redutor ? 'b-verm' : ''], ['Vencimento', l.vencimento ? dataBR(l.vencimento) : '—', l.referencia ? 'ref. ' + l.referencia : ''], prazo]) +
+      '<div class="b-ficha b-ficha-2">' + campo('Grupo', esc((l.grupos && l.grupos.nome) || '')) + campo('Cliente', esc((l.clientes && l.clientes.nome) || '')) + campo('Favorecido', esc(l.favorecido || '')) +
+        campo('Responsável', l.responsavel ? pillPessoa(l.responsavel) : '') + campo('Área do serviço', esc(l.servico || '')) + campo('Tipo', esc(l.categoria || '')) +
+        campo('Situação da cobrança', esc(l.cobranca || '')) + campo('Contrato', l.contratos ? esc(l.contratos.descricao) + (l.contratos.modalidade === 'consultoria' ? ' <span class="sub">(consultoria mensal)</span>' : '') : '') + '</div>' +
+      (l.obs ? '<div class="b-bloco"><h3>Observação</h3><p class="b-cal-desc">' + esc(l.obs).replace(/\n/g, '<br>') + '</p></div>' : ''),
+    rodape: '<span class="acoes" style="margin-right:auto">' + (l.cliente_id ? '<button class="btn btn-o" type="button" id="dl-cli">' + iconeB('clientes') + 'Ficha do cliente</button>' : '') +
+        (l.contrato_id ? '<button class="btn btn-o" type="button" id="dl-ctr">' + iconeB('contrato') + 'Abrir contrato</button>' : '') + '</span>' +
+      (l.pago && l.tipo === 'receita' && !l.redutor ? '<button class="btn btn-o" type="button" id="dl-recibo" title="Mandar o recibo deste pagamento por e-mail ou WhatsApp">' + iconeB('recibo') + 'Recibo</button>' : '') +
+      '<button class="btn btn-o" type="button" data-editar="' + l.id + '">' + iconeB('lapis') + 'Editar</button>' +
+      (!l.pago && !l.perda ? '<button class="btn btn-p" type="button" data-pagar="' + l.id + '">' + iconeB('check') + (l.tipo === 'despesa' && !l.redutor ? 'Pago' : 'Recebido') + '</button>' : '') });
   ligarAcoesLancamentos(j, async () => { fecharJanela(j); if (window.ERP_RECARREGAR) window.ERP_RECARREGAR(); else await recarregar(); });
-  // Backup 58: "✎ Editar" troca o detalhe pelo formulário (não empilha duas janelas)
+  // Backup 58: "Editar" troca o detalhe pelo formulário (não empilha duas janelas)
   const be = j.querySelector('[data-editar]'); if (be) { const ed = be.onclick; be.onclick = () => { fecharJanela(j); return ed(); }; }
   const bc = j.querySelector('#dl-ctr'); if (bc) bc.onclick = () => { fecharJanela(j); detalheContrato(l.contrato_id); };
-  const br = j.querySelector('#dl-recibo'); if (br) br.onclick = () => { fecharJanela(j); abrirGerador('lancamento=' + l.id); };
+  const br = j.querySelector('#dl-recibo'); if (br) br.onclick = () => { fecharJanela(j); previaRecibo(l); };   // Backup 89: o recibo do Backup 88 (e-mail com timbrado ou WhatsApp)
   const bl = j.querySelector('#dl-cli'); if (bl) bl.onclick = () => { fecharJanela(j); abrirFicha(l.cliente_id); };
   return j;
 }
@@ -4760,7 +4773,7 @@ async function conflitosAgenda(dia, ini, fim, pessoas, ignorar) {
     return x < b && a < y && deles.some((n) => nomes.includes(n));
   });
 }
-async function janelaAgendar(dataIni, depois, tipoIni) {
+async function janelaAgendar(dataIni, depois, tipoIni, troca) {   // Backup 89: troca = {janela, titulo, resp} (veio da Nova tarefa: troca no lugar, sem piscar)
   // Backup 40: só quem está CADASTRADO e ativo (Administração → Usuários); descadastrou, sai da lista
   const eq = await equipe().catch(() => []);
   const pessoas = [...new Set(eq.map((u) => String(u.nome || '').trim()).filter(Boolean))];
@@ -4768,7 +4781,8 @@ async function janelaAgendar(dataIni, depois, tipoIni) {
   const procs = await q(sb.from('processos').select('numero, autor, reu').order('numero').limit(1000)).catch(() => []);
   // Backup 45: dá para lançar para outra pessoa (quem está no mesmo nível ou abaixo) e "Tarefa" é um tipo também
   const podeVer = pessoasVisiveis();
-  const j = abrirJanela({ titulo: '📅 Agendar', larga: true,
+  troca = troca || {};
+  const j = abrirJanela({ kick: 'Nova', titulo: 'Agendar', larga: true, noLugarDe: troca.janela,
     corpo: '<form id="f-ag" class="grade ag-form" data-tipo="reuniao">' +
       // Backup 88: os 4 tipos do escritório; Tarefa e Rotina abrem o formulário da tarefa
       '<div class="campo" style="grid-column:1/-1"><span>Tipo</span>' + segFiltroB('ag-tipo', 'data-v', TIPOS_NOVO_TF, tipoIni || 'reuniao', 'Tipo') + '</div>' +
@@ -4804,9 +4818,11 @@ async function janelaAgendar(dataIni, depois, tipoIni) {
     f.titulo.placeholder = r[3]; f.local.placeholder = r[4];
   };
   j.querySelector('#ag-tipo').onclick = (ev) => { const b = ev.target.closest('[data-v]'); if (!b) return;
-    if (b.dataset.v === 'tarefa' || b.dataset.v === 'rotina') { const d = f.prazo.value; fecharJanela(j); formTarefa({ prazo: d, _tipo: b.dataset.v }, depois); return; }
+    if (b.dataset.v === 'tarefa' || b.dataset.v === 'rotina') { formTarefa({ prazo: f.prazo.value, titulo: f.titulo.value.trim(), responsavel: f.resp.value, _tipo: b.dataset.v, _noLugarDe: j }, depois); return; }
     tipo = b.dataset.v; marcarSegB(j.querySelector('#ag-tipo'), b); pintarTipo(); };
   pintarTipo();
+  if (troca.titulo) f.titulo.value = troca.titulo;
+  if (troca.resp && [...f.resp.options].some((o) => o.value === troca.resp)) f.resp.value = troca.resp;
   // fim acompanha o início (1 h depois) até a pessoa mexer no fim
   let fimMexido = false;
   f.hora_fim.oninput = () => { fimMexido = true; };
@@ -5210,7 +5226,7 @@ function vistaLista(alvo) {
       { k: 'sit', rot: 'Situação', cls: 'b-cen b-prazo', html: situacaoTarefa, ord: (t) => (t.status === 'concluida' ? String(t.concluida_em || '') : t.prazo || '9999') },
       { k: 'ac', rot: '', cls: 'b-dir', ord: false, html: (t) => (tarefaFechada(t) ? '' : '<button type="button" class="b-bt-baixa" data-concluir="' + t.id + '" title="Concluir a tarefa">Concluir</button>') }],
     linhaCls: (t) => (!tarefaFechada(t) && t.prazo && t.prazo < h ? ' b-tr-venc' : '') + (tarefaFechada(t) ? ' tf-feita' : ''),
-    clique: (t) => formTarefa(t, recarregarTarefas),   // Backup 85 (TF8): abre direto o formulário (a ficha completa fica no botão "Ficha da tarefa")
+    clique: (t) => detalheAgenda(t, t.prazo),   // Backup 89 (D5): a linha abre o detalhe curto (Concluir · Editar · Ficha completa), o mesmo do calendário
     vazio: { titulo: 'Nenhuma tarefa aqui', frase: 'Use "+ Nova tarefa" ou troque a aba.', botao: ['+ Nova tarefa', '#tf-nova'] } });
   if (!alvo._tfLigado) { alvo._tfLigado = true;
     alvo.addEventListener('click', (ev) => {
@@ -5633,7 +5649,7 @@ function formTarefa(t, depois) {
   const ehAgenda = !novo && !!t.tipo_agenda;
   let tipoTf = t._tipo || (t.recorrencia || t.recorrencia_regra ? 'rotina' : 'tarefa');
   const tiposForm = novo && !t.tarefa_pai_id ? TIPOS_NOVO_TF : [['tarefa', 'Tarefa'], ['rotina', 'Rotina']];
-  const j = abrirJanela({ kick: novo ? 'Nova' : 'Tarefa', titulo: novo ? (t.tarefa_pai_id ? 'Subtarefa' : 'Tarefa') : (t.titulo || 'Tarefa'), larga: true,
+  const j = abrirJanela({ noLugarDe: t._noLugarDe, kick: novo ? 'Nova' : 'Tarefa', titulo: novo ? (t.tarefa_pai_id ? 'Subtarefa' : 'Tarefa') : (t.titulo || 'Tarefa'), larga: true,
     sub: novo ? '' : esc([ROT_TIPO_TF[tipoItemAgenda(t)] || 'Tarefa', t.responsavel ? nomeCurto(t.responsavel) : ''].filter(Boolean).join(' · ')),
     corpo: '<form id="f-tf" class="grade">' +
       (ehAgenda ? '' : '<div class="campo inteiro"><span>Tipo</span>' + segFiltroB('tf-tipo', 'data-tf-tp', tiposForm, tipoTf, 'Tipo') +
@@ -5680,7 +5696,7 @@ function formTarefa(t, depois) {
     const d = j.querySelector('#tf-tipo-dica'); if (d) d.textContent = tipoTf === 'rotina' ? 'Rotina = tarefa que se repete. Escolha abaixo como ela se repete.' : 'Tarefa = feita uma vez, até o prazo.';
   };
   { const tb = j.querySelector('#tf-tipo'); if (tb) tb.onclick = (ev) => { const b = ev.target.closest('[data-tf-tp]'); if (!b) return;
-    if (b.dataset.tfTp === 'reuniao' || b.dataset.tfTp === 'audiencia') { const d = f.prazo.value || hojeISO(); fecharJanela(j); janelaAgendar(d, depois || recarregarTarefas, b.dataset.tfTp); return; }
+    if (b.dataset.tfTp === 'reuniao' || b.dataset.tfTp === 'audiencia') { janelaAgendar(f.prazo.value || hojeISO(), depois || recarregarTarefas, b.dataset.tfTp, { janela: j, titulo: f.titulo.value.trim(), resp: f.responsavel.value }); return; }
     tipoTf = b.dataset.tfTp; marcarSegB(tb, b); pintarTipoTf(); }; }
   const pintarCheck = () => {
     j.querySelector('#tf-check').innerHTML = checklist.length ? checklist.map((c, i) => '<div class="ck-item"><label class="check"><input type="checkbox" data-ck="' + i + '"' + (c.feito ? ' checked' : '') + '> <span' + (c.feito ? ' class="riscado"' : '') + '>' + esc(c.texto) + '</span></label>' +
@@ -7810,7 +7826,8 @@ TELAS.publicacoes = async function () {
   $('conteudo').innerHTML =
     // Backup 77: a tela voltou a ser a de antes do Backup 72 (cartões com o texto, filtros em botões), a pedido; só o cabeçalho segue o padrão único (ícone + título)
     '<div class="titulo-pag b-cab"><div class="b-cab-ic">' + iconeB('publicacao') + '</div><div class="b-cab-tx"><h1>Publicações</h1><p id="pub-ult">Intimações do Diário de Justiça</p></div>' +
-    '<div class="acoes"><button class="btn btn-o" id="pub-todas-lidas" title="Marca como lidas todas as publicações novas">✓ Marcar todas como lidas</button><button class="btn btn-o" id="pub-oabs">⚙ Monitoramento (OABs e clientes)</button><button class="btn btn-p" id="pub-buscar" title="Busca no Diário do CNJ pelo seu navegador (se ele falhar, tenta pelo servidor)">↻ Buscar agora</button></div></div>' +
+    '<div class="acoes">' + maisB([['pub-todas-lidas', 'Marcar todas as novas como lidas']]) +   // Backup 89 (D2): ação rara no ⋯
+    '<button class="btn btn-o" id="pub-oabs">⚙ Monitoramento (OABs e clientes)</button><button class="btn btn-p" id="pub-buscar" title="Busca no Diário do CNJ pelo seu navegador (se ele falhar, tenta pelo servidor)">↻ Buscar agora</button></div></div>' +
     '<div class="filtros"><div class="segmento" id="pub-st">' + [['nova', 'Novas'], ['lida', 'Lidas'], ['tratada', 'Tratadas'], ['', 'Todas']].map(([v, r]) => '<button data-v="' + v + '">' + r + '</button>').join('') + '</div>' +
     '<select class="busca sel" id="pub-dias"><option value="7">Últimos 7 dias</option><option value="15">Últimos 15 dias</option><option value="30">Últimos 30 dias</option><option value="90">Últimos 90 dias</option><option value="">Todo o período</option></select>' +
 
@@ -7865,7 +7882,7 @@ function textoUltimaBusca() {
 // ("Advogado do(a) RÉU/REQUERIDO: …" perto do nome/OAB) → qual parte é cliente do escritório → um polo só entre os intimados. Sem certeza: linha própria.
 const PALAVRAS_PASSIVO = /\b(reu|re|requerid[oa]s?|reclamad[oa]s?|executad[oa]s?|impetrad[oa]s?|agravad[oa]s?|apelad[oa]s?|recorrid[oa]s?|embargad[oa]s?|denunciad[oa]s?|investigad[oa]s?|passivo|demandad[oa]s?)\b/g;
 const PALAVRAS_ATIVO = /\b(autor(a|es)?|requerentes?|reclamantes?|exequentes?|impetrantes?|agravantes?|apelantes?|recorrentes?|embargantes?|ativo|demandantes?)\b/g;
-function ladoDoAdvogado(p, G, adv) {
+function ladoDoAdvogado(p, G, adv, oab) {
   const nrm = (x) => normalizar(String(x || '')).replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim();
   const casa = (a, b) => { a = nrm(a); b = nrm(b); return a.length > 3 && b.length > 3 && (a.includes(b) || b.includes(a)); };
   const tem = (lado, nomes) => G[lado].some((n) => n !== '—' && nomes.some((x) => casa(n, x)));
@@ -7873,7 +7890,7 @@ function ladoDoAdvogado(p, G, adv) {
   if (p.parte_monitorada) { const l = unico((x) => tem(x, [p.parte_monitorada])); if (l) return l; }
   const t = nrm(p.texto);
   if (t) {
-    const marcas = [nrm(adv), p.oab_numero ? String(p.oab_numero).replace(/\D/g, '') : ''].filter((x) => x.length > 2);
+    const marcas = [nrm(adv), String(oab != null ? oab : p.oab_numero || '').replace(/\D/g, '')].filter((x) => x.length > 2);
     for (const m of marcas) {
       let i = t.indexOf(m);
       while (i >= 0) {
@@ -7890,6 +7907,17 @@ function ladoDoAdvogado(p, G, adv) {
   if (pol.length === 1) return pol[0] === 'P' ? 'Réu' : 'Autor';
   return '';
 }
+// Backup 89: TODOS os advogados do escritório citados na intimação (a busca grava uma vez só, pela 1ª OAB que achou):
+// os nomes das OABs monitoradas que aparecem na lista de advogados do Diário (pelo nº da OAB ou pelo nome), mais o da OAB que achou
+function advsDoEscritorio(p) {
+  const lista = String(p.advogados || ''), dig = lista.replace(/[^\d;]/g, ' '), nl = normalizar(lista), out = [];
+  const add = (nome, oab, uf) => { nome = String(nome || '').trim(); if (!nome) return; const k = primeiroNomePub(nome); if (out.some((x) => primeiroNomePub(x.nome) === k)) return; out.push({ nome, oab: oab || '', uf: uf || '' }); };
+  if (p.advogado) add(p.advogado, p.oab_numero, p.oab_uf);
+  (E._pubOabs || []).forEach((o) => { const n = String(o.numero || '').replace(/\D/g, '');
+    if ((n.length > 3 && new RegExp('(^|\\D)' + n + '(\\D|$)').test(dig)) || (o.advogado && nl.includes(normalizar(o.advogado)))) add(o.advogado, o.numero, o.uf); });
+  return out;
+}
+const primeiroNomePub = (n) => normalizar(String(n || '').trim().split(/\s+/)[0]);
 // Partes em linhas: "Autor: …" e "Réu: …" (polo do Diário; as antigas sem polo continuam em "Partes:")
 // Backup 28: identificação no topo de toda publicação (para copiar e encaixar rápido):
 //   Processo: 5003925-39.2025.8.13.0604 / Autor: … / Réu: … — Advogado: Pedro
@@ -7897,16 +7925,20 @@ function partesPub(p) {
   const G = { 'Autor': [], 'Réu': [], 'Partes': [] };
   if (Array.isArray(p.polos) && p.polos.some((d) => d && d.polo)) p.polos.forEach((d) => { if (d && d.nome) G[{ A: 'Autor', P: 'Réu' }[String(d.polo || '').toUpperCase()] || 'Partes'].push(d.nome); });
   else String(p.destinatarios || '').split(/;\s*/).filter(Boolean).forEach((x) => { const m = /^(Autor|Réu):\s*(.*)$/.exec(x); if (m) G[m[1]].push(m[2]); else G.Partes.push(x); });
-  const adv = p.advogado || String(p.advogados || '').split(';')[0].replace(/\s*OAB.*$/i, '').trim();
+  const advs = advsDoEscritorio(p);
+  if (!advs.length) { const a0 = String(p.advogados || '').split(';')[0].replace(/\s*OAB.*$/i, '').trim(); if (a0) advs.push({ nome: a0, oab: '' }); }
   // Backup 79: sempre Processo, Autor e Réu (— quando o Diário não informa); o advogado do escritório vai na linha da parte que é o cliente
   // (a parte monitorada), senão na do Autor
   if (!G.Partes.length || G['Autor'].length || G['Réu'].length) { if (!G['Autor'].length) G['Autor'].push('—'); if (!G['Réu'].length) G['Réu'].push('—'); }
-  const ladoAdv = adv ? ladoDoAdvogado(p, G, adv) : '';
+  // cada advogado do escritório no lado que ele representa; sem certeza do lado, numa linha própria (nunca do lado errado)
+  const porLado = {}, semLado = [];
+  advs.forEach((a) => { const l = ladoDoAdvogado(p, G, a.nome, a.oab); if (l) (porLado[l] = porLado[l] || []).push(a.nome); else semLado.push(a.nome); });
+  const rot = (ns) => (ns.length > 1 ? 'Advogados: ' : 'Advogado: ') + ns.join(', ');
   const linhas = [['Processo', p.processo || '—']].concat(Object.keys(G).filter((k) => G[k].length).map((k) => [k, G[k].join(' · ')]));
-  if (adv && !ladoAdv) linhas.push(['Advogado', adv]);   // sem certeza do lado: o advogado numa linha própria (nunca do lado errado)
-  const txt = linhas.map((l) => l[0] + ': ' + l[1] + (adv && l[0] === ladoAdv ? ' - Advogado: ' + adv : '')).join('\n');
+  if (semLado.length) linhas.push([semLado.length > 1 ? 'Advogados' : 'Advogado', semLado.join(', ')]);
+  const txt = linhas.map((l) => l[0] + ': ' + l[1] + (porLado[l[0]] ? ' - ' + rot(porLado[l[0]]) : '')).join('\n');
   return '<div class="pub-id"><div class="pub-id-txt">' + linhas.map((l) => '<div><b>' + l[0] + ':</b> ' + (l[0] === 'Processo' ? '<span class="mono">' + esc(l[1]) + '</span>' : esc(l[1])) +
-      (adv && l[0] === ladoAdv ? ' <span class="pub-adv">— Advogado: <b>' + esc(adv) + '</b></span>' : '') + '</div>').join('') + '</div>' +
+      (porLado[l[0]] ? ' <span class="pub-adv">— ' + (porLado[l[0]].length > 1 ? 'Advogados' : 'Advogado') + ': <b>' + esc(porLado[l[0]].join(', ')) + '</b></span>' : '') + '</div>').join('') + '</div>' +
     '<button type="button" class="btn btn-o btn-mini" data-copiar-id="' + esc(txt) + '" title="Copiar Processo, Autor, Réu e Advogado">📋 Copiar</button></div>';
 }
 async function carregarPublicacoes() {
@@ -7915,7 +7947,8 @@ async function carregarPublicacoes() {
     .order('data_disponibilizacao', { ascending: false, nullsFirst: false }); if (F.dias) c = c.gte('data_disponibilizacao', somarDias(hojeISO(), -Number(F.dias))); return c; });
   const opts = (id, vals, rot) => { const s = $(id); if (!s) return; const v = s.value; s.innerHTML = '<option value="">' + rot + '</option>' + [...new Set(vals.filter(Boolean))].sort().map((x) => '<option>' + esc(x) + '</option>').join(''); s.value = v; };
   void opts;
-  E._pubAdvs = await q(sb.from('oabs_monitoradas').select('advogado')).then((l) => l.map((o) => o.advogado)).catch(() => []);
+  E._pubOabs = await q(sb.from('oabs_monitoradas').select('advogado, numero, uf')).catch(() => []);
+  E._pubAdvs = (E._pubOabs || []).map((o) => o.advogado);
   pintarPublicacoes();
 }
 function pintarPublicacoes() {
@@ -7956,7 +7989,7 @@ function pintarPublicacoes() {
       '<b>' + esc(p.tipo || 'Comunicação') + '</b> · ' + esc(p.tribunal) + ' · <span class="mono">' + dataBR(p.data_disponibilizacao) + '</span>' +
       '<div class="sub">' + esc(p.orgao) + (p.classe ? ' · ' + esc(p.classe) : '') + '</div></div>' +
       '<div class="sub" style="text-align:right">' + (p.processo ? '<b class="mono">' + esc(p.processo) + '</b>' : '') + (p.processo_id ? ' <span class="pill pago" title="Processo cadastrado no ERP">no ERP</span>' : '') +
-      '<div>' + (p.oab_numero ? esc(p.advogado ? p.advogado + ' · ' : '') + 'OAB ' + esc(p.oab_numero + '/' + p.oab_uf) : '🏢 cliente monitorado: ' + esc(p.parte_monitorada || '—')) + '</div></div></div>' +
+      '<div>' + (p.oab_numero ? advsDoEscritorio(p).map((a) => esc(a.nome) + (a.oab ? ' · OAB ' + esc(a.oab + '/' + (a.uf || '')) : '')).join('<br>') : '🏢 cliente monitorado: ' + esc(p.parte_monitorada || '—')) + '</div></div></div>' +   // Backup 89: todos os citados
       partesPub(p) +
       '<div class="pub-texto' + (p.texto.length > 500 ? ' curto' : '') + '">' + destacar(p.texto) + '</div>' + (p.texto.length > 500 ? '<button class="btn-link" data-ver>ver tudo</button>' : '') +
       '<div class="acoes" style="margin-top:10px">' + (p.tarefa_id || p.status === 'tratada' ? '' : '<button class="btn btn-p btn-mini" data-tarefa="' + p.id + '">+ Criar tarefa (' + prazoSugerido(p) + ' dias úteis)</button>') +
@@ -10123,7 +10156,8 @@ function pintarParcelamentos() {
   desenharGruposPc();
   ligarMinB('pc-situacao', ['pc-chips', 'pc-grupos']);   // Backup 84: a situação por cliente se minimiza
   $('pc-chips').onclick = (ev) => { const b = ev.target.closest('[data-pc-chip]'); if (!b) return; E.pc.chip = b.dataset.pcChip; marcarSegB($('pc-chips'), b); desenharGruposPc(); };
-  tabelaB($('pc-tabela'), { id: 'parcelas', tabCls: 'b-tab-parc', linhas: T, colunas: colunasParcelas(), unidade: ['parcela', 'parcelas'], dicaBusca: 'Empresa, CNPJ ou nº',
+  tabelaB($('pc-tabela'), { id: 'parcelas', tabCls: 'b-tab-parc' + (F.grupo ? ' b-sem-g' : ''),   // Backup 89 (D4): grupo escolhido no alto → sem a coluna Grupo
+    linhas: T, colunas: colunasParcelas(), unidade: ['parcela', 'parcelas'], dicaBusca: 'Empresa, CNPJ ou nº',
     abas: [{ id: 'apagar', rot: 'A pagar', f: (x) => !x.pago }, { id: 'pago', rot: 'Pago', f: (x) => x.pago }], semContagemAbas: true,
     prazos: true, prazosAbas: ['apagar'], conta: (n, aba) => plural(n, 'parcela', 'parcelas') + (aba === 'pago' ? ' paga' + (n === 1 ? '' : 's') : ' a pagar'),
     ordAbas: { apagar: { k: 'venc', dir: 1 }, pago: { k: 'pz', dir: -1 } }, ord: { k: 'venc', dir: 1 }, linhaCls: (x) => (!x.pago && x.venc && x.venc <= hojeISO() ? ' b-tr-venc' : ''),
@@ -10398,7 +10432,8 @@ function pintarAcordos() {
   ligarMinB('ac-situacao', ['ac-chips', 'ac-grupos']);   // Backup 84: a situação por cliente se minimiza
   $('ac-chips').onclick = (ev) => { const b = ev.target.closest('[data-ac-chip]'); if (!b) return; E.ac.chip = b.dataset.acChip; marcarSegB($('ac-chips'), b); desenharGruposAc(); };
   const uniq = (f) => [...new Set(T.map(f).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'pt-BR')).map((v) => [v, v]);
-  tabelaB($('ac-tabela'), { id: 'acordos', tabCls: 'b-tab-ac', linhas: T, colunas: colunasAcordos(), unidade: ['parcela', 'parcelas'], dicaBusca: 'Devedor / processo…',
+  tabelaB($('ac-tabela'), { id: 'acordos', tabCls: 'b-tab-ac' + (F.grupo ? ' b-sem-g' : ''),   // Backup 89 (D4)
+    linhas: T, colunas: colunasAcordos(), unidade: ['parcela', 'parcelas'], dicaBusca: 'Devedor / processo…',
     abas: [{ id: 'apagar', rot: 'A pagar', f: (x) => !x.pago }, { id: 'pago', rot: 'Pago', f: (x) => x.pago }], semContagemAbas: true,
     prazos: true, prazosAbas: ['apagar'], conta: (n, aba) => plural(n, 'parcela', 'parcelas') + (aba === 'pago' ? ' paga' + (n === 1 ? '' : 's') : ' a pagar'),
     ordAbas: { apagar: { k: 'venc', dir: 1 }, pago: { k: 'pz', dir: -1 } }, ord: { k: 'venc', dir: 1 }, linhaCls: vencidaA, busca: buscaAc, venc: (x) => x.venc, valor: (x) => x.valor, clique: (x) => { if (x.ac) janelaAcordo(x.ac); },   // Backup 85 (AC3): como no ambiente, a linha abre o acordo inteiro
@@ -10622,7 +10657,8 @@ function empresasPE(base) {
   const sit = (r) => String(r.sitCadastral || '').trim();
   const ops = (f) => unicosB(base.map(f)).map((x) => [x, x]);
   const op = (r) => (/^sim$/i.test(r.emOperacao || '') ? 'Sim' : /^n[aã]o$/i.test(r.emOperacao || '') ? 'Não' : '');
-  tabelaB(el, { id: 'empresas', tabCls: 'b-tab-pe', semContagemAbas: true, linhas: base, chave: (r) => String(r._id), unidade: ['empresa', 'empresas'],
+  tabelaB(el, { id: 'empresas', tabCls: 'b-tab-pe' + (estadoPE().grupo ? ' b-sem-g' : ''),   // Backup 89 (D4)
+    semContagemAbas: true, linhas: base, chave: (r) => String(r._id), unidade: ['empresa', 'empresas'],
     abas: [{ id: 'at', rot: 'Ativos', f: (r) => r.tipoCliente !== 'Inativo' }, { id: 'cons', rot: 'Consultoria', f: (r) => r.tipoCliente === 'Consultoria' },
       { id: 'pont', rot: 'Serviço pontual', f: (r) => r.tipoCliente === 'Serviço pontual' }, { id: 'in', rot: 'Inativos', f: (r) => r.tipoCliente === 'Inativo' }, { id: 'todos', rot: 'Todos', f: () => true }],
     busca: (r) => [r.nome, r.grupo, r.socioAdmin, r.cpfCnpj, String(r.cpfCnpj || '').replace(/\D/g, '')].join(' '), dicaBusca: 'Nome, sócio ou CPF/CNPJ…',
@@ -10670,7 +10706,8 @@ TELAS.processosERP = async function () {
   const partes = (p) => [p.autor, p.reu].filter(Boolean).map((x) => String(x).replace(/;\s*/g, ' · '));
   const trib = (p) => tribunalProcesso(p) || '', hojeP = new Date(hojeISO() + 'T12:00:00');
   const diasConf = (p) => { const i = isoDeBRp(p.ultimaMovEm); return i ? Math.floor((hojeP - new Date(i + 'T12:00:00')) / 864e5) : null; };
-  tabelaB($('pr-nova'), { id: 'processos', contagem: true, tabCls: 'b-tab-proc', linhas: P, chave: (p) => String(p._id), unidade: ['processo', 'processos'], dicaBusca: 'Nº, grupo, autor, réu…',
+  tabelaB($('pr-nova'), { id: 'processos', contagem: true, tabCls: 'b-tab-proc' + (F.grupo ? ' b-sem-g' : ''),   // Backup 89 (D4)
+    linhas: P, chave: (p) => String(p._id), unidade: ['processo', 'processos'], dicaBusca: 'Nº, grupo, autor, réu…',
     abas: [{ id: 'at', rot: 'Ativos', f: (p) => sit(p) === 'at' }, { id: 'arq', rot: 'Arquivados', f: (p) => sit(p) === 'arq' }, { id: 'ext', rot: 'Extintos', f: (p) => sit(p) === 'ext' }, { id: 'todos', rot: 'Todos', f: () => true }],
     busca: (p) => [p.numero, p.grupo, p.autor, p.reu, p.natureza, p.competencia, p.advogado, p.obs].join(' '), valor: (p) => Number(p.valor) || 0,
     conta: (n) => plural(n, 'processo', 'processos'), ord: { k: 'g', dir: 1 },

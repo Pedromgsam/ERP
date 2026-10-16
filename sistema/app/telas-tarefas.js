@@ -186,7 +186,7 @@ async function conflitosAgenda(dia, ini, fim, pessoas, ignorar) {
     return x < b && a < y && deles.some((n) => nomes.includes(n));
   });
 }
-async function janelaAgendar(dataIni, depois, tipoIni) {
+async function janelaAgendar(dataIni, depois, tipoIni, troca) {   // Backup 89: troca = {janela, titulo, resp} (veio da Nova tarefa: troca no lugar, sem piscar)
   // Backup 40: só quem está CADASTRADO e ativo (Administração → Usuários); descadastrou, sai da lista
   const eq = await equipe().catch(() => []);
   const pessoas = [...new Set(eq.map((u) => String(u.nome || '').trim()).filter(Boolean))];
@@ -194,7 +194,8 @@ async function janelaAgendar(dataIni, depois, tipoIni) {
   const procs = await q(sb.from('processos').select('numero, autor, reu').order('numero').limit(1000)).catch(() => []);
   // Backup 45: dá para lançar para outra pessoa (quem está no mesmo nível ou abaixo) e "Tarefa" é um tipo também
   const podeVer = pessoasVisiveis();
-  const j = abrirJanela({ titulo: '📅 Agendar', larga: true,
+  troca = troca || {};
+  const j = abrirJanela({ kick: 'Nova', titulo: 'Agendar', larga: true, noLugarDe: troca.janela,
     corpo: '<form id="f-ag" class="grade ag-form" data-tipo="reuniao">' +
       // Backup 88: os 4 tipos do escritório; Tarefa e Rotina abrem o formulário da tarefa
       '<div class="campo" style="grid-column:1/-1"><span>Tipo</span>' + segFiltroB('ag-tipo', 'data-v', TIPOS_NOVO_TF, tipoIni || 'reuniao', 'Tipo') + '</div>' +
@@ -230,9 +231,11 @@ async function janelaAgendar(dataIni, depois, tipoIni) {
     f.titulo.placeholder = r[3]; f.local.placeholder = r[4];
   };
   j.querySelector('#ag-tipo').onclick = (ev) => { const b = ev.target.closest('[data-v]'); if (!b) return;
-    if (b.dataset.v === 'tarefa' || b.dataset.v === 'rotina') { const d = f.prazo.value; fecharJanela(j); formTarefa({ prazo: d, _tipo: b.dataset.v }, depois); return; }
+    if (b.dataset.v === 'tarefa' || b.dataset.v === 'rotina') { formTarefa({ prazo: f.prazo.value, titulo: f.titulo.value.trim(), responsavel: f.resp.value, _tipo: b.dataset.v, _noLugarDe: j }, depois); return; }
     tipo = b.dataset.v; marcarSegB(j.querySelector('#ag-tipo'), b); pintarTipo(); };
   pintarTipo();
+  if (troca.titulo) f.titulo.value = troca.titulo;
+  if (troca.resp && [...f.resp.options].some((o) => o.value === troca.resp)) f.resp.value = troca.resp;
   // fim acompanha o início (1 h depois) até a pessoa mexer no fim
   let fimMexido = false;
   f.hora_fim.oninput = () => { fimMexido = true; };
@@ -636,7 +639,7 @@ function vistaLista(alvo) {
       { k: 'sit', rot: 'Situação', cls: 'b-cen b-prazo', html: situacaoTarefa, ord: (t) => (t.status === 'concluida' ? String(t.concluida_em || '') : t.prazo || '9999') },
       { k: 'ac', rot: '', cls: 'b-dir', ord: false, html: (t) => (tarefaFechada(t) ? '' : '<button type="button" class="b-bt-baixa" data-concluir="' + t.id + '" title="Concluir a tarefa">Concluir</button>') }],
     linhaCls: (t) => (!tarefaFechada(t) && t.prazo && t.prazo < h ? ' b-tr-venc' : '') + (tarefaFechada(t) ? ' tf-feita' : ''),
-    clique: (t) => formTarefa(t, recarregarTarefas),   // Backup 85 (TF8): abre direto o formulário (a ficha completa fica no botão "Ficha da tarefa")
+    clique: (t) => detalheAgenda(t, t.prazo),   // Backup 89 (D5): a linha abre o detalhe curto (Concluir · Editar · Ficha completa), o mesmo do calendário
     vazio: { titulo: 'Nenhuma tarefa aqui', frase: 'Use "+ Nova tarefa" ou troque a aba.', botao: ['+ Nova tarefa', '#tf-nova'] } });
   if (!alvo._tfLigado) { alvo._tfLigado = true;
     alvo.addEventListener('click', (ev) => {
@@ -1059,7 +1062,7 @@ function formTarefa(t, depois) {
   const ehAgenda = !novo && !!t.tipo_agenda;
   let tipoTf = t._tipo || (t.recorrencia || t.recorrencia_regra ? 'rotina' : 'tarefa');
   const tiposForm = novo && !t.tarefa_pai_id ? TIPOS_NOVO_TF : [['tarefa', 'Tarefa'], ['rotina', 'Rotina']];
-  const j = abrirJanela({ kick: novo ? 'Nova' : 'Tarefa', titulo: novo ? (t.tarefa_pai_id ? 'Subtarefa' : 'Tarefa') : (t.titulo || 'Tarefa'), larga: true,
+  const j = abrirJanela({ noLugarDe: t._noLugarDe, kick: novo ? 'Nova' : 'Tarefa', titulo: novo ? (t.tarefa_pai_id ? 'Subtarefa' : 'Tarefa') : (t.titulo || 'Tarefa'), larga: true,
     sub: novo ? '' : esc([ROT_TIPO_TF[tipoItemAgenda(t)] || 'Tarefa', t.responsavel ? nomeCurto(t.responsavel) : ''].filter(Boolean).join(' · ')),
     corpo: '<form id="f-tf" class="grade">' +
       (ehAgenda ? '' : '<div class="campo inteiro"><span>Tipo</span>' + segFiltroB('tf-tipo', 'data-tf-tp', tiposForm, tipoTf, 'Tipo') +
@@ -1106,7 +1109,7 @@ function formTarefa(t, depois) {
     const d = j.querySelector('#tf-tipo-dica'); if (d) d.textContent = tipoTf === 'rotina' ? 'Rotina = tarefa que se repete. Escolha abaixo como ela se repete.' : 'Tarefa = feita uma vez, até o prazo.';
   };
   { const tb = j.querySelector('#tf-tipo'); if (tb) tb.onclick = (ev) => { const b = ev.target.closest('[data-tf-tp]'); if (!b) return;
-    if (b.dataset.tfTp === 'reuniao' || b.dataset.tfTp === 'audiencia') { const d = f.prazo.value || hojeISO(); fecharJanela(j); janelaAgendar(d, depois || recarregarTarefas, b.dataset.tfTp); return; }
+    if (b.dataset.tfTp === 'reuniao' || b.dataset.tfTp === 'audiencia') { janelaAgendar(f.prazo.value || hojeISO(), depois || recarregarTarefas, b.dataset.tfTp, { janela: j, titulo: f.titulo.value.trim(), resp: f.responsavel.value }); return; }
     tipoTf = b.dataset.tfTp; marcarSegB(tb, b); pintarTipoTf(); }; }
   const pintarCheck = () => {
     j.querySelector('#tf-check').innerHTML = checklist.length ? checklist.map((c, i) => '<div class="ck-item"><label class="check"><input type="checkbox" data-ck="' + i + '"' + (c.feito ? ' checked' : '') + '> <span' + (c.feito ? ' class="riscado"' : '') + '>' + esc(c.texto) + '</span></label>' +

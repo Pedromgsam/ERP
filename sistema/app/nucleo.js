@@ -435,11 +435,11 @@ function baixarArquivo(nome, conteudo, tipo) {
 // ─────────────────────────── janelas ───────────────────────────────
 // Backup 63 (reforma): a janela no CENTRO é a única para criar, editar e ver detalhes — kick (linha azul acima do título),
 // sub (linha cinza abaixo) e dir (selo/pílula à direita, antes do ×) são opcionais
-function abrirJanela({ titulo, corpo, rodape, larga, kick, sub, dir, abas }) {   // Backup 85 (JN2): abas = html preso ao cabeçalho (fica parado ao rolar)
+function abrirJanela({ titulo, corpo, rodape, larga, kick, sub, dir, abas, noLugarDe }) {   // Backup 89: noLugarDe = troca a janela aberta por esta, sem fechar/abrir (ex.: Tarefa → Reunião)   // Backup 85 (JN2): abas = html preso ao cabeçalho (fica parado ao rolar)
   // Backup 87: título como no ambiente — sem o emoji/sinal do começo ("✎ Editar…", "📝 Novo aditivo", "+ Nova…")
   titulo = String(titulo == null ? '' : titulo).replace(/^[^\p{L}\p{N}"'(]+(?=\p{L}|\p{N})/u, '');
   const fundo = document.createElement('div');
-  fundo.className = 'fundo';
+  fundo.className = 'fundo' + (noLugarDe ? ' j-troca' : '');
   fundo.innerHTML =
     '<div class="janela' + (larga ? ' larga' : '') + '" role="dialog" aria-modal="true">' +
     '<div class="janela-hd">' + (kick || sub ? '<div class="j-tit">' + (kick ? '<span class="j-kick">' + esc(kick) + '</span>' : '') : '') + '<h2>' + esc(titulo) + '</h2>' +
@@ -451,6 +451,7 @@ function abrirJanela({ titulo, corpo, rodape, larga, kick, sub, dir, abas }) {  
   fundo.addEventListener('mousedown', (ev) => { if (ev.target === fundo) fecharJanela(fundo); });
   fundo.querySelector('[data-fechar]').onclick = () => fecharJanela(fundo);
   $('janelas').appendChild(fundo);
+  if (noLugarDe && noLugarDe.parentNode) { noLugarDe._aoFechar = null; noLugarDe.remove(); }
   const primeiro = fundo.querySelector('input:not([type=hidden]):not([type=checkbox]),select,textarea');
   if (primeiro) setTimeout(() => primeiro.focus(), 50);
   return fundo;
@@ -603,10 +604,23 @@ const ICONES_B = {
 };
 function iconeB(k) { return '<svg class="b-ic" viewBox="0 0 24 24" aria-hidden="true">' + (ICONES_B[k] || '') + '</svg>'; }
 // 1) cabeçalho da tela: ícone + título + frase; à direita "Atualizar" e o botão principal
-function cabecalhoTela({ icone, titulo, frase, atualizar, botao, extra }) {
+// Backup 89 (D2): no máximo dois botões à vista no cabeçalho — as ações raras vão para o "⋯".
+// itens: [[id, rótulo] | html]; cada item é um botão com o MESMO id de antes (quem ligava o clique pelo id continua funcionando)
+function maisB(itens, rotulo) {
+  itens = (itens || []).filter(Boolean); if (!itens.length) return '';
+  return '<span class="b-mais-wrap"><button type="button" class="b-ic-bt b-mais-bt" aria-haspopup="menu" aria-expanded="false" title="' + esc(rotulo || 'Mais ações') + '" aria-label="' + esc(rotulo || 'Mais ações') + '">⋯</button>' +
+    '<div class="b-mais-menu" role="menu" hidden>' + itens.map((i) => (Array.isArray(i) ? '<button type="button" role="menuitem" class="b-mais-it" id="' + esc(i[0]) + '">' + esc(i[1]) + '</button>' : i)).join('') + '</div></span>';
+}
+document.addEventListener('click', (ev) => {
+  const bt = ev.target.closest('.b-mais-bt');
+  document.querySelectorAll('.b-mais-menu:not([hidden])').forEach((m) => { if (!bt || m.previousElementSibling !== bt) { m.hidden = true; m.previousElementSibling.setAttribute('aria-expanded', 'false'); } });
+  if (bt) { const m = bt.nextElementSibling; m.hidden = !m.hidden; bt.setAttribute('aria-expanded', String(!m.hidden)); return; }
+  const it = ev.target.closest('.b-mais-menu .b-mais-it'); if (it) setTimeout(() => { const m = it.closest('.b-mais-menu'); if (m) { m.hidden = true; m.previousElementSibling.setAttribute('aria-expanded', 'false'); } }, 0);
+});
+function cabecalhoTela({ icone, titulo, frase, atualizar, botao, extra, mais }) {
   // Backup 82 (ambiente): "Atualizar" virou um botão só com o ícone; `extra` = outros botões antes do principal (ex.: "Guias do mês")
   return '<div class="b-cab"><div class="b-cab-ic">' + iconeB(icone || 'camadas') + '</div><div class="b-cab-tx"><h1>' + esc(titulo) + '</h1>' + (frase ? '<p>' + esc(frase) + '</p>' : '') + '</div>' +
-    '<div class="b-cab-acoes">' + (atualizar ? '<button type="button" class="b-ic-bt" id="' + esc(atualizar) + '" title="Atualizar" aria-label="Atualizar">' + iconeB('atualizar') + '</button>' : '') + (extra || '') +
+    '<div class="b-cab-acoes">' + (atualizar ? '<button type="button" class="b-ic-bt" id="' + esc(atualizar) + '" title="Atualizar" aria-label="Atualizar">' + iconeB('atualizar') + '</button>' : '') + (extra || '') + maisB(mais) +
     (botao ? '<button type="button" class="btn btn-p b-bt" id="' + esc(botao.id) + '">' + iconeB('mais') + esc(botao.rotulo) + '</button>' : '') + '</div></div>';
 }
 // tela vazia que explica e oferece o próximo passo: {icone, titulo, frase, botao: {rotulo, seletor}}
@@ -650,9 +664,10 @@ function segFiltroB(id, attr, opcoes, valor, rotulo) {
 function marcarSegB(caixa, bt) { if (caixa) caixa.querySelectorAll('.b-seg-bt').forEach((x) => { const on = x === bt; x.setAttribute('aria-pressed', on); x.setAttribute('aria-selected', on); }); }
 // Backup 88: o filtro de Grupo/Empresa fica À DIREITA e FIXO no alto ao rolar a tela (b-fsus-fixo)
 function filtroSusB(id, campos) {
-  return '<div class="b-fsus b-fsus-fixo" id="' + id + '">' + campos.map((c) => '<label class="b-fsus-c"><span>' + esc(c.rot) + '</span><select data-fsus="' + c.k + '" aria-label="' + esc(c.rot) + '"><option value="">' + esc(c.todos) + '</option>' +
+  return '<div class="b-fsus b-fsus-fixo" id="' + id + '"><span class="b-fsus-rot">Filtros</span>' + campos.map((c) => '<label class="b-fsus-c"><span>' + esc(c.rot) + '</span><select data-fsus="' + c.k + '" aria-label="' + esc(c.rot) + '"><option value="">' + esc(c.todos) + '</option>' +
     c.opcoes.map((o) => '<option' + (o === c.v ? ' selected' : '') + '>' + esc(o) + '</option>').join('') + '</select></label>').join('') +
-    (campos.some((c) => c.v) ? '<button type="button" class="b-fsus-limpar" data-fsus-limpar>Limpar filtro</button>' : '') + '</div>';
+    // Backup 89: o "Limpar" sempre existe; sem filtro ligado ele fica escondido no visual normal e à vista (apagado) no visual premium
+    '<button type="button" class="b-fsus-limpar' + (campos.some((c) => c.v) ? '' : ' b-fsus-limpar-x') + '" data-fsus-limpar>Limpar filtro</button>' + '</div>';
 }
 function ligarFiltroSusB(id, estado, depois) {
   const el = $(id); if (!el) return;

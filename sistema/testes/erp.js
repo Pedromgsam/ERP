@@ -116,12 +116,14 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     ok('equipe entra no Início do Gestão (resumo do mês)', await p.isVisible('#panel-hoje') && /(Olá|Bom dia|Boa tarde|Boa noite), Pedro/.test(await p.textContent('#panel-hoje')) && !!(await p.$('#ini-faixa')));
     await p.waitForSelector('#ini-faixa [data-ini-ir]'); await p.waitForTimeout(300);
     await p.waitForSelector('#ini-dia', { timeout: 8000 }).catch(() => {}); await p.waitForTimeout(800);
-    ok('B74/B83 Início: "Meu dia" (hoje + atrasadas, Só eu/Equipe toda), Lembretes e "Próximos 7 dias", a faixa Financeiro/Escritório — sem o calendário (B83)', !!(await p.$('#ini-dia')) && !!(await p.$('#ini-prox')) &&
-      (await p.$$('#ini-quem [data-ini-quem]')).length === 2 && !!(await p.$('#ini-resumo-fin [data-ini-ir^=fin-]')) && !(await p.$('#ini-fila')) && !/O que pede ação hoje/.test(await p.textContent('#panel-hoje')));
-    ok('B82 Início: faixa do ambiente (pílulas Financeiro/Escritório) no lugar dos cartões grandes, sem Processos', await p.evaluate(() =>
+    ok('B89 (I1) Início "Hoje": "Para hoje" (atrasadas + hoje, Só eu/Equipe toda), Lembretes ao lado, sem "Próximos 7 dias" e sem o calendário', !!(await p.$('#ini-dia')) && !(await p.$('#ini-prox')) &&
+      /Para hoje/.test(await p.textContent('#panel-hoje')) && (await p.$$('#ini-quem [data-ini-quem]')).length === 2 && !!(await p.$('#ini-faixa [data-ini-ir^=fin-]')) && !(await p.$('#ini-fila')));
+    ok('B89 (I1) Início: UMA faixa "Avisos" (Financeiro e Escritório juntos), no máximo 5 à vista, sem Processos', await p.evaluate(() =>
       !document.querySelector('#panel-hoje .ini-at, #panel-hoje .ini-atalhos') && !document.querySelector('#ini-faixa [data-ini-ir=processos]') &&
-      [...document.querySelectorAll('#ini-faixa .b-faixa-rot')].map((x) => x.textContent).join('|') === 'Financeiro|Escritório'));
-    ok('B82 Início: pílulas do Financeiro dizem o que está em atraso/vence hoje (ou que está tudo em dia)', /em atraso|vence hoje|a pagar|Nada em atraso/.test(await p.textContent('#ini-resumo-fin')));
+      [...document.querySelectorAll('#ini-faixa .b-faixa-rot')].map((x) => x.textContent).join('|') === 'Avisos' &&
+      [...document.querySelectorAll('#ini-faixa [data-ini-ir]')].filter((b) => b.offsetParent).length <= 5));
+    ok('B89 (I1/D2) Início: "Ver o dia de" no ⋯ do cabeçalho (sem a lista "Ver como" à vista)', !(await p.$('#ini-vercomo')) && !!(await p.$('#panel-hoje .b-cab .b-mais-bt')));
+    ok('B82 Início: pílulas do Financeiro dizem o que está em atraso/vence hoje (ou que está tudo em dia)', /em atraso|vence hoje|a pagar|Nada pendente/.test(await p.textContent('#ini-faixa')));
     await foto(p, 'inicio');
     await p.waitForTimeout(1500);
     const n = await p.evaluate(() => ({ b: DB.baseDados.length, pr: DB.processos.length, pa: DB.parcelamentos.length, ac: DB.acordos.length, fi: DB.financeiro.length, fc: DB.financeiroContabilidade.length }));
@@ -172,7 +174,11 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     // Backup 58: sem a caneta na linha — clicar na linha abre o detalhe e o "✎ Editar" fica lá dentro
     ok('Financeiro: linha sem a caneta ✎ (editar pelo detalhe)', !(await p.$('#panel-financeiro #fin-tab tr [data-editar]')) && !(await p.$('#panel-financeiro .gx-la-ed')));
     await p.click('#panel-financeiro #fin-tab tr[data-b-k="' + idRec + '"] td:nth-child(3)');
-    // Backup 85 (FI12): clicar no lançamento abre direto o formulário (o detalhe fica no botão "Detalhe")
+    // Backup 89 (D5): clicar no lançamento abre o DETALHE (molde único: tipo em cima, números, ficha, Editar no rodapé)
+    await p.waitForSelector('#gs-raiz .janela .b-ficha', { timeout: 8000 }).catch(() => {}); await p.waitForTimeout(250);
+    ok('B89 (D5): o lançamento abre o detalhe no molde único (tipo · empresa, faixa de números, ficha e Editar no rodapé)', /Honorário · Jurídico/.test(await p.textContent('#gs-raiz .janela-hd')) &&
+      !!(await p.$('#gs-raiz .janela .b-nums-faixa')) && !!(await p.$('#gs-raiz .janela-rp [data-editar]')));
+    await p.click('#gs-raiz .janela-rp [data-editar]');
     await p.waitForSelector('#gs-raiz #f-lanc', { timeout: 8000 }).catch(() => {}); await p.waitForTimeout(250);
     ok('clicar no lançamento abre o formulário (Receita · Jurídico, com Detalhe e Virou prejuízo)', /Receita/.test(await p.textContent('#gs-raiz .janela-hd')) && !!(await p.$('#btn-detalhe-lanc')) && !!(await p.$('#btn-perda-lanc')));
     await foto(p, 'editar');
@@ -202,11 +208,7 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
       ['Recebido mês a mês', 'Comparativo por pessoa', 'Por tipo de serviço', 'Maiores grupos'].every((t) => an.includes(t)) && !!(await p.$('#panel-financeiro #fin-corpo table.b-tab-comp')) && !!(await p.$('#panel-financeiro #fin-corpo svg.b-graf')));
     // Backup 79: Fluxo do mês (previsto × recebido × em atraso deste mês × a receber) e período digitado dd/mm/aaaa
     { const fx = await p.textContent('#panel-financeiro #fa-fluxo').catch(() => '');
-      ok('B88 Financeiro: "Fluxo do mês" com Recebido no mês, Previsto, Em atraso (deste mês) e A receber — sem a linha "Fora deste mês"', ['Recebido no mês', 'Previsto (vence no mês)', 'Em atraso (deste mês)', 'A receber'].every((t) => fx.includes(t)) && !fx.includes('Fora deste mês') && !!(await p.$('#panel-financeiro #fa-fluxo .b-fluxo-barra')));
-      // Backup 88: o "Recebido no mês" do fluxo é o mesmo "Recebido" da Análise com o período "Este mês"
-      await p.click('#panel-financeiro #fa-filtros [data-fa-per=mes]'); await p.waitForTimeout(400);
-      { const v = await p.evaluate(() => { const r = document.querySelector('#panel-financeiro #fa-fluxo .b-nums > div b'), a = [...document.querySelectorAll('#panel-financeiro #fin-corpo > .b-nums > div')].find((d) => /^Recebido/.test(d.querySelector('span').textContent)); return [r && r.textContent, a && a.querySelector('b').textContent]; });
-        ok('B88 Financeiro: o Recebido do Fluxo do mês bate com o Recebido de "Este mês"', !!v[0] && v[0] === v[1], v.join(' × ')); }
+      ok('B89 Financeiro: "Fluxo do mês" de volta ao de antes (Previsto no mês, Recebido, Em atraso deste mês, A receber), sem a linha "Fora deste mês"', ['Previsto no mês', 'Recebido', 'Em atraso (deste mês)', 'A receber'].every((t) => fx.includes(t)) && !fx.includes('Recebido no mês') && !fx.includes('Fora deste mês') && !!(await p.$('#panel-financeiro #fa-fluxo .b-fluxo-barra')));
       const m0 = await p.textContent('#panel-financeiro .b-fluxo-nav b'); await p.click('#panel-financeiro [data-fm="-1"]'); await p.waitForTimeout(300);
       ok('B79 Financeiro: ‹ › trocam o mês do fluxo', (await p.textContent('#panel-financeiro .b-fluxo-nav b')) !== m0);
       await p.fill('#panel-financeiro #fa-de', '01012024'); await p.fill('#panel-financeiro #fa-ate', '31/12/2024'); await p.click('#panel-financeiro #fa-aplicar'); await p.waitForTimeout(400);
@@ -445,9 +447,9 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     ok('B88: legenda do calendário Reunião · Audiência · Tarefa · Rotina · Atrasada · Concluída (sem prazo fatal e sem "próxima")', /Reunião.*Audiência.*Tarefa.*Rotina.*Atrasada.*Concluída/.test(await p.textContent('#tf-vista-corpo .ag-leg')) && !/fatal|Próxima/i.test(await p.textContent('#tf-vista-corpo .ag-leg')));
     await p.evaluate(() => { GS.E.tf.atalho = ''; GS.E.tf.pri = ''; }); await p.click('#tf-vista [data-v=lista]'); await p.click('#tf-vista-corpo [data-b-aba=abertas]'); await p.waitForTimeout(500);
     // Backup 85 (TF8): clicar na tarefa abre o formulário; o botão "Ficha da tarefa" (mantido) abre a ficha de leitura
-    await p.click('#tf-vista-corpo tr[data-b-k]:has-text("Protocolo")'); await p.waitForSelector('#gs-raiz #tf-ficha'); await p.waitForTimeout(300);
-    ok('B85: clicar na tarefa abre o formulário (com "Ficha da tarefa")', !!(await p.$('#gs-raiz #tf-ficha')));
-    await p.click('#gs-raiz #tf-ficha'); await p.waitForSelector('.tf-ficha'); await p.waitForTimeout(400);
+    await p.click('#tf-vista-corpo tr[data-b-k]:has-text("Protocolo")'); await p.waitForSelector('#gs-raiz #ag-ficha'); await p.waitForTimeout(300);
+    ok('B89 (D5): clicar na tarefa abre o detalhe curto (Concluir · Editar · Ficha completa), igual ao do calendário', !!(await p.$('#gs-raiz #ag-ficha')) && !!(await p.$('#gs-raiz #ag-editar')));
+    await p.click('#gs-raiz #ag-ficha'); await p.waitForSelector('.tf-ficha'); await p.waitForTimeout(400);
     ok('abrir tarefa mostra a ficha com Concluir, Encaminhar, + Subtarefa e Editar', /Protocolo/.test(await p.textContent('.tf-ficha-hd')) &&
       (await p.$$eval('.janela-rp button', (l) => l.map((b) => b.id))).join(',') === 'tf-f-editar,tf-f-sub,tf-f-enc,tf-f-ok');
     await p.click('#tf-f-editar'); await p.waitForSelector('#tf-coment-txt'); await p.waitForTimeout(800);
@@ -464,7 +466,7 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
       sql("select count(*) from notificacoes n join perfis p on p.id=n.usuario_id where p.email='equipe@teste' and n.tipo='revisao'") === '1');
     // horas: ▶ e ■
     await p.evaluate(() => { GS.E.tf.atalho = ''; GS.E.tf.pri = ''; }); await p.click('#tf-vista [data-v=lista]'); await p.click('#tf-vista-corpo [data-b-aba=abertas]'); await p.waitForTimeout(600);
-    await p.click('#tf-vista-corpo tr[data-b-k]:has-text("Revisão do sócio") td:nth-child(2)'); await p.waitForSelector('#tf-crono'); await p.waitForTimeout(300);   // Backup 85: a linha já abre o formulário
+    await p.click('#tf-vista-corpo tr[data-b-k]:has-text("Revisão do sócio") td:nth-child(2)'); await p.waitForSelector('#gs-raiz #ag-editar'); await p.click('#gs-raiz #ag-editar'); await p.waitForSelector('#tf-crono'); await p.waitForTimeout(300);   // Backup 89 (D5): a linha abre o detalhe; Editar abre o formulário
     await p.click('#tf-crono'); await p.waitForTimeout(800); await p.click('#tf-crono'); await p.waitForTimeout(800);
     ok('▶/■ registra horas na tarefa', sql("select count(*) from tarefa_tempos where fim is not null") === '1');
     await p.keyboard.press('Escape');
@@ -1240,7 +1242,7 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     sql("insert into tarefas(titulo,responsavel,status) values ('Tarefa B15 excluir','Pedro','pendente')");
     await p.evaluate(() => { GS.E.tf = null; }); await nav(p, 'tarefas'); await p.waitForTimeout(1500);
     await p.click('#tf-vista [data-v=lista]'); await p.click('#tf-vista-corpo [data-b-aba=abertas]'); await p.waitForTimeout(800);
-    await p.click('#panel-tarefas tr[data-b-k="' + sql("select id from tarefas where titulo='Tarefa B15 excluir'") + '"] td:nth-child(1)'); await p.waitForSelector('#btn-excluir-tf');   // Backup 85: a linha abre o formulário
+    await p.click('#panel-tarefas tr[data-b-k="' + sql("select id from tarefas where titulo='Tarefa B15 excluir'") + '"] td:nth-child(1)'); await p.waitForSelector('#gs-raiz #ag-editar'); await p.click('#gs-raiz #ag-editar'); await p.waitForSelector('#btn-excluir-tf');   // Backup 89 (D5): detalhe → Editar
     await p.click('#btn-excluir-tf'); await p.waitForTimeout(1500);
     ok('Tarefas: excluir tira da lista (fica no histórico como cancelada)', sql("select status from tarefas where titulo='Tarefa B15 excluir'") === 'cancelada' && !/Tarefa B15 excluir/.test(await p.textContent('#tf-corpo')));
     ok('B86 Tarefas: sem a aba "Excluídas"', !(await p.$('#tf-vista-corpo [data-b-aba=excluidas]')));
@@ -1395,7 +1397,7 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     await p.click('#rt-abas [data-rt-aba=passivo]').catch(() => {}); await p.waitForSelector('#rt-pas-corpo [data-senha]', { timeout: 10000 }).catch(() => {});
     ok('Rotina: passivo sem a coluna Senha GOV (fica no botão 🔑)', (await p.$$('#rt-pas-corpo [data-senha]')).length > 0 && !/Senha GOV/.test(await p.textContent('#rt-corpo thead')));
     // Backup 45: preencher como planilha — Enter desce para a mesma coluna da empresa de baixo
-    await p.waitForTimeout(800);   // Backup 56: espera a Rotina terminar de redesenhar depois do ✓ (senão o foco cai numa linha que some)
+    await p.waitForTimeout(1600);   // Backup 56: espera a Rotina terminar de redesenhar depois do ✓ (senão o foco cai numa linha que some)
     await p.focus('#rt-pas-corpo tr[data-id] >> nth=0 >> [data-c=ceat_trt3]'); await p.keyboard.press('Enter');
     ok('Rotina (B45): Enter no passivo desce para a mesma coluna da linha de baixo', await p.evaluate(() => { const a = document.activeElement, linhas = [...document.querySelectorAll('#rt-pas-corpo tr[data-id]')];
       return !!a && a.dataset.c === 'ceat_trt3' && a.closest('tr') === linhas[1]; }));
@@ -1626,7 +1628,7 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
       ok('B80 (M15): a busca Ctrl+K também acha ações ("Nova tarefa")', /Nova tarefa/.test(await p.textContent('#bg-res')) && /Aç(ão|ões)/.test(await p.textContent('#bg-res')));   // B85: paleta com o grupo "Ações" 
       await p.keyboard.press('Escape'); await p.waitForTimeout(300);
       await nav(p, 'hoje'); await p.waitForSelector('#ini-faixa .b-faixa-rot', { timeout: 15000 }).catch(() => {});
-      ok('B80 (M1): Início com a faixa de Avisos (o que era a tela Alertas)', /Escritório/.test(await p.textContent('#ini-faixa').catch(() => '')));
+      ok('B80 (M1): Início com a faixa de Avisos (o que era a tela Alertas)', /Avisos/.test(await p.textContent('#ini-faixa').catch(() => '')));
       await nav(p, 'rotina'); await p.waitForSelector('#rt-placar .b-faixa-rot');
       ok('B80 (E4): placar da Rotina numa linha só', await p.evaluate(() => getComputedStyle(document.querySelector('#rt-placar')).display === 'flex'));
       await p.click('#rt-abas [data-rt-aba=tarefas]'); await p.waitForSelector('#rt-rot-mes'); await p.click('#rt-rot-mes'); await p.waitForSelector('#rt-rm-ok'); await p.click('#rt-rm-ok'); await p.waitForTimeout(1500);
@@ -1658,9 +1660,10 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
       ok('B49/B86: "Aplicar reajuste" (janela do contrato) registra o aditivo com o valor novo', Number(sql("select valor_mensal from contratos where id='" + ctrR + "'")) > 1000 && sql("select count(*) from contratos_aditivos where contrato_id='" + ctrR + "' and tipo='valor'") === '1');
       await p.evaluate(() => { while (document.querySelector('#janelas .fundo')) window.GS.fecharJanela(); });
       // Publicações: abre em Novas + marcar todas como lidas
-      await nav(p, 'publicacoes'); await p.waitForSelector('#pub-todas-lidas'); await p.waitForTimeout(600);
+      await nav(p, 'publicacoes'); await p.waitForSelector('#pub-todas-lidas', { state: 'attached' }); await p.waitForTimeout(600);
       ok('B49: Publicações abre em "Novas"', await p.evaluate(() => GS.E.pub.status === 'nova'));
-      await p.click('#pub-todas-lidas'); await p.waitForTimeout(1500);
+      ok('B89 (D2): "Marcar todas como lidas" está no ⋯ (cabeçalho com no máximo dois botões à vista)', !(await p.isVisible('#pub-todas-lidas')));
+      await p.click('#panel-publicacoes .titulo-pag .b-mais-bt'); await p.click('#pub-todas-lidas'); await p.waitForTimeout(1500);
       ok('B49: "Marcar todas como lidas"', sql("select count(*) from publicacoes where status='nova'") === '0');
       // Alertas sem o que já tem outro lugar
       await nav(p, 'alertas'); await p.waitForTimeout(2500);
@@ -2033,8 +2036,8 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     {
       const fecharTudo = async () => { for (let i = 0; i < 4; i++) { const f = await p.$('#gs-raiz .fundo [data-cancelar], #gs-raiz .fundo [data-fechar]'); if (!f) break; await f.click().catch(() => {}); await p.waitForTimeout(200); } };
       sql("insert into lancamentos (empresa, tipo, descricao, valor, vencimento) values ('contabilidade','despesa','Despesa contab B55',111,current_date), ('escritorio','despesa','Despesa escritorio B55',999,current_date)");
-      await nav(p, 'hoje'); await p.waitForSelector('#ini-resumo-fin [data-ini-ir=fin-pagar]'); await p.waitForTimeout(500);
-      const pagTxt = await p.$$eval('#ini-resumo-fin [data-ini-ir=fin-pagar]', (l) => l.map((b) => b.textContent + ' ' + (b.title || '')).join(' | '));   // B85: pílula da faixa (o nome vai no title)
+      await nav(p, 'hoje'); await p.waitForSelector('#ini-faixa [data-ini-ir=fin-pagar]', { state: 'attached' }); await p.waitForTimeout(500);
+      const pagTxt = await p.$$eval('#ini-faixa [data-ini-ir=fin-pagar]', (l) => l.map((b) => b.textContent + ' ' + (b.title || '')).join(' | '));   // B85: pílula da faixa (o nome vai no title)
       ok('B55 Início: cartão "A pagar · Contabilidade" só com as despesas da contabilidade', /A pagar · Contabilidade/.test(pagTxt) && /111/.test(pagTxt) && !/999|1\.110/.test(pagTxt), pagTxt);
       // (B84: a linha de filtros de Tarefas é única — Mostrar à esquerda, De quem e Urgência à direita; o teste de posição do 2×2 saiu)
       await nav(p, 'resumo'); await p.waitForSelector('#pe-nova tbody tr[data-b-k]'); await p.evaluate(() => { FILTROS.grupo = ''; FILTROS.empresa = ''; renderExecRanking(); }); await p.waitForTimeout(800);

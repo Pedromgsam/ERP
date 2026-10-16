@@ -1207,3 +1207,51 @@ html body.gx-barra-topo .gs #fa-filtros.b-fin-filtros-88:not(#_){display:flex!im
 .gs .b-fin-f > .b-fin-rot{margin:0}
 .gs .b-fin-f .b-fx{display:inline-flex;align-items:center;gap:6px}
 .gs .b-fin-f select.b-fin-outro{height:32px;border:1px solid var(--border);border-radius:var(--r-ctl);background-color:var(--surface);color:var(--text);font:500 13px var(--font-ui);padding:0 28px 0 10px}
+/* ═══ Backup 89 ═══ */
+/* troca de tipo na Nova tarefa (Tarefa ↔ Rotina ↔ Reunião ↔ Audiência): a janela é trocada no lugar, sem animação de abrir */
+.gs .fundo.j-troca .janela:not(#_){animation:none!important}
+/* Rotina: o dia escolhido ficava azul-escuro sobre azul-escuro (ilegível) — agora azul claro com o texto azul */
+html body.gx-barra-topo .gs .tf-rep-dia:has(input:checked):not(#_){background:var(--primario-lt,var(--blue-lt));border-color:var(--primario);color:var(--primario);font-weight:600}
+/* Backup 89 (D2): menu "⋯" do cabeçalho */
+.gs .b-mais-wrap{position:relative;display:inline-flex}
+.gs .b-mais-bt{font-size:19px;line-height:1;letter-spacing:1px}
+.gs .b-mais-menu{position:absolute;right:0;top:calc(100% + 6px);z-index:60;min-width:230px;background:var(--surface);border:1px solid var(--border);border-radius:10px;box-shadow:var(--shadow-lg,0 12px 32px rgba(0,0,0,.14));padding:6px;display:flex;flex-direction:column;gap:2px}
+.gs .b-mais-menu[hidden]{display:none}
+.gs .b-mais-it{border:0;background:none;text-align:left;padding:8px 10px;border-radius:7px;font:500 13px var(--font-ui);color:var(--text);cursor:pointer;white-space:nowrap}
+.gs .b-mais-it:hover,.gs .b-mais-it:focus-visible{background:var(--hover,var(--surface2))}
+.gs .b-mais-menu .b-mais-rot{font:600 11px var(--font-ui);color:var(--text3);text-transform:uppercase;letter-spacing:.05em;padding:6px 10px 2px}
+/* Backup 89 (I1): Início "Hoje" — uma faixa de avisos; "Para hoje" largo e Lembretes em pequeno ao lado */
+.gs .ini-faixa-1 .b-faixa-lin{border:0}
+.gs .ini-b89{display:grid;grid-template-columns:minmax(0,1.7fr) minmax(0,1fr);gap:20px;align-items:start}
+.gs .ini-b89 .ini-col-lemb .ini-lemb{font-size:12.5px}
+.gs .ini-pil-resto{display:contents}
+.gs .ini-pil-resto[hidden]{display:none}
+@media (max-width:900px){.gs .ini-b89{grid-template-columns:1fr}}
+/* Backup 89 (D4): tabelas mais leves — linhas um pouco mais baixas; com um grupo escolhido no alto, a coluna Grupo some (a 1ª coluna fica com largura zero
+   e as outras ganham o espaço; ordenar e as larguras das demais continuam iguais) */
+html body.gx-barra-topo table.b-tab tbody td:not(#_){padding-top:8px!important;padding-bottom:8px!important}
+html body.gx-barra-topo table.b-tab thead th:not(#_){padding-top:9px!important;padding-bottom:9px!important}
+html body.gx-barra-topo table.b-tab.b-sem-g:not(#_) :is(thead th,tbody td):first-child{width:0!important;max-width:0;padding:0!important;border-left:0;overflow:hidden;font-size:0!important;color:transparent}
+@media (max-width:600px){html body.gx-barra-topo table.b-tab.b-sem-g:not(#_) tbody td:first-child{display:none}}
+/* Backup 89 (D7): tablet e celular — filtros quebram em duas linhas sem apertar a tabela; no celular os filtros do alto ficam um embaixo do outro */
+@media (max-width:1100px){
+  .gs .b-barra-tab{flex-wrap:wrap;row-gap:8px}
+  .gs .b-barra-tab .b-barra-dir{margin-left:auto}
+  .gs .b-tf-filtros.b-tf-filtros-88,.gs .b-fin-filtros-88{row-gap:8px}
+  .gs .b-cab{flex-wrap:wrap;row-gap:10px}
+}
+@media (max-width:600px){
+  .gs .b-seg.b-seg-f,.gs .b-seg.b-prazos{flex-wrap:nowrap;overflow-x:auto;max-width:100%;scrollbar-width:none}
+  .gs .b-tf-f{max-width:100%;overflow-x:auto}
+  .gs .b-mais-menu{right:auto;left:0}
+}
+/* Backup 89 (D7): celular — o cabeçalho da tela empilha (ícone + título em cima, botões embaixo) e a barra do alto não quebra em duas linhas */
+@media (max-width:600px){
+  html body.gx-barra-topo .gs .b-cab:not(#_){display:grid;grid-template-columns:auto minmax(0,1fr);align-items:center;column-gap:12px;row-gap:10px}
+  html body.gx-barra-topo .gs .b-cab > :is(.b-cab-acoes,.acoes):not(#_){grid-column:1/-1;justify-content:flex-start;flex-wrap:wrap;margin:0}
+  html body.gx-barra-topo .gs .b-cab-tx:not(#_){min-width:0}
+  html body.gx-barra-topo #gs-hd:not(#_){flex-wrap:nowrap}
+  html body.gx-barra-topo #gs-hd #gs-tela-nome:not(#_){min-width:0;flex:1 1 auto;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+}
+/* Backup 89: "Limpar filtro" sem nada ligado = escondido (no visual premium ele fica sempre à vista); rótulo "Filtros" só no premium */
+.gs .b-fsus-limpar.b-fsus-limpar-x,.gs .b-fsus-rot{display:none}

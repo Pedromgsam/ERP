@@ -6851,3 +6851,42 @@ exception when others then
   raise notice 'Agendador indisponível: use o botão "Buscar agora" em Jurídico → Publicações.';
 end $$;
 -- ═══ fim do Backup 88 ═══
+
+-- ═══ Backup 89 ═══
+-- Publicações do dia ao advogado: TODOS os advogados do escritório citados na intimação recebem (antes só o da 1ª OAB que achou a publicação).
+-- Citado = o nº da OAB monitorada aparece na lista de advogados do Diário, ou é a OAB que achou.
+create or replace function public.email_publicacoes_advogados() returns int
+language plpgsql security definer set search_path = public as $$
+declare a record; n int := 0; v_url text;
+begin
+  if auth.uid() is not null and not public.pode('juridico') then raise exception 'permission denied: sem acesso ao jurídico.'; end if;
+  v_url := (select valor #>> '{}' from public.config_privada where chave = 'url_sistema');
+  for a in
+    select x.uid, count(*) qtd, string_agg(x.lin, '' order by x.dia desc, x.proc) linhas
+      from (select distinct on (u.uid, p.id) u.uid, p.data_disponibilizacao dia, p.processo proc,
+                   '<tr><td style="padding:6px 10px;border-bottom:1px solid #E5E7EB;font-family:monospace">' || public.esc_html(coalesce(nullif(p.processo, ''), '—')) || '</td>' ||
+                   '<td style="padding:6px 10px;border-bottom:1px solid #E5E7EB">' || public.esc_html(coalesce(nullif(p.tipo, ''), 'Comunicação')) || ' · ' || public.esc_html(coalesce(p.tribunal, '')) || '</td>' ||
+                   '<td style="padding:6px 10px;border-bottom:1px solid #E5E7EB;white-space:nowrap">' || coalesce(to_char(p.data_disponibilizacao, 'DD/MM/YYYY'), '') || '</td></tr>' lin
+              from public.publicacoes p
+              join public.oabs_monitoradas o on o.ativo and (
+                     (coalesce(p.advogado, '') <> '' and public.primeiro_nome(o.advogado) = public.primeiro_nome(p.advogado))
+                  or (length(regexp_replace(coalesce(o.numero, ''), '\D', '', 'g')) > 3
+                      and coalesce(p.advogados, '') ~ ('(^|\D)' || regexp_replace(o.numero, '\D', '', 'g') || '(\D|$)')))
+              cross join lateral (select public.usuario_por_nome(o.advogado) uid) u
+             where p.criado_em >= current_date::timestamptz and p.status = 'nova' and u.uid is not null) x
+     group by x.uid
+  loop
+    -- a referência leva a quantidade: se aparecer mais intimação no mesmo dia (outra busca), sai um e-mail novo com todas
+    if public.enfileirar_email(a.uid, 'publicacao',
+         case when a.qtd = 1 then '1 intimação nova hoje no Diário' else a.qtd || ' intimações novas hoje no Diário' end,
+         '<p>Intimações novas localizadas hoje (' || to_char(current_date, 'DD/MM/YYYY') || ') em que você é citado(a):</p>' ||
+         '<table style="border-collapse:collapse;width:100%;font-size:13px"><tr style="background:#F3F4F6"><th style="text-align:left;padding:6px 10px">Processo</th><th style="text-align:left;padding:6px 10px">Tipo · Tribunal</th><th style="text-align:left;padding:6px 10px">Disponibilizada</th></tr>' ||
+         a.linhas || '</table>' ||
+         coalesce('<p style="margin-top:16px"><a href="' || v_url || '" style="background:#1B2A4A;color:#fff;padding:9px 16px;border-radius:8px;text-decoration:none;display:inline-block">Abrir Publicações no ERP</a></p>', ''),
+         'publicacao', 'pubdia:' || to_char(current_date, 'YYYY-MM-DD') || ':' || a.qtd) then n := n + 1; end if;
+  end loop;
+  return n;
+end $$;
+revoke all on function public.email_publicacoes_advogados() from public, anon;
+grant execute on function public.email_publicacoes_advogados() to authenticated, service_role;
+-- ═══ fim do Backup 89 ═══
