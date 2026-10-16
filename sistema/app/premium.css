@@ -143,3 +143,33 @@ html[data-visual="premium"] .gs .b-pm-nao:not(#_){display:none}
 html[data-visual="premium"] .gs .b-pm-so:not(#_){display:inline-block}
 html[data-visual="premium"] .gs select.b-sel-sus:not(#_){border:1px solid var(--border-strong);border-radius:var(--r-ctl,8px);padding:7px 30px 7px 12px;font:600 13px var(--font-ui);color:var(--text);background-color:var(--surface);min-width:190px}
 html[data-visual="premium"] .gs select.b-sel-sus:has(option:checked:not([value=""])):not(#_){border-color:var(--primario);box-shadow:0 0 0 1px var(--primario)}
+
+/* ═══ Backup 92 (respostas de 16/10): FILTROS À ESQUERDA, os menos importantes em lista suspensa, tudo alinhado e limpo ═══ */
+html[data-visual="premium"] .gs .b-pm-fora:not(#_){display:none!important}
+/* filtro Grupo · Empresa (Painel, Processos, Parcelamentos, Acordos): começa à esquerda */
+html[data-visual="premium"] body.gx-barra-topo .gs .b-fsus.b-fsus-fixo:not(#_){justify-content:flex-start}
+html[data-visual="premium"] body.gx-barra-topo .gs .b-fsus.b-fsus-fixo > :first-child:not(#_),html[data-visual="premium"] body.gx-barra-topo .gs .b-fsus .b-fsus-rot:not(#_){margin-left:0}
+html[data-visual="premium"] body.gx-barra-topo .gs .b-fsus.b-fsus-fixo > .b-fsus-c.b-pm-so:not(#_){display:inline-flex}
+/* Situação por cliente (Todos · Com atraso · Risco de rescisão · Em dia · Concluídos) logo depois do título, à esquerda */
+html[data-visual="premium"] body.gx-barra-topo .gs .b-sec:not(#_){justify-content:flex-start;gap:12px 18px;flex-wrap:wrap}
+html[data-visual="premium"] body.gx-barra-topo .gs .b-sec .b-seg.b-seg-f:not(#_){margin-left:0;max-width:100%}
+/* Início: "Só eu · Equipe toda" à esquerda, ao lado do título "Para hoje" */
+html[data-visual="premium"] body.gx-barra-topo .gs .ini-col > .ini-sec-hd:not(#_){justify-content:flex-start;align-items:center;gap:18px}
+html[data-visual="premium"] body.gx-barra-topo .gs .ini-col .ini-quem:not(#_),html[data-visual="premium"] body.gx-barra-topo .gs .ini-col #ini-quem:not(#_){margin-left:0}
+/* Tarefas: Lista · Calendário à esquerda, acima de "Em aberto · Atrasadas · Concluídas"; De quem e Urgência em lista suspensa */
+html[data-visual="premium"] body.gx-barra-topo .gs .tf-vista2:not(#_){display:inline-flex;margin:4px 0 12px}
+html[data-visual="premium"] body.gx-barra-topo .gs .b-tf-filtros.b-tf-filtros-88:not(#_){justify-content:flex-start;align-items:center;gap:10px 22px}
+html[data-visual="premium"] body.gx-barra-topo .gs .b-tf-filtros > .b-fsus:not(#_){margin:0}
+/* Financeiro: Análise · Lançamentos à esquerda, numa linha logo abaixo do título (Recibo e + Lançar ficam à direita do título) */
+html[data-visual="premium"] body.gx-barra-topo .gs .b-cab:has(#fin-abas):not(#_){flex-wrap:wrap;row-gap:12px}
+html[data-visual="premium"] body.gx-barra-topo .gs .b-cab:has(#fin-abas) > .b-cab-acoes:not(#_){display:contents}
+html[data-visual="premium"] body.gx-barra-topo .gs .b-cab:has(#fin-abas) > .b-cab-acoes > :not(#fin-abas):first-of-type:not(#_){margin-left:auto}
+html[data-visual="premium"] body.gx-barra-topo .gs .b-cab:has(#fin-abas)::after{content:"";flex-basis:100%;order:9}
+html[data-visual="premium"] body.gx-barra-topo .gs .b-cab #fin-abas:not(#_){order:10;margin-right:auto}
+/* listas suspensas e caixas de escolha do mesmo tamanho, cantos e espaços iguais */
+html[data-visual="premium"] .gs select.b-sel-sus:not(#_){height:36px;padding-top:0;padding-bottom:0}
+html[data-visual="premium"] body.gx-barra-topo .gs :is(.b-seg,.b-tf-f .b-seg):not(#_){min-height:36px;align-items:center}
+/* M4: botão "Buscar" à vista na barra do alto (abre a caixa do Ctrl+K) */
+html[data-visual="premium"] body.gx-barra-topo #gs-hd .gs-busca-bt:not(#_){display:inline-flex;align-items:center;gap:6px;height:36px;padding:0 12px;border:1px solid var(--border-strong);border-radius:10px;background:var(--surface);color:var(--text2);font:500 13px var(--font-ui);margin-right:8px;min-width:240px;cursor:pointer}
+html[data-visual="premium"] body.gx-barra-topo #gs-hd .gs-busca-bt kbd:not(#_){margin-left:auto}
+@media (max-width:760px){html[data-visual="premium"] body.gx-barra-topo #gs-hd .gs-busca-bt:not(#_){min-width:0}html[data-visual="premium"] body.gx-barra-topo #gs-hd .gs-busca-bt kbd:not(#_){display:none}}

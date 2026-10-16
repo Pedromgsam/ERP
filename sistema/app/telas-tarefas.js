@@ -484,7 +484,7 @@ TELAS.tarefas = async function () {
     '<div class="titulo-pag b-cab"><div class="b-cab-ic">' + iconeB('tarefas') + '</div><div class="b-cab-tx"><h1>Tarefas</h1><p>Suas tarefas e as da equipe</p></div>' +
     '<div class="acoes">' +
     // Backup 80: Lista · Semana · Calendário · Fluxos no alto, ao lado de "+ Nova tarefa" (como no ambiente de teste)
-    '<div class="b-seg tf-vista" id="tf-vista" role="tablist">' + [['lista', 'Lista'], ['calendario', 'Calendário']]
+    '<div class="b-seg tf-vista b-pm-fora" id="tf-vista" role="tablist">' + [['lista', 'Lista'], ['calendario', 'Calendário']]
       .map(([v, r]) => '<button type="button" role="tab" class="b-seg-bt" data-v="' + v + '">' + r + '</button>').join('') + '</div>' +
     '<span class="tf-cfg-wrap"><button class="btn btn-o tf-bt-ic" id="tf-config" title="Configurar: feriados e Google Agenda" aria-expanded="false">⚙</button>' +
       '<span class="tf-cfg-menu" id="tf-cfg-menu" hidden>' +   // Backup 88: sem "Modelos de fluxo" 
@@ -494,18 +494,28 @@ TELAS.tarefas = async function () {
     '<button class="btn btn-p" id="tf-nova">+ Nova tarefa</button></div></div>' +
     // Backup 72: sem os 4 cartões do topo; vistas Lista · Semana · Calendário · Fluxos
     // Backup 88: sem a barra de busca; Mostrar · De quem · Urgência no padrão do escritório, em todas as vistas
-    '<div class="fila-filtros tf-filtros" id="tf-chips"></div><div id="tf-corpo"><div class="carregando">Carregando…</div></div>';
+    '<div class="fila-filtros tf-filtros" id="tf-chips"></div>' +
+    // Backup 92 (visual premium): Lista · Calendário à esquerda, logo acima de "Em aberto · Atrasadas · Concluídas"
+    '<div class="b-seg tf-vista tf-vista2 b-pm-so" id="tf-vista2" role="tablist" aria-label="Ver como">' + [['lista', 'Lista'], ['calendario', 'Calendário']]
+      .map(([v, r]) => '<button type="button" role="tab" class="b-seg-bt" data-v="' + v + '">' + r + '</button>').join('') + '</div>' +
+    '<div id="tf-corpo"><div class="carregando">Carregando…</div></div>';
   $('tf-nova').onclick = () => formTarefa({}, () => TELAS.tarefas());
   $('tf-config').onclick = (ev) => { ev.stopPropagation(); const m = $('tf-cfg-menu'); m.hidden = !m.hidden; $('tf-config').setAttribute('aria-expanded', String(!m.hidden)); };
   if (!window._tfCfgDoc) { window._tfCfgDoc = true; document.addEventListener('click', (ev) => { const m = $('tf-cfg-menu'); if (m && !m.hidden && !ev.target.closest('.tf-cfg-wrap')) m.hidden = true; }); }
   $('tf-cfg-menu').addEventListener('click', () => { setTimeout(() => { const m = $('tf-cfg-menu'); if (m) m.hidden = true; }, 0); });
   $('tf-feriados').onclick = () => janelaFeriados();
   $('tf-agenda').onclick = () => janelaAgenda();
-  $('tf-vista').onclick = (ev) => { const b = ev.target.closest('button'); if (b) { F.vista = b.dataset.v; pintarTarefas(); } };
+  $('tf-vista').onclick = $('tf-vista2').onclick = (ev) => { const b = ev.target.closest('button'); if (b) { F.vista = b.dataset.v; pintarTarefas(); } };
   $('tf-chips').onclick = (ev) => { const b = ev.target.closest('button'); if (!b) return;
     if (b.dataset.tfMostra != null) F.mostra = b.dataset.tfMostra;
     else if (b.dataset.tfPes != null) F.pessoas = b.dataset.tfPes ? [b.dataset.tfPes] : [];
     else if (b.dataset.tfPri != null) F.pri = b.dataset.tfPri;
+    else return;
+    pintarTarefas(); };
+  // Backup 92 (visual premium): "De quem" e "Urgência" em lista suspensa
+  $('tf-chips').onchange = (ev) => { const t = ev.target;
+    if (t.id === 'tf-pes-sel') F.pessoas = t.value ? [t.value] : [];
+    else if (t.id === 'tf-pri-sel') F.pri = t.value;
     else return;
     pintarTarefas(); };
   F.busca = '';
@@ -544,7 +554,7 @@ function filtrarTarefas(daLista) {
 
 function pintarTarefas() {
   const F = E.tf, h = hojeISO();
-  document.querySelectorAll('#tf-vista button').forEach((b) => b.classList.toggle('ativo', b.dataset.v === F.vista));
+  document.querySelectorAll('#tf-vista button, #tf-vista2 button').forEach((b) => { b.classList.toggle('ativo', b.dataset.v === F.vista); b.setAttribute('aria-selected', String(b.dataset.v === F.vista)); });
   { const fl = document.querySelector('#panel-tarefas .filtros, #gs-main-tarefas .filtros'); if (fl) fl.style.display = F.vista === 'lista' ? 'none' : ''; }
   if (F.vista !== 'lista') F.aba = 'abertas';   // Backup 72: as abas (Concluídas, Excluídas…) são da Lista; Semana/Calendário/Fluxos mostram as em aberto
   // Backup 84: uma linha de filtros em TODAS as vistas — "Mostrar" (tipo) em chips sempre à vista; "De quem" e "Urgência" em listas
@@ -559,8 +569,10 @@ function pintarTarefas() {
     $('tf-chips').style.display = '';
     $('tf-chips').innerHTML = '<div class="b-tf-filtros b-tf-filtros-88">' +
       grupo('Mostrar', segFiltroB('tf-f-mostra', 'data-tf-mostra', [['', 'Tudo'], ['reuniao', 'Reuniões'], ['audiencia', 'Audiências'], ['tarefa', 'Tarefas'], ['rotina', 'Rotinas'], ['atrasadas', 'Atrasadas']], F.mostra || '', 'Mostrar')) +
-      (pes.length > 1 ? grupo('De quem', segFiltroB('tf-f-pes', 'data-tf-pes', [['', 'Todos']].concat(pes.map((n) => [primeiroNome(n), nomeCurto(n).split(' ')[0]])), pesSel, 'De quem')) : '') +
-      grupo('Urgência', segFiltroB('tf-f-pri', 'data-tf-pri', [['', 'Todas'], ['alta', 'Alta'], ['media', 'Média'], ['baixa', 'Baixa']], F.pri || '', 'Urgência')) + '</div>';
+      (pes.length > 1 ? grupo('De quem', '<span class="b-pm-nao">' + segFiltroB('tf-f-pes', 'data-tf-pes', [['', 'Todos']].concat(pes.map((n) => [primeiroNome(n), nomeCurto(n).split(' ')[0]])), pesSel, 'De quem') + '</span>' +
+        '<select id="tf-pes-sel" class="b-pm-so b-sel-sus" aria-label="De quem"><option value="">Todos</option>' + pes.map((n) => '<option value="' + esc(primeiroNome(n)) + '"' + (primeiroNome(n) === pesSel ? ' selected' : '') + '>' + esc(nomeCurto(n).split(' ')[0]) + '</option>').join('') + '</select>') : '') +
+      grupo('Urgência', '<span class="b-pm-nao">' + segFiltroB('tf-f-pri', 'data-tf-pri', [['', 'Todas'], ['alta', 'Alta'], ['media', 'Média'], ['baixa', 'Baixa']], F.pri || '', 'Urgência') + '</span>' +
+        '<select id="tf-pri-sel" class="b-pm-so b-sel-sus" aria-label="Urgência">' + [['', 'Todas'], ['alta', 'Alta'], ['media', 'Média'], ['baixa', 'Baixa']].map((o) => '<option value="' + o[0] + '"' + ((F.pri || '') === o[0] ? ' selected' : '') + '>' + o[1] + '</option>').join('') + '</select>') + '</div>';
   }
   const V = { lista: vistaLista, calendario: vistaCalendario };   // Backup 88: sem as vistas Semana (está no Calendário) e Fluxos
   $('tf-corpo').innerHTML = '<div id="tf-vista-corpo"></div>';

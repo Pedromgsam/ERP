@@ -21,7 +21,14 @@ async function indiceBusca() {
   if (!ehClienteGS()) {
     const ac = [{ rot: 'Emitir as guias do mês', fn: () => { E.rt = Object.assign(E.rt || {}, { aba: 'guias' }); irParaTela('rotina'); } },
       { rot: 'Nova tarefa', fn: async () => { await carregarCadastros(); formTarefa({}, () => {}); } },
-      { rot: 'Ver como o cliente vê (portal)', fn: () => verComoCliente('') }];   // Backup 81 (M10)
+      { rot: 'Ver como o cliente vê (portal)', fn: () => verComoCliente('') },   // Backup 81 (M10)
+      // Backup 92 (M4): mais ações do dia a dia direto da busca
+      { rot: 'Agendar reunião', fn: async () => { await carregarCadastros(); janelaAgendar(hojeISO(), () => {}, 'reuniao'); } },
+      { rot: 'Agendar audiência', fn: async () => { await carregarCadastros(); janelaAgendar(hojeISO(), () => {}, 'audiencia'); } },
+      { rot: 'Buscar publicações agora', fn: () => { irParaTela('publicacoes'); setTimeout(() => { const b = document.getElementById('pub-buscar'); if (b) b.click(); }, 900); } },
+      { rot: 'Ver honorários em atraso', fn: () => { prepararTabB('fin-juridico', { aba: 'areceber', prazo: 'venc' }); E.fin = E.fin || {}; if (E.fin.juridico) E.fin.juridico.aba = 'lanc'; else E.finAbaPend = 'lanc'; irParaTela('financeiro'); } },
+      { rot: 'Ver parcelas vencidas dos parcelamentos', fn: () => { prepararTabB('parcelas', { aba: 'apagar', prazo: 'venc' }); irParaTela('parcelamentos'); } },
+      { rot: 'Trocar tema claro / escuro', fn: () => { const b = document.querySelector('#gs-hd [data-acao="tema"], #gs-hd .gs-bt-tema, #gs-tema'); if (b) b.click(); } }];
     (typeof window.ERP_ACOES_BUSCA === 'function' ? window.ERP_ACOES_BUSCA() : []).forEach((x) => ac.push({ rot: x.tela ? x.rot : 'Lançar ' + x.rot.charAt(0).toLowerCase() + x.rot.slice(1), fn: x.fn, tela: x.tela }));
     ac.forEach((x) => I.push({ tipo: x.tela ? 'Tela' : 'Ação', tit: x.rot, sub: '', txt: x.rot + (x.tela ? '' : ' novo nova criar lançar'), ir: x.fn, acao: 1 }));
   }

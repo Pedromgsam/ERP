@@ -13,6 +13,7 @@ const unicosB = (l) => [...new Set(l.filter(Boolean))].sort((a, b) => String(a).
 function estadoPE() { E.pe = E.pe || { grupo: '', empresa: '', resp: '', evo: { visao: 'total', meses: 6, dados: null, lidoMeses: 0 } };
   // Backup 88: o filtro do alto (Grupo · Empresa · Responsável) fica à direita e fixo ao rolar — o estado dele em E.pe.f
   E.pe.f = E.pe.f || { grupo: E.pe.grupo || '', emp: E.pe.empresa || '', resp: E.pe.resp || '' };
+  if (ehPremium()) E.pe.f.resp = '';   // Backup 92: no visual premium o filtro de Responsável não aparece — nunca fica ligado escondido
   E.pe.grupo = E.pe.f.grupo; E.pe.empresa = E.pe.f.emp; E.pe.resp = E.pe.f.resp; return E.pe; }
 const nome1PE = (s) => String(s || '').trim().split(/\s+/)[0] || '';   // primeiro nome como foi escrito (Pedro, Emanuelle…)
 const respPE = (r) => nome1PE(r && r.responsavel || '');
@@ -58,7 +59,7 @@ TELAS.painelExec = async function () {
   const N = numerosPainel(D, P), t = (v) => '<span title="' + esc(brl(v)) + '">' + esc(brlCurto(v)) + '</span>';
   c.innerHTML = cabecalhoTela({ icone: 'painel', titulo: 'Painel Executivo', frase: 'Passivo dos clientes e onde ele está' }) +
     filtroSusB('pe-filtro', [{ k: 'grupo', rot: 'Grupo', todos: 'Todos os grupos', opcoes: grupos, v: P.grupo }, { k: 'emp', rot: 'Empresa', todos: 'Todas as empresas', opcoes: emps, v: P.empresa },
-      { k: 'resp', rot: 'Responsável', todos: 'Todos', opcoes: resps, v: P.resp }]) +
+      { k: 'resp', rot: 'Responsável', todos: 'Todos', opcoes: resps, v: P.resp, cls: 'b-pm-fora' }]) +   // Backup 92: sem Responsável no visual premium
     '<div id="pe-nums">' + numsFaixa([['Passivo total', t(N.total), 'RFB ' + brlCurto(N.rfb) + ' · PGFN ' + brlCurto(N.pgfn) + ' · AGE/MG ' + brlCurto(N.age)], ['Parcelamentos (saldo)', t(N.saldoParc), plural(N.nParc, 'ativo', 'ativos')],
       ['Acordos (em aberto)', t(N.acPagar), plural(N.nAc, 'parcela', 'parcelas')], ['Passivo em disputa', t(N.passivo), plural(N.nProc, 'processo', 'processos'), 'b-verm'], ['Ativo em disputa', t(N.ativo), '', 'b-verde']]) + '</div>' +
     // Backup 83: como no ambiente — só o título e "6 meses · 12 meses"; a linha é o total do que está escolhido no alto (todos, um grupo ou uma empresa)
@@ -134,14 +135,21 @@ TELAS.processosERP = async function () {
   if (!Array.isArray(D.processos)) { c.innerHTML = vazioB({ icone: 'documento', titulo: 'Abra pelo ERP', frase: 'A lista de processos usa os dados que o ERP carrega.' }); return; }
   E.prRes = E.prRes || { aberto: false };
   E.prF = E.prF || { grupo: '', comp: '', adv: '' };
+  if (!('emp' in E.prF)) E.prF.emp = '';
+  if (ehPremium()) { E.prF.comp = ''; E.prF.adv = ''; } else E.prF.emp = '';   // o filtro escondido nunca fica ligado
+  // Backup 92 (visual premium): Grupo + Empresa, como no Painel (Competência e Advogado somem no premium). O processo não guarda a empresa:
+  // vale o nome da empresa no Autor ou no Réu.
+  const empsPr = unicosTxt((dbE().baseDados || []).filter((r) => !E.prF.grupo || r.grupo === E.prF.grupo).map((r) => r.nome));
+  const temEmp = (p, e) => !e || normalizar((p.autor || '') + ' ' + (p.reu || '')).includes(normalizar(e));
   // Backup 79: filtro suspenso (Grupo / Competência) — recorta o Resumo da carteira e a lista
-  const F = E.prF, L0 = D.processos, L = L0.filter((p) => (!F.grupo || p.grupo === F.grupo) && (!F.comp || p.competencia === F.comp) && (!F.adv || nome1PE(p.advogado || '') === F.adv)), P = L.filter((p) => p.carteira !== 'Prospecção');
+  const F = E.prF, L0 = D.processos, L = L0.filter((p) => (!F.grupo || p.grupo === F.grupo) && (!F.comp || p.competencia === F.comp) && (!F.adv || nome1PE(p.advogado || '') === F.adv) && temEmp(p, F.emp)), P = L.filter((p) => p.carteira !== 'Prospecção');
   const podeEd = pode('juridico', 'editar');
   c.innerHTML = cabecalhoTela({ icone: 'documento', titulo: 'Processos', frase: 'Processos dos clientes', botao: podeEd ? { id: 'pr-novo', rotulo: 'Processo' } : null }) +
     filtroSusB('pr-filtro', [{ k: 'grupo', rot: 'Grupo', todos: 'Todos os grupos', opcoes: unicosTxt(L0.map((p) => p.grupo)), v: F.grupo },
-      { k: 'comp', rot: 'Competência', todos: 'Todas as competências', opcoes: unicosTxt(L0.filter((p) => !F.grupo || p.grupo === F.grupo).map((p) => p.competencia)), v: F.comp },
+      { k: 'emp', rot: 'Empresa', todos: 'Todas as empresas', opcoes: empsPr, v: F.emp, cls: 'b-pm-so' },
+      { k: 'comp', rot: 'Competência', todos: 'Todas as competências', opcoes: unicosTxt(L0.filter((p) => !F.grupo || p.grupo === F.grupo).map((p) => p.competencia)), v: F.comp, cls: 'b-pm-fora' },
       // Backup 88: o advogado que acompanha o processo
-      { k: 'adv', rot: 'Advogado', todos: 'Todos os advogados', opcoes: unicosTxt(L0.map((p) => nome1PE(p.advogado || ''))), v: F.adv }]) +
+      { k: 'adv', rot: 'Advogado', todos: 'Todos os advogados', opcoes: unicosTxt(L0.map((p) => nome1PE(p.advogado || ''))), v: F.adv, cls: 'b-pm-fora' }]) +
     '<section class="b-fin-cartao b-pr-res' + (E.prRes.aberto ? ' b-aberto' : '') + '" id="pr-res"><button type="button" class="b-pr-res-hd" id="pr-res-bt" aria-expanded="' + E.prRes.aberto + '"><span class="b-seta" aria-hidden="true">▸</span><h3>Resumo da carteira</h3><span class="b-sub">' +
       (F.grupo || F.comp ? esc([F.grupo, F.comp].filter(Boolean).join(' · ')) + ' · ' : '') + (() => { const at = L.filter((p) => !p.arquivamento); return plural(at.length, 'processo ativo', 'processos ativos') + ' · ' + esc(brlCurto(soma(at, (p) => Number(p.valor) || 0))) + ' em disputa'; })() + '</span></button><div id="pr-res-corpo"' + (E.prRes.aberto ? '' : ' hidden') + '>' + resumoCarteira(L) + '</div></section>' +
     '<div id="pr-nova"></div>';

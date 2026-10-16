@@ -669,10 +669,11 @@ function segFiltroB(id, attr, opcoes, valor, rotulo) {
 function marcarSegB(caixa, bt) { if (caixa) caixa.querySelectorAll('.b-seg-bt').forEach((x) => { const on = x === bt; x.setAttribute('aria-pressed', on); x.setAttribute('aria-selected', on); }); }
 // Backup 88: o filtro de Grupo/Empresa fica À DIREITA e FIXO no alto ao rolar a tela (b-fsus-fixo)
 function filtroSusB(id, campos) {
-  return '<div class="b-fsus b-fsus-fixo" id="' + id + '"><span class="b-fsus-rot">Filtros</span>' + campos.map((c) => '<label class="b-fsus-c"><span>' + esc(c.rot) + '</span><select data-fsus="' + c.k + '" aria-label="' + esc(c.rot) + '"><option value="">' + esc(c.todos) + '</option>' +
+  return '<div class="b-fsus b-fsus-fixo" id="' + id + '"><span class="b-fsus-rot">Filtros</span>' + campos.map((c) => '<label class="b-fsus-c' + (c.cls ? ' ' + c.cls : '') + '"><span>' + esc(c.rot) + '</span><select data-fsus="' + c.k + '" aria-label="' + esc(c.rot) + '"><option value="">' + esc(c.todos) + '</option>' +
     c.opcoes.map((o) => '<option' + (o === c.v ? ' selected' : '') + '>' + esc(o) + '</option>').join('') + '</select></label>').join('') +
     // Backup 89: o "Limpar" sempre existe; sem filtro ligado ele fica escondido no visual normal e à vista (apagado) no visual premium
     '<button type="button" class="b-fsus-limpar' + (campos.some((c) => c.v) ? '' : ' b-fsus-limpar-x') + '" data-fsus-limpar>Limpar filtro</button>' + '</div>';
+  // Backup 92: c.cls = 'b-pm-fora' (some no visual premium) ou 'b-pm-so' (só no visual premium)
 }
 function ligarFiltroSusB(id, estado, depois) {
   const el = $(id); if (!el) return;
@@ -692,6 +693,7 @@ function ligarMinB(chave, ids) {
   aplicar();
 }
 // Backup 91 (visual premium): lista suspensa para filtro "menos importante" — só aparece no premium (base.css esconde .b-pm-so; o premium esconde .b-pm-nao)
+const ehPremium = () => document.documentElement.dataset.visual === 'premium';
 function selSusB(id, rot, todos, opcoes, v) {
   return '<select id="' + id + '" class="b-pm-so b-sel-sus" aria-label="' + esc(rot) + '"><option value="">' + esc(todos) + '</option>' +
     opcoes.map((o) => '<option' + (o === v ? ' selected' : '') + '>' + esc(o) + '</option>').join('') + '</select>';
@@ -1810,6 +1812,7 @@ const PERIODOS_FIN = [['mes', 'Este mês'], ['mesant', 'Mês passado'], ['ano', 
 function estadoFin(empresa) {
   E.fin = E.fin || {};
   if (!E.fin[empresa]) E.fin[empresa] = { aba: 'analise', an: { quem: [], preset: 'ano', de: '', ate: '', tipo: '', grupo: '' }, caixa: 'consolidado', dados: null, lidoEm: 0 };
+  if (E.finAbaPend) { E.fin[empresa].aba = E.finAbaPend; delete E.finAbaPend; }   // Backup 92: a busca (Ctrl+K) pediu a aba Lançamentos
   return E.fin[empresa];
 }
 
@@ -5095,7 +5098,7 @@ TELAS.tarefas = async function () {
     '<div class="titulo-pag b-cab"><div class="b-cab-ic">' + iconeB('tarefas') + '</div><div class="b-cab-tx"><h1>Tarefas</h1><p>Suas tarefas e as da equipe</p></div>' +
     '<div class="acoes">' +
     // Backup 80: Lista · Semana · Calendário · Fluxos no alto, ao lado de "+ Nova tarefa" (como no ambiente de teste)
-    '<div class="b-seg tf-vista" id="tf-vista" role="tablist">' + [['lista', 'Lista'], ['calendario', 'Calendário']]
+    '<div class="b-seg tf-vista b-pm-fora" id="tf-vista" role="tablist">' + [['lista', 'Lista'], ['calendario', 'Calendário']]
       .map(([v, r]) => '<button type="button" role="tab" class="b-seg-bt" data-v="' + v + '">' + r + '</button>').join('') + '</div>' +
     '<span class="tf-cfg-wrap"><button class="btn btn-o tf-bt-ic" id="tf-config" title="Configurar: feriados e Google Agenda" aria-expanded="false">⚙</button>' +
       '<span class="tf-cfg-menu" id="tf-cfg-menu" hidden>' +   // Backup 88: sem "Modelos de fluxo" 
@@ -5105,18 +5108,28 @@ TELAS.tarefas = async function () {
     '<button class="btn btn-p" id="tf-nova">+ Nova tarefa</button></div></div>' +
     // Backup 72: sem os 4 cartões do topo; vistas Lista · Semana · Calendário · Fluxos
     // Backup 88: sem a barra de busca; Mostrar · De quem · Urgência no padrão do escritório, em todas as vistas
-    '<div class="fila-filtros tf-filtros" id="tf-chips"></div><div id="tf-corpo"><div class="carregando">Carregando…</div></div>';
+    '<div class="fila-filtros tf-filtros" id="tf-chips"></div>' +
+    // Backup 92 (visual premium): Lista · Calendário à esquerda, logo acima de "Em aberto · Atrasadas · Concluídas"
+    '<div class="b-seg tf-vista tf-vista2 b-pm-so" id="tf-vista2" role="tablist" aria-label="Ver como">' + [['lista', 'Lista'], ['calendario', 'Calendário']]
+      .map(([v, r]) => '<button type="button" role="tab" class="b-seg-bt" data-v="' + v + '">' + r + '</button>').join('') + '</div>' +
+    '<div id="tf-corpo"><div class="carregando">Carregando…</div></div>';
   $('tf-nova').onclick = () => formTarefa({}, () => TELAS.tarefas());
   $('tf-config').onclick = (ev) => { ev.stopPropagation(); const m = $('tf-cfg-menu'); m.hidden = !m.hidden; $('tf-config').setAttribute('aria-expanded', String(!m.hidden)); };
   if (!window._tfCfgDoc) { window._tfCfgDoc = true; document.addEventListener('click', (ev) => { const m = $('tf-cfg-menu'); if (m && !m.hidden && !ev.target.closest('.tf-cfg-wrap')) m.hidden = true; }); }
   $('tf-cfg-menu').addEventListener('click', () => { setTimeout(() => { const m = $('tf-cfg-menu'); if (m) m.hidden = true; }, 0); });
   $('tf-feriados').onclick = () => janelaFeriados();
   $('tf-agenda').onclick = () => janelaAgenda();
-  $('tf-vista').onclick = (ev) => { const b = ev.target.closest('button'); if (b) { F.vista = b.dataset.v; pintarTarefas(); } };
+  $('tf-vista').onclick = $('tf-vista2').onclick = (ev) => { const b = ev.target.closest('button'); if (b) { F.vista = b.dataset.v; pintarTarefas(); } };
   $('tf-chips').onclick = (ev) => { const b = ev.target.closest('button'); if (!b) return;
     if (b.dataset.tfMostra != null) F.mostra = b.dataset.tfMostra;
     else if (b.dataset.tfPes != null) F.pessoas = b.dataset.tfPes ? [b.dataset.tfPes] : [];
     else if (b.dataset.tfPri != null) F.pri = b.dataset.tfPri;
+    else return;
+    pintarTarefas(); };
+  // Backup 92 (visual premium): "De quem" e "Urgência" em lista suspensa
+  $('tf-chips').onchange = (ev) => { const t = ev.target;
+    if (t.id === 'tf-pes-sel') F.pessoas = t.value ? [t.value] : [];
+    else if (t.id === 'tf-pri-sel') F.pri = t.value;
     else return;
     pintarTarefas(); };
   F.busca = '';
@@ -5155,7 +5168,7 @@ function filtrarTarefas(daLista) {
 
 function pintarTarefas() {
   const F = E.tf, h = hojeISO();
-  document.querySelectorAll('#tf-vista button').forEach((b) => b.classList.toggle('ativo', b.dataset.v === F.vista));
+  document.querySelectorAll('#tf-vista button, #tf-vista2 button').forEach((b) => { b.classList.toggle('ativo', b.dataset.v === F.vista); b.setAttribute('aria-selected', String(b.dataset.v === F.vista)); });
   { const fl = document.querySelector('#panel-tarefas .filtros, #gs-main-tarefas .filtros'); if (fl) fl.style.display = F.vista === 'lista' ? 'none' : ''; }
   if (F.vista !== 'lista') F.aba = 'abertas';   // Backup 72: as abas (Concluídas, Excluídas…) são da Lista; Semana/Calendário/Fluxos mostram as em aberto
   // Backup 84: uma linha de filtros em TODAS as vistas — "Mostrar" (tipo) em chips sempre à vista; "De quem" e "Urgência" em listas
@@ -5170,8 +5183,10 @@ function pintarTarefas() {
     $('tf-chips').style.display = '';
     $('tf-chips').innerHTML = '<div class="b-tf-filtros b-tf-filtros-88">' +
       grupo('Mostrar', segFiltroB('tf-f-mostra', 'data-tf-mostra', [['', 'Tudo'], ['reuniao', 'Reuniões'], ['audiencia', 'Audiências'], ['tarefa', 'Tarefas'], ['rotina', 'Rotinas'], ['atrasadas', 'Atrasadas']], F.mostra || '', 'Mostrar')) +
-      (pes.length > 1 ? grupo('De quem', segFiltroB('tf-f-pes', 'data-tf-pes', [['', 'Todos']].concat(pes.map((n) => [primeiroNome(n), nomeCurto(n).split(' ')[0]])), pesSel, 'De quem')) : '') +
-      grupo('Urgência', segFiltroB('tf-f-pri', 'data-tf-pri', [['', 'Todas'], ['alta', 'Alta'], ['media', 'Média'], ['baixa', 'Baixa']], F.pri || '', 'Urgência')) + '</div>';
+      (pes.length > 1 ? grupo('De quem', '<span class="b-pm-nao">' + segFiltroB('tf-f-pes', 'data-tf-pes', [['', 'Todos']].concat(pes.map((n) => [primeiroNome(n), nomeCurto(n).split(' ')[0]])), pesSel, 'De quem') + '</span>' +
+        '<select id="tf-pes-sel" class="b-pm-so b-sel-sus" aria-label="De quem"><option value="">Todos</option>' + pes.map((n) => '<option value="' + esc(primeiroNome(n)) + '"' + (primeiroNome(n) === pesSel ? ' selected' : '') + '>' + esc(nomeCurto(n).split(' ')[0]) + '</option>').join('') + '</select>') : '') +
+      grupo('Urgência', '<span class="b-pm-nao">' + segFiltroB('tf-f-pri', 'data-tf-pri', [['', 'Todas'], ['alta', 'Alta'], ['media', 'Média'], ['baixa', 'Baixa']], F.pri || '', 'Urgência') + '</span>' +
+        '<select id="tf-pri-sel" class="b-pm-so b-sel-sus" aria-label="Urgência">' + [['', 'Todas'], ['alta', 'Alta'], ['media', 'Média'], ['baixa', 'Baixa']].map((o) => '<option value="' + o[0] + '"' + ((F.pri || '') === o[0] ? ' selected' : '') + '>' + o[1] + '</option>').join('') + '</select>') + '</div>';
   }
   const V = { lista: vistaLista, calendario: vistaCalendario };   // Backup 88: sem as vistas Semana (está no Calendário) e Fluxos
   $('tf-corpo').innerHTML = '<div id="tf-vista-corpo"></div>';
@@ -10593,6 +10608,7 @@ const unicosB = (l) => [...new Set(l.filter(Boolean))].sort((a, b) => String(a).
 function estadoPE() { E.pe = E.pe || { grupo: '', empresa: '', resp: '', evo: { visao: 'total', meses: 6, dados: null, lidoMeses: 0 } };
   // Backup 88: o filtro do alto (Grupo · Empresa · Responsável) fica à direita e fixo ao rolar — o estado dele em E.pe.f
   E.pe.f = E.pe.f || { grupo: E.pe.grupo || '', emp: E.pe.empresa || '', resp: E.pe.resp || '' };
+  if (ehPremium()) E.pe.f.resp = '';   // Backup 92: no visual premium o filtro de Responsável não aparece — nunca fica ligado escondido
   E.pe.grupo = E.pe.f.grupo; E.pe.empresa = E.pe.f.emp; E.pe.resp = E.pe.f.resp; return E.pe; }
 const nome1PE = (s) => String(s || '').trim().split(/\s+/)[0] || '';   // primeiro nome como foi escrito (Pedro, Emanuelle…)
 const respPE = (r) => nome1PE(r && r.responsavel || '');
@@ -10638,7 +10654,7 @@ TELAS.painelExec = async function () {
   const N = numerosPainel(D, P), t = (v) => '<span title="' + esc(brl(v)) + '">' + esc(brlCurto(v)) + '</span>';
   c.innerHTML = cabecalhoTela({ icone: 'painel', titulo: 'Painel Executivo', frase: 'Passivo dos clientes e onde ele está' }) +
     filtroSusB('pe-filtro', [{ k: 'grupo', rot: 'Grupo', todos: 'Todos os grupos', opcoes: grupos, v: P.grupo }, { k: 'emp', rot: 'Empresa', todos: 'Todas as empresas', opcoes: emps, v: P.empresa },
-      { k: 'resp', rot: 'Responsável', todos: 'Todos', opcoes: resps, v: P.resp }]) +
+      { k: 'resp', rot: 'Responsável', todos: 'Todos', opcoes: resps, v: P.resp, cls: 'b-pm-fora' }]) +   // Backup 92: sem Responsável no visual premium
     '<div id="pe-nums">' + numsFaixa([['Passivo total', t(N.total), 'RFB ' + brlCurto(N.rfb) + ' · PGFN ' + brlCurto(N.pgfn) + ' · AGE/MG ' + brlCurto(N.age)], ['Parcelamentos (saldo)', t(N.saldoParc), plural(N.nParc, 'ativo', 'ativos')],
       ['Acordos (em aberto)', t(N.acPagar), plural(N.nAc, 'parcela', 'parcelas')], ['Passivo em disputa', t(N.passivo), plural(N.nProc, 'processo', 'processos'), 'b-verm'], ['Ativo em disputa', t(N.ativo), '', 'b-verde']]) + '</div>' +
     // Backup 83: como no ambiente — só o título e "6 meses · 12 meses"; a linha é o total do que está escolhido no alto (todos, um grupo ou uma empresa)
@@ -10714,14 +10730,21 @@ TELAS.processosERP = async function () {
   if (!Array.isArray(D.processos)) { c.innerHTML = vazioB({ icone: 'documento', titulo: 'Abra pelo ERP', frase: 'A lista de processos usa os dados que o ERP carrega.' }); return; }
   E.prRes = E.prRes || { aberto: false };
   E.prF = E.prF || { grupo: '', comp: '', adv: '' };
+  if (!('emp' in E.prF)) E.prF.emp = '';
+  if (ehPremium()) { E.prF.comp = ''; E.prF.adv = ''; } else E.prF.emp = '';   // o filtro escondido nunca fica ligado
+  // Backup 92 (visual premium): Grupo + Empresa, como no Painel (Competência e Advogado somem no premium). O processo não guarda a empresa:
+  // vale o nome da empresa no Autor ou no Réu.
+  const empsPr = unicosTxt((dbE().baseDados || []).filter((r) => !E.prF.grupo || r.grupo === E.prF.grupo).map((r) => r.nome));
+  const temEmp = (p, e) => !e || normalizar((p.autor || '') + ' ' + (p.reu || '')).includes(normalizar(e));
   // Backup 79: filtro suspenso (Grupo / Competência) — recorta o Resumo da carteira e a lista
-  const F = E.prF, L0 = D.processos, L = L0.filter((p) => (!F.grupo || p.grupo === F.grupo) && (!F.comp || p.competencia === F.comp) && (!F.adv || nome1PE(p.advogado || '') === F.adv)), P = L.filter((p) => p.carteira !== 'Prospecção');
+  const F = E.prF, L0 = D.processos, L = L0.filter((p) => (!F.grupo || p.grupo === F.grupo) && (!F.comp || p.competencia === F.comp) && (!F.adv || nome1PE(p.advogado || '') === F.adv) && temEmp(p, F.emp)), P = L.filter((p) => p.carteira !== 'Prospecção');
   const podeEd = pode('juridico', 'editar');
   c.innerHTML = cabecalhoTela({ icone: 'documento', titulo: 'Processos', frase: 'Processos dos clientes', botao: podeEd ? { id: 'pr-novo', rotulo: 'Processo' } : null }) +
     filtroSusB('pr-filtro', [{ k: 'grupo', rot: 'Grupo', todos: 'Todos os grupos', opcoes: unicosTxt(L0.map((p) => p.grupo)), v: F.grupo },
-      { k: 'comp', rot: 'Competência', todos: 'Todas as competências', opcoes: unicosTxt(L0.filter((p) => !F.grupo || p.grupo === F.grupo).map((p) => p.competencia)), v: F.comp },
+      { k: 'emp', rot: 'Empresa', todos: 'Todas as empresas', opcoes: empsPr, v: F.emp, cls: 'b-pm-so' },
+      { k: 'comp', rot: 'Competência', todos: 'Todas as competências', opcoes: unicosTxt(L0.filter((p) => !F.grupo || p.grupo === F.grupo).map((p) => p.competencia)), v: F.comp, cls: 'b-pm-fora' },
       // Backup 88: o advogado que acompanha o processo
-      { k: 'adv', rot: 'Advogado', todos: 'Todos os advogados', opcoes: unicosTxt(L0.map((p) => nome1PE(p.advogado || ''))), v: F.adv }]) +
+      { k: 'adv', rot: 'Advogado', todos: 'Todos os advogados', opcoes: unicosTxt(L0.map((p) => nome1PE(p.advogado || ''))), v: F.adv, cls: 'b-pm-fora' }]) +
     '<section class="b-fin-cartao b-pr-res' + (E.prRes.aberto ? ' b-aberto' : '') + '" id="pr-res"><button type="button" class="b-pr-res-hd" id="pr-res-bt" aria-expanded="' + E.prRes.aberto + '"><span class="b-seta" aria-hidden="true">▸</span><h3>Resumo da carteira</h3><span class="b-sub">' +
       (F.grupo || F.comp ? esc([F.grupo, F.comp].filter(Boolean).join(' · ')) + ' · ' : '') + (() => { const at = L.filter((p) => !p.arquivamento); return plural(at.length, 'processo ativo', 'processos ativos') + ' · ' + esc(brlCurto(soma(at, (p) => Number(p.valor) || 0))) + ' em disputa'; })() + '</span></button><div id="pr-res-corpo"' + (E.prRes.aberto ? '' : ' hidden') + '>' + resumoCarteira(L) + '</div></section>' +
     '<div id="pr-nova"></div>';
@@ -10800,7 +10823,14 @@ async function indiceBusca() {
   if (!ehClienteGS()) {
     const ac = [{ rot: 'Emitir as guias do mês', fn: () => { E.rt = Object.assign(E.rt || {}, { aba: 'guias' }); irParaTela('rotina'); } },
       { rot: 'Nova tarefa', fn: async () => { await carregarCadastros(); formTarefa({}, () => {}); } },
-      { rot: 'Ver como o cliente vê (portal)', fn: () => verComoCliente('') }];   // Backup 81 (M10)
+      { rot: 'Ver como o cliente vê (portal)', fn: () => verComoCliente('') },   // Backup 81 (M10)
+      // Backup 92 (M4): mais ações do dia a dia direto da busca
+      { rot: 'Agendar reunião', fn: async () => { await carregarCadastros(); janelaAgendar(hojeISO(), () => {}, 'reuniao'); } },
+      { rot: 'Agendar audiência', fn: async () => { await carregarCadastros(); janelaAgendar(hojeISO(), () => {}, 'audiencia'); } },
+      { rot: 'Buscar publicações agora', fn: () => { irParaTela('publicacoes'); setTimeout(() => { const b = document.getElementById('pub-buscar'); if (b) b.click(); }, 900); } },
+      { rot: 'Ver honorários em atraso', fn: () => { prepararTabB('fin-juridico', { aba: 'areceber', prazo: 'venc' }); E.fin = E.fin || {}; if (E.fin.juridico) E.fin.juridico.aba = 'lanc'; else E.finAbaPend = 'lanc'; irParaTela('financeiro'); } },
+      { rot: 'Ver parcelas vencidas dos parcelamentos', fn: () => { prepararTabB('parcelas', { aba: 'apagar', prazo: 'venc' }); irParaTela('parcelamentos'); } },
+      { rot: 'Trocar tema claro / escuro', fn: () => { const b = document.querySelector('#gs-hd [data-acao="tema"], #gs-hd .gs-bt-tema, #gs-tema'); if (b) b.click(); } }];
     (typeof window.ERP_ACOES_BUSCA === 'function' ? window.ERP_ACOES_BUSCA() : []).forEach((x) => ac.push({ rot: x.tela ? x.rot : 'Lançar ' + x.rot.charAt(0).toLowerCase() + x.rot.slice(1), fn: x.fn, tela: x.tela }));
     ac.forEach((x) => I.push({ tipo: x.tela ? 'Tela' : 'Ação', tit: x.rot, sub: '', txt: x.rot + (x.tela ? '' : ' novo nova criar lançar'), ir: x.fn, acao: 1 }));
   }

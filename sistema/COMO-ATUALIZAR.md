@@ -721,6 +721,23 @@ O que mudou:
 
 Ainda falta (próxima rodada): apagar o ERP antigo (ERP.html, remendos e blocos antigos do design.css).
 
+## Backup 92 — Filtros à esquerda (premium), Buscar à vista e todo e-mail no modelo bonito
+1. Merge da pull request.
+2. **SQL no Supabase** (Raw → Ctrl+A/Ctrl+C → conferir a última linha "fim do Backup 92" → Run).
+3. **Ctrl+Shift+R** no ERP. Para ver o visual: ⋯ (barra do alto) → "✦ Visual premium (teste)".
+
+O que mudou:
+- **E-mails (vale para todos, não só o premium):** os avisos à equipe (tarefas, prazos, agenda, publicações do dia) agora saem no MESMO modelo dos e-mails aos clientes (faixa marinho com "Araújo & Castro" em dourado). E qualquer e-mail que entrasse sem o modelo (como o teste da Administração) é embrulhado no modelo antes de sair. Nunca mais texto solto.
+- **Busca (M4):** no premium, botão "Buscar" à vista na barra do alto (o mesmo Ctrl+K), com ações novas: Agendar reunião, Agendar audiência, Buscar publicações agora, Ver honorários em atraso, Ver parcelas vencidas, Trocar tema.
+- **Filtros à esquerda (só no premium):**
+  - Início: "Só eu · Equipe toda" ao lado de "Para hoje".
+  - Tarefas: Lista · Calendário acima de "Em aberto · Atrasadas · Concluídas"; De quem e Urgência em lista suspensa.
+  - Painel: Grupo · Empresa à esquerda, sem Responsável.
+  - Processos: Grupo · Empresa à esquerda (saíram Competência e Advogado). A Empresa é procurada no Autor e no Réu.
+  - Parcelamentos e Acordos: Grupo · Empresa à esquerda; Todos · Com atraso · Risco de rescisão · Em dia · Concluídos logo depois de "Situação por cliente".
+  - Financeiro: Análise · Lançamentos à esquerda, abaixo do título; Tipo e Grupo em lista suspensa.
+- **Sugestões para escolher:** `sistema/SUGESTOES-B92.md` (U1–U5, V1–V2, E1–E2, A1–A3).
+
 ## Backup 91 — Visual premium: um azul só, escuro do GitHub, barra do alto limpa (só o premium muda)
 1. Merge da pull request.
 2. **Não há SQL** nesta versão.
