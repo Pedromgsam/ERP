@@ -689,6 +689,17 @@ function ligarMinB(chave, ids) {
 }
 // Backup 91 (visual premium): lista suspensa para filtro "menos importante" — só aparece no premium (base.css esconde .b-pm-so; o premium esconde .b-pm-nao)
 const ehPremium = () => document.documentElement.dataset.visual === 'premium';
+// Backup 93: selecionar um texto para copiar NÃO abre o detalhe da linha/cartão — só um clique de verdade abre (vale para o sistema todo)
+if (!window._b93Selecao) {
+  window._b93Selecao = true;
+  window.addEventListener('click', (ev) => {
+    const sel = window.getSelection ? String(window.getSelection()) : '';
+    if (!sel.trim() || !ev.target || !ev.target.closest) return;
+    if (ev.target.closest('button, a, input, select, textarea, label, [contenteditable]')) return;
+    if (!ev.target.closest('tr, .b-cg, .clicavel, .b-cl, [data-b-k], .b-lista, .b-cal-it, .ini-pil, .cg')) return;
+    ev.stopImmediatePropagation(); ev.preventDefault();
+  }, true);
+}
 function selSusB(id, rot, todos, opcoes, v) {
   return '<select id="' + id + '" class="b-pm-so b-sel-sus" aria-label="' + esc(rot) + '"><option value="">' + esc(todos) + '</option>' +
     opcoes.map((o) => '<option' + (o === v ? ' selected' : '') + '>' + esc(o) + '</option>').join('') + '</select>';

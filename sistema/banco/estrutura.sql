@@ -6923,3 +6923,165 @@ end $$;
 drop trigger if exists email_fila_modelo on public.email_fila;
 create trigger email_fila_modelo before insert on public.email_fila for each row execute function public.email_fila_modelo();
 -- ═══ fim do Backup 92 ═══
+
+-- ═══ Backup 93 ═══
+-- U4: o processo pode ficar ligado à empresa (cliente) — o filtro "Empresa" de Processos fica exato
+alter table public.processos add column if not exists cliente_id uuid references public.clientes(id) on delete set null;
+create index if not exists processos_cliente on public.processos (cliente_id);
+
+-- U2: "Conferido" clicável em Processos tem Desfazer — apaga a conferência "sem novidade" que a própria pessoa acabou de lançar
+--     (até 15 minutos) e devolve a última movimentação que o processo tinha antes
+create or replace function public.desfazer_conferencia_processo(p_mov uuid, p_ult text, p_ult_em date) returns boolean
+language plpgsql security definer set search_path = public as $$
+declare v_proc uuid;
+begin
+  if not public.pode('juridico', 'editar') then raise exception 'permission denied: sem acesso para conferir processos.'; end if;
+  delete from public.processo_movimentacoes
+   where id = p_mov and tipo = 'sem_novidade' and criado_por = auth.uid() and criado_em > now() - interval '15 minutes'
+  returning processo_id into v_proc;
+  if v_proc is null then return false; end if;
+  update public.processos set ultima_movimentacao = coalesce(p_ult, ''), ultima_movimentacao_em = p_ult_em where id = v_proc;
+  return true;
+end $$;
+revoke all on function public.desfazer_conferencia_processo(uuid, text, date) from public, anon;
+grant execute on function public.desfazer_conferencia_processo(uuid, text, date) to authenticated;
+
+-- A2: passivo de um grupo há mais de 30 dias sem conferência (Rotina → Passivo).
+--     Responsável = o mais comum entre as empresas do grupo. Aparece como aviso no Início e vai por e-mail ao responsável.
+create or replace function public.conferencias_passivo_atrasadas(p_dias int default 30)
+returns table (grupo_id uuid, grupo text, conferido_em timestamptz, dias int, responsavel text)
+language plpgsql stable security definer set search_path = public as $$
+begin
+  if auth.uid() is not null and not public.eh_equipe() then raise exception 'permission denied'; end if;
+  return query
+  with ult as (
+    select c.grupo_id g, max(rc.quando) q
+      from public.clientes c left join public.rotina_conferencias rc on rc.area = 'passivo' and rc.registro_id = c.id
+     where c.grupo_id is not null group by c.grupo_id
+  ), resp as (
+    select distinct on (c.grupo_id) c.grupo_id g, c.responsavel r
+      from public.clientes c where c.grupo_id is not null and btrim(coalesce(c.responsavel, '')) <> ''
+     group by c.grupo_id, c.responsavel order by c.grupo_id, count(*) desc, c.responsavel
+  )
+  select gr.id, gr.nome, u.q, case when u.q is null then null else (current_date - (u.q at time zone 'America/Sao_Paulo')::date) end, coalesce(resp.r, '')
+    from ult u join public.grupos gr on gr.id = u.g left join resp on resp.g = u.g
+   where u.q is null or u.q < now() - make_interval(days => greatest(coalesce(p_dias, 30), 1))
+   order by u.q nulls first, gr.nome;
+end $$;
+revoke all on function public.conferencias_passivo_atrasadas(int) from public, anon;
+grant execute on function public.conferencias_passivo_atrasadas(int) to authenticated;
+
+-- e-mail ao responsável (chave "conferencia" em Administração → E-mail → Automáticos); no máximo 1 por pessoa a cada mês
+create or replace function public.email_conferencias_atrasadas() returns int
+language plpgsql security definer set search_path = public as $$
+declare x record; n int := 0; v_url text;
+begin
+  if auth.uid() is not null and not public.eh_admin() then raise exception 'Só o administrador dispara este aviso.'; end if;
+  v_url := (select valor #>> '{}' from public.config_privada where chave = 'url_sistema');
+  for x in
+    select coalesce(public.usuario_por_nome(a.responsavel), (select id from public.perfis where papel = 'admin' and coalesce(email, '') <> '' order by criado_em limit 1)) uid,
+           count(*) qtd,
+           string_agg('<li>' || public.esc_html(a.grupo) || ' — ' || case when a.conferido_em is null then 'nunca conferido' else 'conferido há ' || a.dias || ' dias' end || '</li>', '' order by a.dias desc nulls first) linhas
+      from public.conferencias_passivo_atrasadas(30) a
+     group by 1
+  loop
+    if x.uid is not null and public.enfileirar_email(x.uid, 'conferencia',
+         case when x.qtd = 1 then '1 grupo com o passivo sem conferência há mais de 30 dias' else x.qtd || ' grupos com o passivo sem conferência há mais de 30 dias' end,
+         '<p>Estes grupos estão há mais de 30 dias sem conferência do passivo (Rotina → Passivo):</p><ul>' || x.linhas || '</ul>' ||
+         coalesce('<p style="margin-top:16px"><a href="' || v_url || '" style="background:#1B2A4A;color:#fff;padding:9px 16px;border-radius:8px;text-decoration:none;display:inline-block">Abrir a Rotina no ERP</a></p>', ''),
+         'conferencia', 'confpass:' || to_char(current_date, 'YYYY-MM')) then n := n + 1; end if;
+  end loop;
+  return n;
+end $$;
+revoke all on function public.email_conferencias_atrasadas() from public, anon;
+grant execute on function public.email_conferencias_atrasadas() to authenticated, service_role;
+
+-- A1: resumo semanal por e-mail (segunda, 7h): honorários em atraso, parcelas e acordos da semana, tarefas e audiências.
+--     Liga/desliga = chave "resumo_semanal" (Administração → E-mail → Automáticos); quem recebe = configuracoes.resumo_semanal_quem
+--     (lista de pessoas; vazia = os administradores/sócios). Cada pessoa ainda pode desligar em ⋯ → Meus avisos por e-mail.
+create or replace function public.resumo_semanal_quem() returns jsonb
+language sql stable security definer set search_path = public as $$
+  select coalesce((select valor from public.configuracoes where chave = 'resumo_semanal_quem'), '[]'::jsonb);
+$$;
+revoke all on function public.resumo_semanal_quem() from public, anon;
+grant execute on function public.resumo_semanal_quem() to authenticated;
+create or replace function public.salvar_resumo_semanal_quem(p_ids uuid[]) returns jsonb
+language plpgsql security definer set search_path = public as $$
+declare v jsonb;
+begin
+  if not public.eh_admin() then raise exception 'Só o administrador escolhe quem recebe o resumo semanal.'; end if;
+  select coalesce(jsonb_agg(p.id order by p.nome), '[]'::jsonb) into v from public.perfis p where p.id = any(coalesce(p_ids, '{}')) and p.papel in ('admin','equipe');
+  insert into public.configuracoes (chave, valor) values ('resumo_semanal_quem', v)
+  on conflict (chave) do update set valor = excluded.valor, atualizado_em = now();
+  return v;
+end $$;
+revoke all on function public.salvar_resumo_semanal_quem(uuid[]) from public, anon;
+grant execute on function public.salvar_resumo_semanal_quem(uuid[]) to authenticated;
+
+create or replace function public.montar_resumo_semanal() returns int
+language plpgsql security definer set search_path = public as $$
+declare pf record; x record; corpo text; bloco text; n int := 0; hoje date := current_date; fim date := current_date + 6; quem jsonb; v_url text;
+  th text := 'text-align:left;padding:6px 10px;background:#F3F4F6;font-size:12px'; td text := 'padding:6px 10px;border-bottom:1px solid #E5E7EB';
+begin
+  if auth.uid() is not null and not public.eh_admin() then raise exception 'Só o administrador dispara o resumo semanal.'; end if;
+  quem := public.resumo_semanal_quem();
+  v_url := (select valor #>> '{}' from public.config_privada where chave = 'url_sistema');
+  for pf in select * from public.perfis p where p.papel in ('admin','equipe') and coalesce(p.email, '') <> ''
+              and (case when jsonb_array_length(quem) = 0 then p.papel = 'admin' else quem ? p.id::text end) loop
+    corpo := '';
+    -- honorários em atraso (escritório todo)
+    select count(*) q, coalesce(sum(valor), 0) v into x from public.lancamentos where tipo = 'receita' and not pago and vencimento < hoje;
+    if x.q > 0 then
+      corpo := corpo || '<h3 style="font-size:14px;color:#1B2A4A;margin:16px 0 6px">Honorários em atraso</h3><p style="margin:0">' || x.q || case when x.q = 1 then ' lançamento' else ' lançamentos' end ||
+        ' — <b style="color:#B91C1C">R$ ' || to_char(x.v, 'FM999G999G990D00') || '</b></p>';
+    end if;
+    -- parcelas de parcelamento e de acordo que vencem nesta semana
+    bloco := '';
+    for x in select g.nome grupo, count(*) q, min(p.vencimento) d from public.parcelas p join public.parcelamentos pa on pa.id = p.parcelamento_id left join public.grupos g on g.id = pa.grupo_id
+              where not p.pago and p.vencimento between hoje and fim group by g.nome order by min(p.vencimento), g.nome limit 20 loop
+      bloco := bloco || '<tr><td style="' || td || '">' || public.esc_html(coalesce(x.grupo, '—')) || '</td><td style="' || td || '">Parcelamento</td><td style="' || td || '">' || x.q || '</td><td style="' || td || '">' || to_char(x.d, 'DD/MM') || '</td></tr>';
+    end loop;
+    for x in select g.nome grupo, count(*) q, min(a.vencimento) d from public.acordos a left join public.grupos g on g.id = a.grupo_id
+              where not a.pago and a.vencimento between hoje and fim group by g.nome order by min(a.vencimento), g.nome limit 20 loop
+      bloco := bloco || '<tr><td style="' || td || '">' || public.esc_html(coalesce(x.grupo, '—')) || '</td><td style="' || td || '">Acordo</td><td style="' || td || '">' || x.q || '</td><td style="' || td || '">' || to_char(x.d, 'DD/MM') || '</td></tr>';
+    end loop;
+    if bloco <> '' then corpo := corpo || '<h3 style="font-size:14px;color:#1B2A4A;margin:16px 0 6px">Parcelas que vencem nesta semana</h3><table style="border-collapse:collapse;width:100%;font-size:13px"><tr>' ||
+      '<th style="' || th || '">Grupo</th><th style="' || th || '">Tipo</th><th style="' || th || '">Parcelas</th><th style="' || th || '">A partir de</th></tr>' || bloco || '</table>'; end if;
+    -- audiências e reuniões da semana (as da pessoa; administrador vê as do escritório)
+    bloco := '';
+    for x in select titulo, prazo, hora, tipo_agenda, responsavel from public.tarefas
+              where status not in ('concluida','cancelada') and tipo_agenda in ('audiencia','reuniao') and prazo between hoje and fim
+                and (pf.papel = 'admin' or public.primeiro_nome(responsavel) = public.primeiro_nome(pf.nome) or participantes ilike '%' || split_part(pf.nome, ' ', 1) || '%')
+              order by prazo, hora nulls last limit 20 loop
+      bloco := bloco || '<li><b>' || to_char(x.prazo, 'DD/MM') || coalesce(' ' || to_char(x.hora, 'HH24:MI'), '') || '</b> — ' || case when x.tipo_agenda = 'audiencia' then 'Audiência: ' else 'Reunião: ' end ||
+        public.esc_html(x.titulo) || case when pf.papel = 'admin' and x.responsavel <> '' then ' <span style="color:#6B7280">(' || public.esc_html(split_part(x.responsavel, ' ', 1)) || ')</span>' else '' end || '</li>';
+    end loop;
+    if bloco <> '' then corpo := corpo || '<h3 style="font-size:14px;color:#1B2A4A;margin:16px 0 6px">Audiências e reuniões da semana</h3><ul style="margin:0;padding-left:18px">' || bloco || '</ul>'; end if;
+    -- minhas tarefas: atrasadas e da semana
+    bloco := '';
+    for x in select titulo, prazo from public.tarefas
+              where status not in ('concluida','cancelada') and coalesce(tipo_agenda, '') not in ('audiencia','reuniao') and prazo is not null and prazo <= fim
+                and public.primeiro_nome(responsavel) = public.primeiro_nome(pf.nome) order by prazo limit 25 loop
+      bloco := bloco || '<li>' || public.esc_html(x.titulo) || ' — ' || case when x.prazo < hoje then '<b style="color:#B91C1C">atrasada desde ' || to_char(x.prazo, 'DD/MM') || '</b>' else to_char(x.prazo, 'DD/MM') end || '</li>';
+    end loop;
+    if bloco <> '' then corpo := corpo || '<h3 style="font-size:14px;color:#1B2A4A;margin:16px 0 6px">Suas tarefas (atrasadas e desta semana)</h3><ul style="margin:0;padding-left:18px">' || bloco || '</ul>'; end if;
+    if corpo = '' then corpo := '<p>Nada pendente para esta semana. Tudo em dia.</p>'; end if;
+    if public.enfileirar_email(pf.id, 'resumo_semanal', 'Resumo da semana — ' || to_char(hoje, 'DD/MM') || ' a ' || to_char(fim, 'DD/MM/YYYY'),
+         '<p>Bom dia, ' || public.esc_html(split_part(pf.nome, ' ', 1)) || '. Este é o resumo da semana.</p>' || corpo ||
+         coalesce('<p style="margin-top:18px"><a href="' || v_url || '" style="background:#1B2A4A;color:#fff;padding:9px 16px;border-radius:8px;text-decoration:none;display:inline-block">Abrir o ERP</a></p>', ''),
+         'resumo', 'resumosem:' || to_char(hoje, 'IYYY-IW')) then n := n + 1; end if;
+  end loop;
+  -- A2 vai junto, uma vez por semana (cada pessoa recebe no máximo 1 por mês)
+  perform public.email_conferencias_atrasadas();
+  return n;
+end $$;
+revoke all on function public.montar_resumo_semanal() from public, anon;
+grant execute on function public.montar_resumo_semanal() to authenticated;
+do $$
+begin
+  perform cron.unschedule(jobid) from cron.job where jobname = 'erp_resumo_semanal';
+  perform cron.schedule('erp_resumo_semanal', '0 10 * * 1', 'select public.montar_resumo_semanal()');   -- segunda 7h (Brasília)
+exception when others then
+  raise notice 'Agendador indisponível: o resumo semanal pode ser disparado à mão.';
+end $$;
+-- ═══ fim do Backup 93 ═══

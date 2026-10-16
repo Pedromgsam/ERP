@@ -70,7 +70,7 @@ async function telaHonorarios(empresa, forcar) {
       cabecalhoTela({ icone: 'financeiro', titulo: info.titulo, frase: info.frase,
         extra: '<div class="b-seg" role="tablist" id="fin-abas">' + info.abas.map((a) => '<button type="button" role="tab" class="b-seg-bt" data-aba="' + a[0] + '">' + a[1] + '</button>').join('') + '</div>' +
           '<button type="button" class="btn btn-o b-bt" id="fin-recibo" title="Recibo de um honorário recebido">' + iconeB('recibo') + 'Recibo</button>' +
-          (pode(empresa === 'contabilidade' ? 'financeiro_contab' : 'financeiro_juridico', 'editar') ? '<button type="button" class="btn btn-p b-bt" id="fin-lancar">' + iconeB('mais') + 'Lançar</button>' : '') }) +
+          (pode(empresa === 'contabilidade' ? 'financeiro_contab' : 'financeiro_juridico', 'editar') ? '<button type="button" class="btn btn-p b-bt" id="fin-lancar">' + iconeB('mais') + '<span class="b-pm-nao">Lançar</span><span class="b-pm-so">Receita / Despesa</span></button>' : '') }) +
       '<div id="fin-corpo"><div class="carregando">Carregando…</div></div></div>';
     // Backup 85 (FI3): como no ambiente — "Lançar" é um botão só; Receita ou Despesa se escolhe no próprio formulário
     { const bl = c.querySelector('#fin-lancar');
@@ -247,9 +247,11 @@ function analiseFin(empresa, corpo) {
   const topG = grupos.slice().sort((a, b) => (recGr[b] || 0) - (recGr[a] || 0) || a.localeCompare(b, 'pt-BR')).slice(0, 8);
   if (an.grupo && !topG.includes(an.grupo)) topG.push(an.grupo);
   const outrosG = grupos.filter((g) => !topG.includes(g));
-  const linhaF = (rot, html) => '<div class="b-fin-f"><span class="b-fin-rot">' + rot + '</span>' + html + '</div>';
+  const linhaF = (rot, html) => '<div class="b-fin-f b-fin-f-' + normalizar(rot).replace(/[^a-z]/g, '') + '"><span class="b-fin-rot">' + rot + '</span>' + html + '</div>';
   const fil = '<section class="b-fin-filtros b-filtro-linha b-fin-filtros-88" id="fa-filtros">' +
-    (pessoas.length > 1 ? linhaF('Quem', segFiltroB('', 'data-fa-quem', [['', 'Todos']].concat(pessoas.map((p) => [p, p])), an.quem[0] || '', 'Quem')) : '') +
+    // Backup 93 (visual premium): "Quem" também em lista suspensa; a ordem fica Período na 1ª linha e Quem · Tipo · Grupo na 2ª (CSS)
+    (pessoas.length > 1 ? linhaF('Quem', '<span class="b-pm-nao">' + segFiltroB('', 'data-fa-quem', [['', 'Todos']].concat(pessoas.map((p) => [p, p])), an.quem[0] || '', 'Quem') + '</span>' +
+      selSusB('fa-quem-sel', 'Quem', 'Todos', pessoas, an.quem[0] || '')) : '') +
     linhaF('Período', segFiltroB('', 'data-fa-per', PERIODOS_FIN, an.de || an.ate ? '' : an.preset, 'Período') +
       '<span class="b-fx"><span class="b-fin-rot">de</span>' + campoDataB('id="fa-de"', an.de, 'De') + '<span class="b-fin-rot">até</span>' + campoDataB('id="fa-ate"', an.ate, 'Até') + '<button type="button" class="btn btn-o btn-mini" id="fa-aplicar">Aplicar</button><small class="b-fx-aviso" id="fa-aviso"></small></span>') +
     // Backup 91 (visual premium): Tipo e Grupo são filtros "menos importantes" → no premium viram lista suspensa (.b-pm-so); no normal continuam os botões (.b-pm-nao)
@@ -314,7 +316,7 @@ function analiseFin(empresa, corpo) {
       if (!de || !ate) { fl.querySelector('#fa-aviso').textContent = 'Preencha as duas datas (dd/mm/aaaa).'; return; }
       an.de = de < ate ? de : ate; an.ate = de < ate ? ate : de; return analiseFin(empresa, corpo); }
   };
-  fl.onchange = (ev) => { if (ev.target.id === 'fa-tipo' || ev.target.id === 'fa-tipo-sel') { an.tipo = ev.target.value; analiseFin(empresa, corpo); } else if (ev.target.id === 'fa-grupo-sel') { an.grupo = ev.target.value; analiseFin(empresa, corpo); } else if (ev.target.id === 'fa-grupo') { an.grupo = ev.target.value; analiseFin(empresa, corpo); } };
+  fl.onchange = (ev) => { if (ev.target.id === 'fa-quem-sel') { an.quem = ev.target.value ? [ev.target.value] : []; analiseFin(empresa, corpo); } else if (ev.target.id === 'fa-tipo' || ev.target.id === 'fa-tipo-sel') { an.tipo = ev.target.value; analiseFin(empresa, corpo); } else if (ev.target.id === 'fa-grupo-sel') { an.grupo = ev.target.value; analiseFin(empresa, corpo); } else if (ev.target.id === 'fa-grupo') { an.grupo = ev.target.value; analiseFin(empresa, corpo); } };
   const fx = corpo.querySelector('#fa-fluxo');
   if (fx) fx.onclick = (ev) => { const b = ev.target.closest('[data-fm]'); if (!b) return; an.fluxoMes = somarMesB(an.fluxoMes || hojeISO().slice(0, 7), Number(b.dataset.fm)); analiseFin(empresa, corpo); };
   fl.onkeydown = (ev) => { if (ev.key === 'Enter' && (ev.target.id === 'fa-de' || ev.target.id === 'fa-ate')) fl.querySelector('#fa-aplicar').click(); };
@@ -354,6 +356,7 @@ function resultadoMeses(meses, receita, pagos, contab) {
 
 // ───────────────────────────── Caixa (Contabilidade) ─────────────────────────────
 // Livro-caixa: só o que já foi pago mexe no caixa (recebido − pago, pela data de pagamento); saldo acumulado desde o 1º mês.
+const ehDistLucro = (l) => /distribui[cç][aã]o de lucros/i.test(l.categoria || '');
 function mesesCaixa(L) {
   const mov = L.filter((l) => l._c === 'recebido' || l._c === 'pago');
   const ch = mov.map((l) => dataLanc(l).slice(0, 7)).filter(Boolean).sort();
@@ -362,15 +365,20 @@ function mesesCaixa(L) {
   let saldo = 0;
   return mesesEntre(ch[0], fim).map((k) => {
     const r = somaV(mov.filter((l) => l._c === 'recebido' && dataLanc(l).startsWith(k))), d = somaV(mov.filter((l) => l._c === 'pago' && dataLanc(l).startsWith(k)));
-    saldo += r - d; return { k, r, d, res: r - d, saldo, itens: mov.filter((l) => dataLanc(l).startsWith(k)).sort((a, b) => dataLanc(a).localeCompare(dataLanc(b))) };
+    // Backup 93: lucro apurado = receita − despesas da operação (sem a distribuição de lucros); a distribuição sai do lucro e o que sobra é o saldo do mês
+    const dist = somaV(mov.filter((l) => l._c === 'pago' && ehDistLucro(l) && dataLanc(l).startsWith(k))), dop = d - dist;
+    saldo += r - d; return { k, r, d, dop, dist, lucro: r - dop, res: r - d, saldo, itens: mov.filter((l) => dataLanc(l).startsWith(k)).sort((a, b) => dataLanc(a).localeCompare(dataLanc(b))) };
   });
 }
 function caixaFin(empresa, corpo) {
   const F = estadoFin(empresa), meses = mesesCaixa(F.dados || []);
   if (!meses.length) { corpo.innerHTML = vazioB({ icone: 'financeiro', titulo: 'Nada pago ainda', frase: 'O caixa usa só os lançamentos já recebidos ou pagos — assim que houver um, ele aparece aqui.' }); return; }
   const hk = hojeISO().slice(0, 7), atual = meses.find((m) => m.k === hk) || meses[meses.length - 1], saldo = meses[meses.length - 1].saldo;
-  const nums = numsFaixa([['Saldo em caixa', brl(saldo), 'acumulado desde o início', saldo < 0 ? 'b-verm' : ''], ['Receita do mês', brl(atual.r), rotMesB(atual.k), 'b-verde'],
-    ['Despesas do mês', brl(atual.d), rotMesB(atual.k)], ['Resultado do mês', brl(atual.res), atual.res >= 0 ? 'superávit' : 'déficit', atual.res < 0 ? 'b-verm' : 'b-verde']]);
+  // Backup 93: o caixa conta a história do lucro — quanto entrou, quanto custou a operação, o lucro apurado, quanto foi distribuído e o que ficou
+  const somaM = (f) => meses.reduce((a, m) => a + m[f], 0), lucroT = somaM('lucro'), distT = somaM('dist');
+  const nums = numsFaixa([['Receita', brl(somaM('r')), 'recebida desde o início', 'b-verde'], ['Despesas', brl(somaM('dop')), 'da operação (sem distribuição)'],
+    ['Lucro apurado', brl(lucroT), rotMesB(atual.k) + ': ' + brl(atual.lucro), lucroT < 0 ? 'b-verm' : 'b-verde'], ['Distribuição de lucros', brl(distT), distT && lucroT > 0 ? Math.round(distT / lucroT * 100) + '% do lucro apurado' : 'nada distribuído ainda'],
+    ['Saldo em caixa', brl(saldo), 'lucro apurado − distribuído', saldo < 0 ? 'b-verm' : '']]);
   const seg = '<div class="b-seg b-seg-mini" id="cx-vista"><button type="button" class="b-seg-bt" data-cx="consolidado" aria-selected="' + (F.caixa === 'consolidado') + '">Consolidado</button><button type="button" class="b-seg-bt" data-cx="detalhado" aria-selected="' + (F.caixa === 'detalhado') + '">Mês a mês</button></div>';
   let miolo;
   if (F.caixa === 'detalhado') {
@@ -387,14 +395,16 @@ function caixaFin(empresa, corpo) {
         (cats.length ? '<div class="b-cx-cats">' + cats.map(([k, v]) => '<span>' + esc(k) + ' <b>' + brl(v) + '</b></span>').join('') + '</div>' : '') + '</details>';
     }).join('');
   } else {
-    const ks = meses.map((m) => m.k);
-    const despCat = somaPor((F.dados || []).filter((l) => l._c === 'pago'), (l) => l.categoria);
-    miolo = cartaoFin('Saldo em caixa mês a mês', 'Acumulado — receita menos despesa, mês após mês.', '<div class="b-fin-graf">' + graficoColunasB(ks, [], { linha: { nome: 'Saldo', cor: 'var(--chart-1)', valores: meses.map((m) => m.saldo) }, titulo: 'Saldo mês a mês' }) + '</div>') +
-      cartaoFin('Receita × despesa mês a mês', 'Recebido contra pago — passe o mouse no mês para ver os dois juntos.', '<div class="b-fin-graf">' + graficoColunasB(ks, [{ nome: 'Receita', cor: 'var(--chart-2)', valores: meses.map((m) => m.r) }, { nome: 'Despesa', cor: 'var(--chart-5)', valores: meses.map((m) => m.d) }], { titulo: 'Receita e despesa' }) + '</div>') +
-      cartaoFin('Despesas por categoria', 'Acumulado de todo o período.', barrasFin(despCat)) +
-      cartaoFin('Resumo mensal', 'Receita, despesa, resultado e saldo final de cada mês.', '<div class="b-rola b-rola-solta" data-sem-pagina><table class="b-tab"><thead><tr><th>Mês</th><th class="b-dir">Receita</th><th class="b-dir">Despesa</th><th class="b-dir">Resultado</th><th class="b-dir">Saldo final</th></tr></thead><tbody>' +
-        meses.map((m) => '<tr' + (!m.r && !m.d ? ' class="b-apagada"' : '') + '><td>' + esc(rotMesB(m.k)) + '</td><td class="b-dir b-verde-v">' + (m.r ? brl(m.r) : '—') + '</td><td class="b-dir b-verm-v">' + (m.d ? brl(m.d) : '—') + '</td><td class="b-dir' + (m.res < 0 ? ' b-verm-v' : '') + '">' + brl(m.res) + '</td><td class="b-dir"><b>' + brl(m.saldo) + '</b></td></tr>').join('') +
-        '</tbody><tfoot><tr><td>Total</td><td class="b-dir">' + brl(meses.reduce((s, m) => s + m.r, 0)) + '</td><td class="b-dir">' + brl(meses.reduce((s, m) => s + m.d, 0)) + '</td><td class="b-dir">' + brl(meses.reduce((s, m) => s + m.res, 0)) + '</td><td class="b-dir">' + brl(saldo) + '</td></tr></tfoot></table></div>');
+    // Backup 93 (pedido do usuário): 1º o resumo mensal (receita → despesas → LUCRO APURADO → distribuição → saldo), depois receita × despesa
+    // em verde/vermelho como na Análise. Saíram o gráfico "Saldo em caixa mês a mês" e a tabela "Despesas por categoria".
+    const ks = meses.map((m) => m.k), tot = (f) => meses.reduce((s, m) => s + m[f], 0);
+    miolo = cartaoFin('Resumo mensal', 'Lucro apurado = receita − despesas da operação. A distribuição de lucros sai do lucro; o que sobra fica no caixa.',
+      '<div class="b-rola b-rola-solta" data-sem-pagina><table class="b-tab b-tab-cx"><thead><tr><th>Mês</th><th class="b-dir">Receita</th><th class="b-dir">Despesas</th><th class="b-dir">Lucro apurado</th><th class="b-dir">Distribuição de lucros</th><th class="b-dir">Ficou no caixa</th><th class="b-dir">Saldo acumulado</th></tr></thead><tbody>' +
+        meses.slice().reverse().map((m) => '<tr' + (!m.r && !m.d ? ' class="b-apagada"' : '') + '><td>' + esc(rotMesB(m.k)) + '</td><td class="b-dir b-verde-v">' + (m.r ? brl(m.r) : '—') + '</td><td class="b-dir b-verm-v">' + (m.dop ? brl(m.dop) : '—') + '</td>' +
+          '<td class="b-dir"><b class="' + (m.lucro < 0 ? 'b-verm' : '') + '">' + brl(m.lucro) + '</b></td><td class="b-dir">' + (m.dist ? '− ' + brl(m.dist) : '—') + '</td><td class="b-dir' + (m.res < 0 ? ' b-verm-v' : '') + '">' + brl(m.res) + '</td><td class="b-dir"><b>' + brl(m.saldo) + '</b></td></tr>').join('') +
+        '</tbody><tfoot><tr><td>Total</td><td class="b-dir">' + brl(tot('r')) + '</td><td class="b-dir">' + brl(tot('dop')) + '</td><td class="b-dir">' + brl(tot('lucro')) + '</td><td class="b-dir">' + (tot('dist') ? '− ' + brl(tot('dist')) : '—') + '</td><td class="b-dir">' + brl(tot('res')) + '</td><td class="b-dir">' + brl(saldo) + '</td></tr></tfoot></table></div>') +
+      cartaoFin('Receita × despesa mês a mês', 'Recebido contra pago (despesas da operação) — passe o mouse no mês para ver os dois juntos.', '<div class="b-fin-graf">' + graficoColunasB(ks, [{ nome: 'Receita', cor: corBarraPessoa('Pedro'), valores: meses.map((m) => m.r) },
+        { nome: 'Despesas', cor: corBarraPessoa('Emanuelle'), valores: meses.map((m) => m.dop) }], { titulo: 'Receita e despesa' }) + '</div>');
   }
   corpo.innerHTML = seg + nums + miolo;
   corpo.querySelector('#cx-vista').onclick = (ev) => { const b = ev.target.closest('[data-cx]'); if (b) { F.caixa = b.dataset.cx; caixaFin(empresa, corpo); } };

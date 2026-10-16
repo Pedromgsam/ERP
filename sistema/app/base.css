@@ -1263,3 +1263,15 @@ html body.gx-barra-topo table.b-tab.b-sem-g:not(#_) :is(thead th,tbody td):first
 /* ═══ Backup 92 ═══ peças só do visual premium */
 .b-pm-fora{}
 .gs-busca-bt kbd{font:600 10.5px var(--font-ui);border:1px solid var(--border);border-radius:5px;padding:1px 5px;margin-left:6px;color:var(--text3);background:var(--surface2)}
+/* ═══ Backup 93 ═══ U5: título da coluna numa linha só (a seta de ordem gruda na palavra) — em telas largas; em notebook pequeno ainda pode quebrar */
+.b-tab th[data-dir="1"]::after{content:"\00a0↑"}
+.b-tab th[data-dir="-1"]::after{content:"\00a0↓"}
+@media (min-width:1200px){html body.gx-barra-topo table.b-tab thead th:not(#_){white-space:nowrap!important}}
+/* Processos: a coluna Partes um pouco mais larga; Valor, Última movimentação, Conferido e Status um pouco mais estreitas */
+.b-tab-proc th:nth-child(2){width:18%}.b-tab-proc th:nth-child(3){width:10%}.b-tab-proc th:nth-child(5){width:9%}.b-tab-proc th:nth-child(6){width:15%}
+.b-tab-proc th:nth-child(7){width:82px}.b-tab-proc th:nth-child(8){width:82px}
+/* Backup 93 (U2): "Conferido" de Processos clicável — parece texto, sublinha ao passar o mouse */
+button.b-pr-conf{background:none;border:0;padding:2px 4px;margin:-2px -4px;border-radius:6px;font:inherit;color:inherit;cursor:pointer}
+button.b-pr-conf:hover,button.b-pr-conf:focus-visible{background:var(--hover);text-decoration:underline}
+.em-sem-lista{display:flex;flex-direction:column;gap:6px}
+.em-sem-lista label.b-li-chave{cursor:pointer}

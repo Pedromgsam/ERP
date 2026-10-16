@@ -721,6 +721,26 @@ O que mudou:
 
 Ainda falta (próxima rodada): apagar o ERP antigo (ERP.html, remendos e blocos antigos do design.css).
 
+## Backup 93 — Caixa com lucro apurado, resumo semanal, "Conferido" num clique e alternativas do Início
+1. Merge da pull request.
+2. **SQL no Supabase** (Raw → Ctrl+A/Ctrl+C → conferir a última linha "fim do Backup 93" → Run).
+3. **Ctrl+Shift+R** no ERP. Para ver o visual: ⋯ (barra do alto) → "✦ Visual premium (teste)".
+
+O que mudou (vale para todos):
+- **Caixa da Contabilidade:** Resumo mensal primeiro, com Receita · Despesas · **Lucro apurado** · **Distribuição de lucros** · Ficou no caixa · Saldo acumulado. Ex.: caixa de R$ 3 mil pode ser lucro de R$ 13 mil menos R$ 10 mil distribuídos. Saíram o gráfico "Saldo em caixa mês a mês" e a tabela "Despesas por categoria"; "Receita × despesa mês a mês" em verde/vermelho.
+- **Processos (U2):** clicar na data de "Conferido" (ou no "nunca") marca "conferido hoje, sem novidade", com Desfazer.
+- **Processos (U4):** o cadastro do processo tem "Empresa do cliente". Com ela, o filtro Empresa fica exato; sem ela, continua procurando o nome no Autor/Réu.
+- **Copiar texto:** selecionar um texto numa linha da tabela não abre mais o detalhe; só o clique abre.
+- **Resumo da semana por e-mail (A1):** toda segunda às 7h, no modelo bonito: honorários em atraso, parcelas e acordos da semana, audiências/reuniões e as suas tarefas. Liga/desliga e "Quem recebe" em Administração → E-mail → Automáticos (ninguém marcado = administradores).
+- **Conferência do passivo (A2):** grupo com mais de 30 dias sem conferência vira aviso no Início (abre a Rotina → Passivo) e e-mail ao responsável (no máximo 1 por mês; chave "Conferência do passivo atrasada").
+
+Só no visual premium:
+- Financeiro: Período na 1ª linha; Quem, Tipo e Grupo na 2ª (Quem em lista suspensa). Botão "Receita / Despesa" no lugar de "Lançar".
+- Clientes: Área em lista suspensa; sem a coluna e o botão de "recebe e-mails" (isso fica em Administração → E-mail → Quem recebe). CRM: Responsável em lista suspensa.
+- Tarefas: botões "Feriados" e "Agenda" no lugar da engrenagem.
+- Tabelas: Partes mais larga em Processos, cabeçalhos numa linha só; filtro do alto menor e discreto; só a lista escolhida fica marinho.
+- **Alternativas do Início** (página à parte, dados fictícios): https://claude.ai/artifact/L4c6hfEqEoCgaswYrebDfP (A Portal · B Mural de notícias · C Cockpit · D Meu dia · E Minha semana).
+
 ## Backup 92 — Filtros à esquerda (premium), Buscar à vista e todo e-mail no modelo bonito
 1. Merge da pull request.
 2. **SQL no Supabase** (Raw → Ctrl+A/Ctrl+C → conferir a última linha "fim do Backup 92" → Run).

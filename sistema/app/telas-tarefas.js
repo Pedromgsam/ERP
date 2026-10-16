@@ -486,7 +486,10 @@ TELAS.tarefas = async function () {
     // Backup 80: Lista · Semana · Calendário · Fluxos no alto, ao lado de "+ Nova tarefa" (como no ambiente de teste)
     '<div class="b-seg tf-vista b-pm-fora" id="tf-vista" role="tablist">' + [['lista', 'Lista'], ['calendario', 'Calendário']]
       .map(([v, r]) => '<button type="button" role="tab" class="b-seg-bt" data-v="' + v + '">' + r + '</button>').join('') + '</div>' +
-    '<span class="tf-cfg-wrap"><button class="btn btn-o tf-bt-ic" id="tf-config" title="Configurar: feriados e Google Agenda" aria-expanded="false">⚙</button>' +
+    // Backup 93 (U3, visual premium): no lugar da engrenagem, dois botões que dizem o que fazem
+    '<button type="button" class="btn btn-o b-bt b-pm-so" id="tf-feriados2">' + iconeB('calendario') + 'Feriados</button>' +
+    '<button type="button" class="btn btn-o b-bt b-pm-so" id="tf-agenda2" title="Prazos e audiências no seu Google Agenda">' + iconeB('calendario') + 'Agenda</button>' +
+    '<span class="tf-cfg-wrap b-pm-fora"><button class="btn btn-o tf-bt-ic" id="tf-config" title="Configurar: feriados e Google Agenda" aria-expanded="false">⚙</button>' +
       '<span class="tf-cfg-menu" id="tf-cfg-menu" hidden>' +   // Backup 88: sem "Modelos de fluxo" 
       '<button class="btn btn-o" id="tf-feriados">Feriados</button><button class="btn btn-o" id="tf-agenda" title="Prazos fatais e audiências no seu Google Agenda">📅 Google Agenda</button></span></span>' +
     // Backup 54: "Delegar" saiu daqui — virou o botão "Fluxo" (as sequências com validação, como "Lead completo", estão na lista de modelos do fluxo)
@@ -504,7 +507,9 @@ TELAS.tarefas = async function () {
   if (!window._tfCfgDoc) { window._tfCfgDoc = true; document.addEventListener('click', (ev) => { const m = $('tf-cfg-menu'); if (m && !m.hidden && !ev.target.closest('.tf-cfg-wrap')) m.hidden = true; }); }
   $('tf-cfg-menu').addEventListener('click', () => { setTimeout(() => { const m = $('tf-cfg-menu'); if (m) m.hidden = true; }, 0); });
   $('tf-feriados').onclick = () => janelaFeriados();
+  $('tf-feriados2').onclick = () => janelaFeriados();
   $('tf-agenda').onclick = () => janelaAgenda();
+  $('tf-agenda2').onclick = () => janelaAgenda();
   $('tf-vista').onclick = $('tf-vista2').onclick = (ev) => { const b = ev.target.closest('button'); if (b) { F.vista = b.dataset.v; pintarTarefas(); } };
   $('tf-chips').onclick = (ev) => { const b = ev.target.closest('button'); if (!b) return;
     if (b.dataset.tfMostra != null) F.mostra = b.dataset.tfMostra;
