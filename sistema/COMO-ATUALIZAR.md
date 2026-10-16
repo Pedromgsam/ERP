@@ -721,6 +721,19 @@ O que mudou:
 
 Ainda falta (próxima rodada): apagar o ERP antigo (ERP.html, remendos e blocos antigos do design.css).
 
+## Backup 91 — Visual premium: um azul só, escuro do GitHub, barra do alto limpa (só o premium muda)
+1. Merge da pull request.
+2. **Não há SQL** nesta versão.
+3. **Ctrl+Shift+R** no ERP. Para ver: ⋯ (barra do alto) → "✦ Visual premium (teste)".
+
+O que mudou no visual premium (respostas de 16/10):
+- **Um azul só:** botões, abas, filtros escolhidos, chips (Início "Só eu/Equipe toda", Tarefas "Mostrar/De quem/Urgência/Em aberto…"), avatar e links de ação usam o mesmo azul-marinho da barra lateral.
+- **Modo escuro com a base do GitHub:** fundo #0D1117, cartões #161B22, bordas #30363D, texto claro; o azul é o da lateral um tom mais claro para aparecer no escuro.
+- **Filtros menos importantes em lista suspensa:** no Financeiro, **Tipo** e **Grupo** viraram listas; **Quem** e **Período** continuam à vista.
+- **Barra do alto:** sem o nome da tela (ele já aparece no título logo abaixo). **Sair** em vermelho com fundo vermelho claro.
+- **Tela de entrada** na cor da barra lateral (marinho), com o cartão branco no meio.
+- **Ambiente de teste paralelo** (página à parte, dados fictícios, link na resposta): sugestões M1–M8 para ligar e desligar e os gráficos G1–G4.
+
 ## Backup 90 — Visual premium ajustado (só o premium muda; o ERP normal fica igual)
 1. Merge da pull request.
 2. **Não há SQL** nesta versão.

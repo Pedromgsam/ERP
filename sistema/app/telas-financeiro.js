@@ -251,9 +251,12 @@ function analiseFin(empresa, corpo) {
     (pessoas.length > 1 ? linhaF('Quem', segFiltroB('', 'data-fa-quem', [['', 'Todos']].concat(pessoas.map((p) => [p, p])), an.quem[0] || '', 'Quem')) : '') +
     linhaF('Período', segFiltroB('', 'data-fa-per', PERIODOS_FIN, an.de || an.ate ? '' : an.preset, 'Período') +
       '<span class="b-fx"><span class="b-fin-rot">de</span>' + campoDataB('id="fa-de"', an.de, 'De') + '<span class="b-fin-rot">até</span>' + campoDataB('id="fa-ate"', an.ate, 'Até') + '<button type="button" class="btn btn-o btn-mini" id="fa-aplicar">Aplicar</button><small class="b-fx-aviso" id="fa-aviso"></small></span>') +
-    (tipos.length > 1 ? linhaF('Tipo', segFiltroB('', 'data-fa-tipo', [['', 'Todos os tipos']].concat(tipos.map((t) => [t, t])), an.tipo || '', 'Tipo')) : '') +
-    (grupos.length > 1 ? linhaF('Grupo', segFiltroB('', 'data-fa-grupo', [['', 'Todos os grupos']].concat(topG.map((g) => [g, g])), an.grupo || '', 'Grupo') +
-      (outrosG.length ? '<select id="fa-grupo" class="b-fin-outro" aria-label="Outro grupo"><option value="">Outro grupo…</option>' + outrosG.map((g) => '<option>' + esc(g) + '</option>').join('') + '</select>' : '')) : '') + '</section>';
+    // Backup 91 (visual premium): Tipo e Grupo são filtros "menos importantes" → no premium viram lista suspensa (.b-pm-so); no normal continuam os botões (.b-pm-nao)
+    (tipos.length > 1 ? linhaF('Tipo', '<span class="b-pm-nao">' + segFiltroB('', 'data-fa-tipo', [['', 'Todos os tipos']].concat(tipos.map((t) => [t, t])), an.tipo || '', 'Tipo') + '</span>' +
+      selSusB('fa-tipo-sel', 'Tipo', 'Todos os tipos', tipos, an.tipo)) : '') +
+    (grupos.length > 1 ? linhaF('Grupo', '<span class="b-pm-nao">' + segFiltroB('', 'data-fa-grupo', [['', 'Todos os grupos']].concat(topG.map((g) => [g, g])), an.grupo || '', 'Grupo') +
+      (outrosG.length ? '<select id="fa-grupo" class="b-fin-outro" aria-label="Outro grupo"><option value="">Outro grupo…</option>' + outrosG.map((g) => '<option>' + esc(g) + '</option>').join('') + '</select>' : '') + '</span>' +
+      selSusB('fa-grupo-sel', 'Grupo', 'Todos os grupos', grupos, an.grupo)) : '') + '</section>';
   const receita = filtrarFin(empresa, ['recebido']), aRec = filtrarFin(empresa, ['areceber']), aPag = filtrarFin(empresa, ['apagar']), pagos = filtrarFin(empresa, ['pago']);
   const perdas = filtrarFin(empresa, ['perda'], true), vencidos = filtrarFin(empresa, ['areceber'], true).filter((l) => l.vencimento && l.vencimento < h);
   const aVencer = aRec.filter((l) => !(l.vencimento && l.vencimento < h));
@@ -310,7 +313,7 @@ function analiseFin(empresa, corpo) {
       if (!de || !ate) { fl.querySelector('#fa-aviso').textContent = 'Preencha as duas datas (dd/mm/aaaa).'; return; }
       an.de = de < ate ? de : ate; an.ate = de < ate ? ate : de; return analiseFin(empresa, corpo); }
   };
-  fl.onchange = (ev) => { if (ev.target.id === 'fa-tipo') { an.tipo = ev.target.value; analiseFin(empresa, corpo); } else if (ev.target.id === 'fa-grupo') { an.grupo = ev.target.value; analiseFin(empresa, corpo); } };
+  fl.onchange = (ev) => { if (ev.target.id === 'fa-tipo' || ev.target.id === 'fa-tipo-sel') { an.tipo = ev.target.value; analiseFin(empresa, corpo); } else if (ev.target.id === 'fa-grupo-sel') { an.grupo = ev.target.value; analiseFin(empresa, corpo); } else if (ev.target.id === 'fa-grupo') { an.grupo = ev.target.value; analiseFin(empresa, corpo); } };
   const fx = corpo.querySelector('#fa-fluxo');
   if (fx) fx.onclick = (ev) => { const b = ev.target.closest('[data-fm]'); if (!b) return; an.fluxoMes = somarMesB(an.fluxoMes || hojeISO().slice(0, 7), Number(b.dataset.fm)); analiseFin(empresa, corpo); };
   fl.onkeydown = (ev) => { if (ev.key === 'Enter' && (ev.target.id === 'fa-de' || ev.target.id === 'fa-ate')) fl.querySelector('#fa-aplicar').click(); };

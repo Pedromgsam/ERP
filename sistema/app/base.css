@@ -1257,3 +1257,6 @@ html body.gx-barra-topo table.b-tab.b-sem-g:not(#_) :is(thead th,tbody td):first
 .gs .b-fsus-limpar.b-fsus-limpar-x,.gs .b-fsus-rot{display:none}
 /* ═══ Backup 90 ═══ P2 (▲/▼ no número) e P7 (área do gráfico de linha): desenhados sempre, mas só aparecem no visual premium (premium.css) */
 .b-tend,.b-glin-fill,.b-glin-grade{display:none}
+/* ═══ Backup 91 ═══ lista suspensa dos filtros "menos importantes" só aparece no visual premium (premium.css) */
+.b-pm-so{display:none}
+.b-pm-nao{display:contents}
