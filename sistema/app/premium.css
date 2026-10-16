@@ -15,9 +15,21 @@
   /* só a barra lateral troca de cor (ERP antigo) */
   --lado-bg:#1B2A4A;--lado-fg:rgba(255,255,255,.78);--lado-fg-2:rgba(255,255,255,.55);--lado-sec:rgba(201,168,76,.75);--lado-linha:rgba(201,168,76,.18);
   --lado-ativo-bg:rgba(201,168,76,.14);--lado-ativo-fg:#E2C77A;--lado-hover:rgba(255,255,255,.06);
+  /* Backup 91: UM azul só no premium = o azul da barra lateral (botões, abas, filtros escolhidos, chips, avatar, links de ação) */
+  --primario:#1B2A4A;--primario-hover:#243659;--on-primario:#FFFFFF;--selecao:#1B2A4A;--on-selecao:#FFFFFF;--primario-lt:#E8ECF4;--grad-marca:linear-gradient(0deg,#1B2A4A,#1B2A4A);
 }
+/* Backup 91: modo escuro do premium com a base do GitHub (fundo #0D1117, cartões #161B22, bordas #30363D, texto #E6EDF3/#8B949E);
+   o azul continua o da lateral, um tom mais claro para aparecer no escuro */
 :root[data-visual="premium"][data-tema="escuro"]{
-  --pm-navy:#16243F;--pm-navy2:#1E3052;--pm-sombra:0 1px 2px rgba(0,0,0,.5);--pm-sombra-alta:0 12px 30px rgba(0,0,0,.6);--pm-limpar:#F87171;--lado-bg:#0A1326;
+  --pm-navy:#1B2A4A;--pm-navy2:#243659;--pm-borda:#30363D;--pm-sombra:0 1px 2px rgba(1,4,9,.6);--pm-sombra-alta:0 12px 30px rgba(1,4,9,.75);--pm-limpar:#F87171;
+  --bg:#0D1117;--surface:#161B22;--surface2:#1C2128;--surface3:#21262D;--white:#161B22;--hover:#1F2630;--gray-lt:#161B22;--gray-mid:#21262D;
+  --ink:#F0F6FC;--text:#E6EDF3;--text2:#C9D1D9;--text3:#8B949E;--text4:#8B949E;
+  --border:#30363D;--border-strong:#3D444D;--line:#21262D;--overlay:rgba(1,4,9,.75);
+  --primario:#2B4A7E;--primario-hover:#345A96;--selecao:#2B4A7E;--primario-lt:rgba(56,100,170,.20);--link:#79A8F0;--grad-marca:linear-gradient(0deg,#2B4A7E,#2B4A7E);
+  --th-bg:#1B2A4A;--th-fg:#E6EDF3;--titulo:#F0F6FC;--topo-bg:#161B22;--topo-borda:#30363D;
+  --lado-bg:#10192B;--lado-linha:rgba(201,168,76,.16);--bar-bg:#10192B;--bar-borda:#30363D;
+  --chart-texto:#8B949E;--chart-grade:#21262D;--chart-borda:#161B22;
+  --shadow-hover:0 0 0 1px #3D444D;--shadow-lg:0 0 0 1px #30363D,0 24px 64px rgba(1,4,9,.85);
 }
 
 /* ── faixa "teste" no pé da tela ── */
@@ -27,7 +39,7 @@
 
 /* ── 4 / 4.1 / 4.2: barra lateral do ERP antigo (marinho), dourado nos títulos das seções e no item escolhido ── */
 html[data-visual="premium"] body.gx-barra-topo #gs-lado:not(#_){background:linear-gradient(180deg,#1B2A4A 0%,#18253F 100%)!important;border-right:1px solid rgba(201,168,76,.18)}
-html[data-visual="premium"][data-tema="escuro"] body.gx-barra-topo #gs-lado:not(#_){background:linear-gradient(180deg,#0B152A 0%,#081022 100%)!important}
+html[data-visual="premium"][data-tema="escuro"] body.gx-barra-topo #gs-lado:not(#_){background:linear-gradient(180deg,#121D33 0%,#0D1526 100%)!important;border-right-color:#30363D}
 html[data-visual="premium"] body.gx-barra-topo #gs-lado .gl-nome:not(#_){color:var(--pm-gold)}
 html[data-visual="premium"] body.gx-barra-topo #gs-lado .tn-sec:not(#_){color:rgba(201,168,76,.8)}
 html[data-visual="premium"] body.gx-barra-topo #gs-lado :is(.tn-it,.tn-menu button).on:not(#_),
@@ -112,3 +124,22 @@ html[data-visual="premium"] body.gx-barra-topo .gs .janela:not(#_){border-radius
   html[data-visual="premium"] body.gx-barra-topo .gs .b-fsus.b-fsus-fixo > .b-fsus-c select:not(#_){width:100%}
   #gx-faixa-premium{white-space:nowrap;font-size:11px;padding:5px 6px 5px 12px;bottom:calc(var(--bn-h,64px) + 10px)}
 }
+
+/* ═══ Backup 91 (respostas de 16/10) ═══ */
+/* barra do alto: sem o nome da tela (ele já está no título logo abaixo); Sair em vermelho com fundo vermelho claro */
+html[data-visual="premium"] body.gx-barra-topo #gs-hd #gs-tela-nome:not(#_){visibility:hidden}
+html[data-visual="premium"] body.gx-barra-topo #gs-hd #gs-sair:not(#_){background:var(--red-lt,#FEE2E2)!important;color:var(--red,#DC2626)!important;border:1px solid var(--red-bd,rgba(220,38,38,.3))!important;font-weight:600}
+html[data-visual="premium"] body.gx-barra-topo #gs-hd #gs-sair:hover:not(#_){background:var(--red,#DC2626)!important;color:#FFFFFF!important}
+html[data-visual="premium"] body.gx-barra-topo .gs-ava:not(#_){background:#1B2A4A;color:#FFFFFF}
+/* tela de entrada na cor da barra lateral */
+html[data-visual="premium"] #ac-login-overlay:not(#_){background:linear-gradient(180deg,#1B2A4A 0%,#18253F 100%)!important}
+html[data-visual="premium"][data-tema="escuro"] #ac-login-overlay:not(#_){background:linear-gradient(180deg,#121D33 0%,#0D1526 100%)!important}
+html[data-visual="premium"] #ac-login-overlay .ac-login-logo:not(#_){box-shadow:0 0 0 1px rgba(201,168,76,.55),0 12px 32px rgba(0,0,0,.35)}
+html[data-visual="premium"] #ac-login-overlay .ac-login-card:not(#_){border:1px solid rgba(201,168,76,.25);box-shadow:0 24px 60px rgba(0,0,0,.35)}
+html[data-visual="premium"] #ac-login-overlay .ac-login-btn:not(#_){background:#1B2A4A!important;color:#FFFFFF!important}
+html[data-visual="premium"] #ac-login-overlay .ac-login-wrap > :not(.ac-login-card):not(.ac-login-brand):not(#_),html[data-visual="premium"] #ac-login-overlay .ac-login-footer:not(#_){color:rgba(255,255,255,.62)!important}
+/* filtros "menos importantes" (Tipo, Grupo): lista suspensa no lugar dos botões */
+html[data-visual="premium"] .gs .b-pm-nao:not(#_){display:none}
+html[data-visual="premium"] .gs .b-pm-so:not(#_){display:inline-block}
+html[data-visual="premium"] .gs select.b-sel-sus:not(#_){border:1px solid var(--border-strong);border-radius:var(--r-ctl,8px);padding:7px 30px 7px 12px;font:600 13px var(--font-ui);color:var(--text);background-color:var(--surface);min-width:190px}
+html[data-visual="premium"] .gs select.b-sel-sus:has(option:checked:not([value=""])):not(#_){border-color:var(--primario);box-shadow:0 0 0 1px var(--primario)}

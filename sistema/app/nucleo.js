@@ -686,6 +686,11 @@ function ligarMinB(chave, ids) {
   bt.onclick = () => { const abrir = bt.getAttribute('aria-expanded') !== 'true'; bt.setAttribute('aria-expanded', String(abrir)); try { localStorage.setItem('erp_min_' + chave, abrir ? '0' : '1'); } catch (e) { /* vale só agora */ } aplicar(); };
   aplicar();
 }
+// Backup 91 (visual premium): lista suspensa para filtro "menos importante" — só aparece no premium (base.css esconde .b-pm-so; o premium esconde .b-pm-nao)
+function selSusB(id, rot, todos, opcoes, v) {
+  return '<select id="' + id + '" class="b-pm-so b-sel-sus" aria-label="' + esc(rot) + '"><option value="">' + esc(todos) + '</option>' +
+    opcoes.map((o) => '<option' + (o === v ? ' selected' : '') + '>' + esc(o) + '</option>').join('') + '</select>';
+}
 // Backup 90 (P2, só aparece no visual premium — base.css esconde .b-tend): ▲/▼ e quanto mudou desde o mês anterior. bom = 'sobe' | 'desce' (qual direção é boa notícia)
 function tendB(atual, antes, bom) {
   if (!(antes > 0) || atual == null || !isFinite(atual)) return '';
