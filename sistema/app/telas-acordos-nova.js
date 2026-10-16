@@ -94,7 +94,8 @@ function pintarAcordos() {
   ligarMinB('ac-situacao', ['ac-chips', 'ac-grupos']);   // Backup 84: a situação por cliente se minimiza
   $('ac-chips').onclick = (ev) => { const b = ev.target.closest('[data-ac-chip]'); if (!b) return; E.ac.chip = b.dataset.acChip; marcarSegB($('ac-chips'), b); desenharGruposAc(); };
   const uniq = (f) => [...new Set(T.map(f).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'pt-BR')).map((v) => [v, v]);
-  tabelaB($('ac-tabela'), { id: 'acordos', tabCls: 'b-tab-ac', linhas: T, colunas: colunasAcordos(), unidade: ['parcela', 'parcelas'], dicaBusca: 'Devedor / processo…',
+  tabelaB($('ac-tabela'), { id: 'acordos', tabCls: 'b-tab-ac' + (F.grupo ? ' b-sem-g' : ''),   // Backup 89 (D4)
+    linhas: T, colunas: colunasAcordos(), unidade: ['parcela', 'parcelas'], dicaBusca: 'Devedor / processo…',
     abas: [{ id: 'apagar', rot: 'A pagar', f: (x) => !x.pago }, { id: 'pago', rot: 'Pago', f: (x) => x.pago }], semContagemAbas: true,
     prazos: true, prazosAbas: ['apagar'], conta: (n, aba) => plural(n, 'parcela', 'parcelas') + (aba === 'pago' ? ' paga' + (n === 1 ? '' : 's') : ' a pagar'),
     ordAbas: { apagar: { k: 'venc', dir: 1 }, pago: { k: 'pz', dir: -1 } }, ord: { k: 'venc', dir: 1 }, linhaCls: vencidaA, busca: buscaAc, venc: (x) => x.venc, valor: (x) => x.valor, clique: (x) => { if (x.ac) janelaAcordo(x.ac); },   // Backup 85 (AC3): como no ambiente, a linha abre o acordo inteiro

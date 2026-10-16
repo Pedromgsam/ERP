@@ -18,13 +18,16 @@ TELAS.inicio = async function () {
   const h = new Date(), hora = h.getHours(), saud = hora < 12 ? 'Bom dia' : hora < 18 ? 'Boa tarde' : 'Boa noite';
   const dataLonga = h.toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' });
   // Backup 82 (E3 aprovado): os cartões grandes viraram a faixa "Financeiro · Escritório" em pílulas, como no ambiente; avisos e conferências entram na linha do Escritório
+  // Backup 89 (I1): Início "Hoje" — saudação, UMA faixa de avisos (até 5, só o que pede ação), "Para hoje" (atrasadas + vencendo hoje, com Concluir)
+  // e Lembretes em pequeno ao lado. Saiu "Próximos 7 dias" (está em Tarefas → Calendário); "Ver como" foi para o ⋯.
+  const adm = (E.perfil || {}).papel === 'admin' && typeof pessoasFiltro === 'function';
   $('conteudo').innerHTML =
-    cabecalhoTela({ icone: 'inicio', titulo: saud + ', ' + primeiroNomeUsuario(), frase: dataLonga, botao: { id: 'lemb-novo', rotulo: 'Lembrete' } }) +
+    cabecalhoTela({ icone: 'inicio', titulo: saud + ', ' + primeiroNomeUsuario(), frase: dataLonga, botao: { id: 'lemb-novo', rotulo: 'Lembrete' },
+      mais: adm ? ['<div class="b-mais-rot">Ver o dia de</div>'].concat(pessoasFiltro().map((n) => '<button type="button" role="menuitem" class="b-mais-it" data-ini-vercomo="' + esc(primeiroNome(n)) + '">' + esc(nomeCurto(n)) + '</button>')) : null }) +
     '<div id="ini-valid"></div>' +
-    '<section class="b-faixa-av ini-faixa" id="ini-faixa"><div class="b-faixa-lin" id="ini-lin-fin"><span class="b-faixa-rot">Financeiro</span><div class="ini-conf-l" id="ini-resumo-fin"></div></div>' +
-      '<div class="b-faixa-lin"><span class="b-faixa-rot">Escritório</span><div class="ini-conf-l"><span id="ini-resumo" class="ini-pills"></span></div></div></section>' +
-    '<div class="ini-b74"><section class="ini-col"><div class="ini-sec-hd"><div><h2>Meu dia</h2><p>Hoje e o que atrasou</p></div><div class="b-chips ini-quem" id="ini-quem" role="group" aria-label="De quem"></div></div><div id="ini-dia"></div></section>' +
-    '<section class="ini-col"><div id="ini-lembretes"></div><div class="ini-sec-hd ini-sec-hd2"><div><h2>Próximos 7 dias</h2></div></div><div id="ini-prox"></div></section></div>';
+    '<section class="b-faixa-av ini-faixa ini-faixa-1" id="ini-faixa"><div class="b-faixa-lin"><span class="b-faixa-rot">Avisos</span><div class="ini-conf-l"><span id="ini-resumo" class="ini-pills"></span><span id="ini-resumo-fin" hidden></span></div></div></section>' +
+    '<div class="ini-b74 ini-b89"><section class="ini-col"><div class="ini-sec-hd"><div><h2 id="ini-dia-tit">Para hoje</h2><p id="ini-dia-sub">Atrasadas e o que vence hoje</p></div><div id="ini-quem"></div></div><div id="ini-dia"></div></section>' +
+    '<section class="ini-col ini-col-lemb"><div id="ini-lembretes"></div></section></div>';
   // Backup 83: sem o calendário ("Minha fila de trabalho") no Início — a agenda fica só em Tarefas (Semana · Calendário)
   $('lemb-novo').onclick = () => formLembrete();
   verComoIni();
@@ -41,40 +44,36 @@ ICONES_B.inicio = ICONES_B.inicio || '<rect x="3.5" y="3.5" width="7" height="7"
 const TIPO_ITEM_INI = { reuniao: 'Reunião', audiencia: 'Audiência', compromisso: 'Compromisso', tarefa: 'Tarefa', rotina: 'Rotina' };
 // Backup 82: "Ver como" (como no ambiente) — o administrador vê o dia de outra pessoa da equipe
 function verComoIni() {
-  if ((E.perfil || {}).papel !== 'admin' || typeof pessoasFiltro !== 'function') return;
-  const ac = document.querySelector('#panel-hoje .b-cab-acoes, #conteudo .b-cab-acoes'); if (!ac) return;
+  // Backup 89 (I1/D2): "Ver o dia de" está no ⋯ do cabeçalho (só o administrador)
   E.ini = E.ini || { quem: 'eu' };
-  const pes = pessoasFiltro();
-  ac.insertAdjacentHTML('afterbegin', '<label class="ini-vercomo"><span>Ver como</span><select id="ini-vercomo">' +
-    pes.map((n) => '<option value="' + esc(primeiroNome(n)) + '"' + ((E.ini.pessoa || primeiroNome(meuNome())) === primeiroNome(n) ? ' selected' : '') + '>' + esc(nomeCurto(n)) + '</option>').join('') + '</select></label>');
-  $('ini-vercomo').onchange = (ev) => { E.ini.pessoa = ev.target.value === primeiroNome(meuNome()) ? '' : ev.target.value; E.ini.quem = 'eu'; meuDia(); };
+  const cab = document.querySelector('#conteudo .b-cab'); if (!cab) return;
+  cab.addEventListener('click', (ev) => { const b = ev.target.closest('[data-ini-vercomo]'); if (!b) return;
+    E.ini.pessoa = b.dataset.iniVercomo === primeiroNome(meuNome()) ? '' : b.dataset.iniVercomo; E.ini.quem = 'eu'; meuDia(); });
 }
 async function meuDia() {
-  const el = $('ini-dia'), elP = $('ini-prox'); if (!el) return;
+  const el = $('ini-dia'); if (!el) return;
   E.ini = E.ini || { quem: 'eu' };
   const h = hojeISO(), lim = somarDias(h, 7);
   const L = await buscarTodos(() => sb.from('tarefas').select('id, titulo, prazo, prazo_fatal, hora, responsavel, participantes, revisor, status, tipo_agenda, chave_regra, recorrencia, cliente_id, grupo_id')
-    .not('status', 'in', '(concluida,cancelada)').lte('prazo', lim).order('prazo')).catch(() => []);
+    .not('status', 'in', '(concluida,cancelada)').lte('prazo', h).order('prazo')).catch(() => []);   // Backup 89: só até hoje (os próximos dias estão em Tarefas)
   const daPessoa = (t, p) => [t.responsavel, t.revisor].concat(String(t.participantes || '').split(',')).some((n) => n && primeiroNome(n) === p);
   const doDono = (t) => E.ini.quem === 'todos' || (E.ini.pessoa ? daPessoa(t, E.ini.pessoa) : ehMinha(t));
   const linha = (t) => { const tipo = TIPO_ITEM_INI[tipoItemAgenda(t)] || 'Tarefa', atr = t.prazo < h;
-    const sub = [String(t.responsavel || '').split(' ')[0], t.prazo_fatal ? '<b class="ini-fatal">prazo fatal' + (t.prazo_fatal !== t.prazo ? ' ' + dataBR(t.prazo_fatal).slice(0, 5) : '') + '</b>' : ''].filter(Boolean).join(' · ');
+    const sub = [String(t.responsavel || '').split(' ')[0]].filter(Boolean).join(' · ');   // Backup 88/89: sem "prazo fatal"
     return '<div class="ini-it' + (atr ? ' ini-it-atr' : '') + '" data-ini-t="' + t.id + '" tabindex="0"><span class="ini-tipo">' + esc(tipo) + '</span><div class="ini-it-tx"><b>' + esc(t.titulo) + '</b>' + (sub ? '<small>' + sub + '</small>' : '') + '</div>' +
       '<span class="ini-dt' + (atr ? ' ini-dt-atr' : '') + '">' + (t.hora ? esc(String(t.hora).slice(0, 5)) + ' · ' : '') + dataBR(t.prazo).slice(0, 5) + '</span>' +
       '<button type="button" class="b-bt-baixa" data-ini-ok="' + t.id + '">Concluir</button></div>'; };
   const pintar = () => {
-    $('ini-quem').innerHTML = [['eu', E.ini.pessoa ? 'Só ' + E.ini.pessoa.charAt(0).toUpperCase() + E.ini.pessoa.slice(1) : 'Só eu'], ['todos', 'Equipe toda']].map(([v, r]) => '<button type="button" class="b-chip" data-ini-quem="' + v + '" aria-pressed="' + (E.ini.quem === v) + '">' + r + '</button>').join('');
+    $('ini-quem').innerHTML = segFiltroB('', 'data-ini-quem', [['eu', E.ini.pessoa ? 'Só ' + E.ini.pessoa.charAt(0).toUpperCase() + E.ini.pessoa.slice(1) : 'Só eu'], ['todos', 'Equipe toda']], E.ini.quem, 'De quem');
     const hoje = L.filter((t) => t.prazo && t.prazo <= h && doDono(t)).sort((a, b) => String(a.prazo).localeCompare(String(b.prazo)) || String(a.hora || '').localeCompare(String(b.hora || '')));
-    const prox = L.filter((t) => t.prazo && t.prazo > h && t.prazo <= lim && doDono(t));
+    const nAtr = hoje.filter((t) => t.prazo < h).length, nHoje = hoje.length - nAtr;
+    const sub = $('ini-dia-sub'); if (sub) sub.textContent = hoje.length ? [nAtr ? plural(nAtr, 'atrasada', 'atrasadas') : '', nHoje ? plural(nHoje, 'vence hoje', 'vencem hoje').replace(/^1 vencem/, '1 vence') : ''].filter(Boolean).join(' · ') : 'Atrasadas e o que vence hoje';
     el.innerHTML = hoje.length ? '<div class="ini-lista">' + hoje.map(linha).join('') + '</div>' : '<div class="ini-vazio">' + vazioB({ icone: 'ok', titulo: 'Nada para hoje', frase: 'Nenhuma tarefa vence hoje nem está atrasada.' }) + '</div>';
-    elP.innerHTML = prox.length ? '<div class="ini-lista">' + prox.slice(0, 6).map(linha).join('') + '</div>' + (prox.length > 6 ? '<button type="button" class="b-link ini-mais" data-ini-tarefas>Ver as ' + prox.length + ' em Tarefas</button>' : '')
-      : '<div class="ini-vazio-p">Nada marcado para os próximos 7 dias.</div>';
   };
   pintar();
   const raiz = el.closest('.ini-b74');
   raiz.onclick = (ev) => {
     const q2 = ev.target.closest('[data-ini-quem]'); if (q2) { E.ini.quem = q2.dataset.iniQuem; return pintar(); }
-    if (ev.target.closest('[data-ini-tarefas]')) return nav(null, 'tarefas');
     const ok = ev.target.closest('[data-ini-ok]');
     if (ok) { ev.stopPropagation(); const id = ok.dataset.iniOk, t = L.find((x) => x.id === id); return comBotao(ok, async () => {
       await q(sb.from('tarefas').update({ status: 'concluida' }).eq('id', id));
@@ -327,10 +326,13 @@ async function cardResumoEscritorio() {
   if (tAtr) esc2.push(pil('tarefas', tAtr, pl(tAtr, 'tarefa atrasada', 'tarefas atrasadas'), 'critico'));
   if (emailsErro) esc2.push(pil('emails', emailsErro, pl(emailsErro, 'e-mail com erro', 'e-mails com erro'), 'critico'));
   if (certs) esc2.push(pil('certificados', certs, pl(certs, 'certificado vencendo', 'certificados vencendo'), 'atencao'));
-  const tudoEmDia = !esc2.length;
-  // Backup 86 (M31): sem a pílula do CRM
-  const lf = $('ini-resumo-fin'); if (lf) { lf.innerHTML = finP.join(''); const lin = $('ini-lin-fin'); if (lin) lin.hidden = !finP.length; }
-  el.innerHTML = (tudoEmDia ? '<span class="ini-tudo-ok">' + iconeB('ok') + 'Nada pendente aqui. Tudo em dia.</span>' : '') + esc2.join('');
+  // Backup 89 (I1): UMA faixa "Avisos" — Financeiro e Escritório juntos, os críticos primeiro, no máximo 5 à vista (o resto em "+N")
+  const todosP = finP.concat(esc2), peso = (h2) => (/b-av-critico/.test(h2) ? 0 : /b-av-atencao/.test(h2) ? 1 : 2);
+  todosP.sort((a2, b2) => peso(a2) - peso(b2));
+  const vis5 = todosP.slice(0, 5), resto = todosP.slice(5);
+  el.innerHTML = (!todosP.length ? '<span class="ini-tudo-ok">' + iconeB('ok') + 'Nada pendente. Tudo em dia.</span>' : '') + vis5.join('') +
+    (resto.length ? '<span class="ini-pil-resto" hidden>' + resto.join('') + '</span><button type="button" class="b-link ini-pil-mais" id="ini-pil-mais">+' + resto.length + '</button>' : '');
+  const pm = $('ini-pil-mais'); if (pm) pm.onclick = () => { el.querySelector('.ini-pil-resto').hidden = false; pm.remove(); };
   const raiz = $('ini-faixa') || el;
   raiz.querySelectorAll('[data-ini-ir]').forEach((b) => b.onclick = () => abrirDaFaixa(b.dataset.iniIr));
 }

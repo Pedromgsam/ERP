@@ -145,7 +145,7 @@ function listaFin(empresa, corpo) {
       aviso('✓ Baixa de ' + plural(alvo.length, 'lançamento', 'lançamentos') + ' em ' + dataBR(bx.data_pagamento) + '.'); await el._lancDepois(); } },
     { rot: 'Cobrar as marcadas', icone: 'enviar', quando: (l) => l._c === 'areceber' && !l.redutor, fn: async (marc) => { cobrarVarios(marc.filter((l) => l._c === 'areceber' && !l.redutor)); return false; } }],
     loteBotao: true,
-    clique: (l) => formLancamento(l, el._lancDepois),   // Backup 85 (FI12): como no ambiente, abre direto o formulário (o detalhe fica no botão "Detalhe")
+    clique: (l) => detalheLancamento(l.id),   // Backup 89 (D5): a linha abre o detalhe (molde único); "Editar" fica no rodapé
     vazio: { titulo: 'Nenhum lançamento aqui', frase: 'Troque a aba ou limpe os filtros.' } });
   if (!el._lancLigado) {
     el._lancLigado = true;
@@ -268,9 +268,9 @@ function analiseFin(empresa, corpo) {
   const meses = chaves.length ? mesesEntre(chaves[0], chaves[chaves.length - 1]) : [hojeISO().slice(0, 7)];   // sem nada no período: o mês atual (o gráfico aparece vazio, com a legenda)
   let graf;
   if (contab) {
-    graf = cartaoFin('Recebido × pago mês a mês', 'Passe o mouse na coluna para ver o valor.',   // Backup 88: texto pedido; verde/vermelho como no Jurídico
-      '<div class="b-fin-graf">' + graficoColunasB(meses, [{ nome: 'Recebido', cor: 'var(--green)', valores: meses.map((k) => somaV(receita.filter((l) => dataLanc(l).startsWith(k)))) },
-        { nome: 'Pago (despesas)', cor: 'var(--red)', valores: meses.map((k) => somaV(pagos.filter((l) => dataLanc(l).startsWith(k)))) }], { titulo: 'Recebido e pago por mês' }) + '</div>');
+    graf = cartaoFin('Recebido × pago mês a mês', 'Passe o mouse na coluna para ver o valor.',   // Backup 88: texto pedido; Backup 89: verde/vermelho = os tons do gráfico do Jurídico
+      '<div class="b-fin-graf">' + graficoColunasB(meses, [{ nome: 'Recebido', cor: corBarraPessoa('Pedro'), valores: meses.map((k) => somaV(receita.filter((l) => dataLanc(l).startsWith(k)))) },
+        { nome: 'Pago (despesas)', cor: corBarraPessoa('Emanuelle'), valores: meses.map((k) => somaV(pagos.filter((l) => dataLanc(l).startsWith(k)))) }], { titulo: 'Recebido e pago por mês' }) + '</div>');
   } else {
     const quem = [...new Set(receita.map(quemLanc))].sort((a, b) => a.localeCompare(b, 'pt-BR'));
     graf = cartaoFin('Recebido mês a mês', 'Empilhado por pessoa. Passe o mouse na coluna para ver o valor.',
@@ -320,23 +320,20 @@ function analiseFin(empresa, corpo) {
 // Base = honorários (receitas) com VENCIMENTO no mês; o atraso dos meses anteriores e o que entrou neste mês de outros meses aparecem à parte.
 const somarMesB = (k, n) => { const [a, m] = k.split('-').map(Number), d = new Date(a, m - 1 + n, 1); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0'); };
 function fluxoDoMes(empresa) {
-  // Backup 88: "Recebido" = o que ENTROU no mês (pela data do pagamento) — o mesmo número da Análise com "Mês passado"/"Este mês".
-  // Antes o Recebido daqui era "o que venceu no mês e já foi pago" (mesmo pago em outro mês) e a soma não batia com a Análise.
+  // Backup 89: de volta ao cálculo do Backup 79 (a pedido): base = honorários com VENCIMENTO no mês; sem a linha "Fora deste mês" (saiu no Backup 88)
   const F = estadoFin(empresa), an = F.an, k = an.fluxoMes || hojeISO().slice(0, 7), h = hojeISO();
   const rec = filtrarFin(empresa, ['recebido', 'areceber'], true);
   const doMes = rec.filter((l) => String(l.vencimento || '').startsWith(k));
-  const entrou = rec.filter((l) => l._c === 'recebido' && dataLanc(l).startsWith(k));
-  const recebido = somaV(entrou), dosVenc = somaV(entrou.filter((l) => String(l.vencimento || '').startsWith(k))), deOutros = recebido - dosVenc;
-  const atraso = somaV(doMes.filter((l) => l._c === 'areceber' && l.vencimento < h)), aReceber = somaV(doMes.filter((l) => l._c === 'areceber' && l.vencimento >= h));
-  const previsto = somaV(doMes), pagoPrev = somaV(doMes.filter((l) => l._c === 'recebido'));
-  const pc = (v) => (previsto > 0 ? Math.max(0, Math.min(100, v / previsto * 100)) : 0);
-  return '<section class="b-fin-cartao b-fluxo" id="fa-fluxo"><div class="b-fin-hd b-fluxo-hd"><div><h3>Fluxo do mês</h3><p>O que entrou no mês e como estão os honorários que vencem nele.</p></div>' +
+  const recebido = somaV(doMes.filter((l) => l._c === 'recebido')), atraso = somaV(doMes.filter((l) => l._c === 'areceber' && l.vencimento < h)),
+    aReceber = somaV(doMes.filter((l) => l._c === 'areceber' && l.vencimento >= h)), previsto = recebido + atraso + aReceber;
+  const pc = (v) => (previsto > 0 ? Math.max(0, v / previsto * 100) : 0);
+  return '<section class="b-fin-cartao b-fluxo" id="fa-fluxo"><div class="b-fin-hd b-fluxo-hd"><div><h3>Fluxo do mês</h3><p>Honorários com vencimento no mês: quanto estava previsto e como está.</p></div>' +
     '<div class="b-fluxo-nav"><button type="button" class="b-bt-f" data-fm="-1" aria-label="Mês anterior">‹</button><b>' + esc(rotMesB(k)) + '</b><button type="button" class="b-bt-f" data-fm="1" aria-label="Próximo mês">›</button></div></div>' +
-    numsFaixa([['Recebido no mês', brl(recebido), deOutros ? brl(dosVenc) + ' deste mês + ' + brl(deOutros) + ' de outros meses' : 'pela data do pagamento', 'b-verde'],
-      ['Previsto (vence no mês)', brl(previsto), previsto ? Math.round(pc(pagoPrev)) + '% já pago' : ''],
+    numsFaixa([['Previsto no mês', brl(previsto), 'tudo o que vence no mês'], ['Recebido', brl(recebido), previsto ? Math.round(pc(recebido)) + '% do previsto' : '', 'b-verde'],
       ['Em atraso (deste mês)', brl(atraso), 'venceu e não entrou', atraso ? 'b-verm' : ''], ['A receber', brl(aReceber), 'ainda vai vencer']]) +
-    '<div class="b-fluxo-barra" role="img" aria-label="Pago ' + brl(pagoPrev) + ', em atraso ' + brl(atraso) + ', a receber ' + brl(aReceber) + '">' +
-      '<span class="b-fx-rec" style="width:' + pc(pagoPrev) + '%" title="Já pago ' + esc(brl(pagoPrev)) + '"></span><span class="b-fx-atr" style="width:' + pc(atraso) + '%" title="Em atraso ' + esc(brl(atraso)) + '"></span><span class="b-fx-arec" style="width:' + pc(aReceber) + '%" title="A receber ' + esc(brl(aReceber)) + '"></span></div></section>';
+    '<div class="b-fluxo-barra" role="img" aria-label="Recebido ' + brl(recebido) + ', em atraso ' + brl(atraso) + ', a receber ' + brl(aReceber) + '">' +
+      '<span class="b-fx-rec" style="width:' + pc(recebido) + '%" title="Recebido ' + esc(brl(recebido)) + '"></span><span class="b-fx-atr" style="width:' + pc(atraso) + '%" title="Em atraso ' + esc(brl(atraso)) + '"></span><span class="b-fx-arec" style="width:' + pc(aReceber) + '%" title="A receber ' + esc(brl(aReceber)) + '"></span></div>' +
+    '</section>';
 }
 // ── Backup 79: RESULTADO DO MÊS (como no ambiente de teste): entradas, saídas e resultado de cada mês do período ──
 function resultadoMeses(meses, receita, pagos, contab) {
@@ -785,33 +782,32 @@ async function cobrarWhatsApp(id) {
   return j;
 }
 async function detalheLancamento(id) {
-  const l = (await q(sb.from('lancamentos').select('*, grupos(nome), clientes(nome), contratos(descricao, modalidade, servico)').eq('id', id)))[0];
+  const l = (await q(sb.from('lancamentos').select('*, grupos(nome), clientes(nome, cpf_cnpj), contratos(descricao, modalidade, servico)').eq('id', id)))[0];
   if (!l) return aviso('Lançamento não encontrado (pode ter sido excluído ou ser de outra área).', true);
-  const lin = (rot, v) => v ? '<div class="tf-lin"><span>' + rot + '</span><div>' + v + '</div></div>' : '';
-  const empresa = l.empresa === 'contabilidade' ? 'Contabilidade' : 'Jurídico';
-  const j = abrirJanela({ titulo: (l.tipo === 'despesa' ? 'Despesa' : l.redutor ? 'Redutor de receita' : 'Honorário') + ' — ' + empresa, larga: true,
-    corpo: '<div class="tf-ficha"><div class="tf-ficha-hd"><h3>' + esc(l.descricao) + '</h3><div class="tf-selos">' + pillSit(l) +
-        (l.servico ? ' <span class="pill neutro">' + esc(l.servico) + '</span>' : '') + (l.categoria ? ' <span class="pill neutro">' + esc(l.categoria) + '</span>' : '') + '</div></div>' +
-      '<div class="tf-grade">' +
-        lin('Valor', '<b>' + (l.redutor || l.tipo === 'despesa' ? '− ' : '') + brl(l.valor) + '</b>') +
-        lin('Vencimento', dataBR(l.vencimento)) + lin('Recebido em', l.pago ? dataBR(l.data_pagamento) + (l.forma_pagamento ? ' · ' + esc(l.forma_pagamento) : '') : '') +
-        lin('Grupo', esc((l.grupos && l.grupos.nome) || '')) + lin('Cliente', esc((l.clientes && l.clientes.nome) || '')) + lin('Favorecido', esc(l.favorecido || '')) +
-        lin('Responsável', l.responsavel ? pillPessoa(l.responsavel) : '') + lin('Área do serviço', esc(l.servico || '')) + lin('Tipo', esc(l.categoria || '')) +
-        lin('Referência', esc(l.referencia || '')) + lin('Situação da cobrança', esc(l.cobranca || '')) +
-        lin('Contrato', l.contratos ? esc(l.contratos.descricao) + (l.contratos.modalidade === 'consultoria' ? ' <span class="sub">(consultoria mensal)</span>' : '') : '') +
-      '</div>' + (l.obs ? '<div class="tf-bloco"><div class="secao">Observação</div><div class="tf-texto">' + esc(l.obs).replace(/\n/g, '<br>') + '</div></div>' : '') + '</div>',
-    rodape: '<span>' + (l.contrato_id ? '<button class="btn btn-o btn-mini" type="button" id="dl-ctr">Abrir contrato</button> ' : '') +
-        (l.cliente_id ? '<button class="btn btn-o btn-mini" type="button" id="dl-cli">Ficha do cliente</button>' : '') +
-        // Backup 32: recibo já preenchido na Central de Documentos (valor, data, forma e cliente)
-        '</span>' +
-      '<div class="acoes">' + (l.pago && l.tipo === 'receita' && !l.redutor ? '<button class="btn btn-o" type="button" id="dl-recibo" title="Recibo deste pagamento na Central de Documentos (já preenchido)">🧾 Recibo</button>' : '') +
-      '<button class="btn btn-o" type="button" data-editar="' + l.id + '">✎ Editar</button>' +
-      (!l.pago && !l.perda ? '<button class="btn btn-v" type="button" data-pagar="' + l.id + '">✓ ' + (l.tipo === 'despesa' && !l.redutor ? 'Pago' : 'Recebido') + '</button>' : '') + '</div>' });
+  // Backup 89 (D5): o MESMO molde das outras janelas de detalhe — tipo em cima, nome grande, faixa de números, ficha em duas colunas e botões no rodapé
+  const empresa = l.empresa === 'contabilidade' ? 'Contabilidade' : 'Jurídico', h = hojeISO();
+  const tipo = l.tipo === 'despesa' && !l.redutor ? 'Despesa' : l.redutor ? 'Comissão (redutor)' : 'Honorário';
+  const quem = (l.grupos && l.grupos.nome) || (l.clientes && l.clientes.nome) || l.favorecido || '';
+  const d = l.vencimento ? Math.round((new Date(l.vencimento + 'T12:00:00') - new Date(h + 'T12:00:00')) / 864e5) : null;
+  const prazo = l.perda ? ['Situação', 'Prejuízo', ''] : l.pago ? [l.tipo === 'despesa' && !l.redutor ? 'Pago em' : 'Recebido em', dataBR(l.data_pagamento) || '—', 'b-verde']
+    : d == null ? ['Prazo', '—', ''] : ['Prazo', d < 0 ? Math.abs(d) + ' d atraso' : d === 0 ? 'vence hoje' : d + (d === 1 ? ' dia' : ' dias'), d <= 0 ? 'b-verm' : ''];
+  const campo = (rot, v) => (v ? '<div><span>' + rot + '</span><b>' + v + '</b></div>' : '');
+  const j = abrirJanela({ kick: tipo + ' · ' + empresa, titulo: l.descricao || tipo, sub: esc(quem + (l.clientes && l.grupos && l.clientes.nome !== quem ? ' · ' + l.clientes.nome : '')), dir: pillSit(l), larga: true,
+    corpo: numsFaixa([['Valor', (l.redutor || (l.tipo === 'despesa') ? '− ' : '') + brl(l.valor), l.forma_pagamento || '', l.redutor ? 'b-verm' : ''], ['Vencimento', l.vencimento ? dataBR(l.vencimento) : '—', l.referencia ? 'ref. ' + l.referencia : ''], prazo]) +
+      '<div class="b-ficha b-ficha-2">' + campo('Grupo', esc((l.grupos && l.grupos.nome) || '')) + campo('Cliente', esc((l.clientes && l.clientes.nome) || '')) + campo('Favorecido', esc(l.favorecido || '')) +
+        campo('Responsável', l.responsavel ? pillPessoa(l.responsavel) : '') + campo('Área do serviço', esc(l.servico || '')) + campo('Tipo', esc(l.categoria || '')) +
+        campo('Situação da cobrança', esc(l.cobranca || '')) + campo('Contrato', l.contratos ? esc(l.contratos.descricao) + (l.contratos.modalidade === 'consultoria' ? ' <span class="sub">(consultoria mensal)</span>' : '') : '') + '</div>' +
+      (l.obs ? '<div class="b-bloco"><h3>Observação</h3><p class="b-cal-desc">' + esc(l.obs).replace(/\n/g, '<br>') + '</p></div>' : ''),
+    rodape: '<span class="acoes" style="margin-right:auto">' + (l.cliente_id ? '<button class="btn btn-o" type="button" id="dl-cli">' + iconeB('clientes') + 'Ficha do cliente</button>' : '') +
+        (l.contrato_id ? '<button class="btn btn-o" type="button" id="dl-ctr">' + iconeB('contrato') + 'Abrir contrato</button>' : '') + '</span>' +
+      (l.pago && l.tipo === 'receita' && !l.redutor ? '<button class="btn btn-o" type="button" id="dl-recibo" title="Mandar o recibo deste pagamento por e-mail ou WhatsApp">' + iconeB('recibo') + 'Recibo</button>' : '') +
+      '<button class="btn btn-o" type="button" data-editar="' + l.id + '">' + iconeB('lapis') + 'Editar</button>' +
+      (!l.pago && !l.perda ? '<button class="btn btn-p" type="button" data-pagar="' + l.id + '">' + iconeB('check') + (l.tipo === 'despesa' && !l.redutor ? 'Pago' : 'Recebido') + '</button>' : '') });
   ligarAcoesLancamentos(j, async () => { fecharJanela(j); if (window.ERP_RECARREGAR) window.ERP_RECARREGAR(); else await recarregar(); });
-  // Backup 58: "✎ Editar" troca o detalhe pelo formulário (não empilha duas janelas)
+  // Backup 58: "Editar" troca o detalhe pelo formulário (não empilha duas janelas)
   const be = j.querySelector('[data-editar]'); if (be) { const ed = be.onclick; be.onclick = () => { fecharJanela(j); return ed(); }; }
   const bc = j.querySelector('#dl-ctr'); if (bc) bc.onclick = () => { fecharJanela(j); detalheContrato(l.contrato_id); };
-  const br = j.querySelector('#dl-recibo'); if (br) br.onclick = () => { fecharJanela(j); abrirGerador('lancamento=' + l.id); };
+  const br = j.querySelector('#dl-recibo'); if (br) br.onclick = () => { fecharJanela(j); previaRecibo(l); };   // Backup 89: o recibo do Backup 88 (e-mail com timbrado ou WhatsApp)
   const bl = j.querySelector('#dl-cli'); if (bl) bl.onclick = () => { fecharJanela(j); abrirFicha(l.cliente_id); };
   return j;
 }

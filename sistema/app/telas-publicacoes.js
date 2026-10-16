@@ -35,7 +35,8 @@ TELAS.publicacoes = async function () {
   $('conteudo').innerHTML =
     // Backup 77: a tela voltou a ser a de antes do Backup 72 (cartões com o texto, filtros em botões), a pedido; só o cabeçalho segue o padrão único (ícone + título)
     '<div class="titulo-pag b-cab"><div class="b-cab-ic">' + iconeB('publicacao') + '</div><div class="b-cab-tx"><h1>Publicações</h1><p id="pub-ult">Intimações do Diário de Justiça</p></div>' +
-    '<div class="acoes"><button class="btn btn-o" id="pub-todas-lidas" title="Marca como lidas todas as publicações novas">✓ Marcar todas como lidas</button><button class="btn btn-o" id="pub-oabs">⚙ Monitoramento (OABs e clientes)</button><button class="btn btn-p" id="pub-buscar" title="Busca no Diário do CNJ pelo seu navegador (se ele falhar, tenta pelo servidor)">↻ Buscar agora</button></div></div>' +
+    '<div class="acoes">' + maisB([['pub-todas-lidas', 'Marcar todas as novas como lidas']]) +   // Backup 89 (D2): ação rara no ⋯
+    '<button class="btn btn-o" id="pub-oabs">⚙ Monitoramento (OABs e clientes)</button><button class="btn btn-p" id="pub-buscar" title="Busca no Diário do CNJ pelo seu navegador (se ele falhar, tenta pelo servidor)">↻ Buscar agora</button></div></div>' +
     '<div class="filtros"><div class="segmento" id="pub-st">' + [['nova', 'Novas'], ['lida', 'Lidas'], ['tratada', 'Tratadas'], ['', 'Todas']].map(([v, r]) => '<button data-v="' + v + '">' + r + '</button>').join('') + '</div>' +
     '<select class="busca sel" id="pub-dias"><option value="7">Últimos 7 dias</option><option value="15">Últimos 15 dias</option><option value="30">Últimos 30 dias</option><option value="90">Últimos 90 dias</option><option value="">Todo o período</option></select>' +
 
@@ -90,7 +91,7 @@ function textoUltimaBusca() {
 // ("Advogado do(a) RÉU/REQUERIDO: …" perto do nome/OAB) → qual parte é cliente do escritório → um polo só entre os intimados. Sem certeza: linha própria.
 const PALAVRAS_PASSIVO = /\b(reu|re|requerid[oa]s?|reclamad[oa]s?|executad[oa]s?|impetrad[oa]s?|agravad[oa]s?|apelad[oa]s?|recorrid[oa]s?|embargad[oa]s?|denunciad[oa]s?|investigad[oa]s?|passivo|demandad[oa]s?)\b/g;
 const PALAVRAS_ATIVO = /\b(autor(a|es)?|requerentes?|reclamantes?|exequentes?|impetrantes?|agravantes?|apelantes?|recorrentes?|embargantes?|ativo|demandantes?)\b/g;
-function ladoDoAdvogado(p, G, adv) {
+function ladoDoAdvogado(p, G, adv, oab) {
   const nrm = (x) => normalizar(String(x || '')).replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim();
   const casa = (a, b) => { a = nrm(a); b = nrm(b); return a.length > 3 && b.length > 3 && (a.includes(b) || b.includes(a)); };
   const tem = (lado, nomes) => G[lado].some((n) => n !== '—' && nomes.some((x) => casa(n, x)));
@@ -98,7 +99,7 @@ function ladoDoAdvogado(p, G, adv) {
   if (p.parte_monitorada) { const l = unico((x) => tem(x, [p.parte_monitorada])); if (l) return l; }
   const t = nrm(p.texto);
   if (t) {
-    const marcas = [nrm(adv), p.oab_numero ? String(p.oab_numero).replace(/\D/g, '') : ''].filter((x) => x.length > 2);
+    const marcas = [nrm(adv), String(oab != null ? oab : p.oab_numero || '').replace(/\D/g, '')].filter((x) => x.length > 2);
     for (const m of marcas) {
       let i = t.indexOf(m);
       while (i >= 0) {
@@ -115,6 +116,17 @@ function ladoDoAdvogado(p, G, adv) {
   if (pol.length === 1) return pol[0] === 'P' ? 'Réu' : 'Autor';
   return '';
 }
+// Backup 89: TODOS os advogados do escritório citados na intimação (a busca grava uma vez só, pela 1ª OAB que achou):
+// os nomes das OABs monitoradas que aparecem na lista de advogados do Diário (pelo nº da OAB ou pelo nome), mais o da OAB que achou
+function advsDoEscritorio(p) {
+  const lista = String(p.advogados || ''), dig = lista.replace(/[^\d;]/g, ' '), nl = normalizar(lista), out = [];
+  const add = (nome, oab, uf) => { nome = String(nome || '').trim(); if (!nome) return; const k = primeiroNomePub(nome); if (out.some((x) => primeiroNomePub(x.nome) === k)) return; out.push({ nome, oab: oab || '', uf: uf || '' }); };
+  if (p.advogado) add(p.advogado, p.oab_numero, p.oab_uf);
+  (E._pubOabs || []).forEach((o) => { const n = String(o.numero || '').replace(/\D/g, '');
+    if ((n.length > 3 && new RegExp('(^|\\D)' + n + '(\\D|$)').test(dig)) || (o.advogado && nl.includes(normalizar(o.advogado)))) add(o.advogado, o.numero, o.uf); });
+  return out;
+}
+const primeiroNomePub = (n) => normalizar(String(n || '').trim().split(/\s+/)[0]);
 // Partes em linhas: "Autor: …" e "Réu: …" (polo do Diário; as antigas sem polo continuam em "Partes:")
 // Backup 28: identificação no topo de toda publicação (para copiar e encaixar rápido):
 //   Processo: 5003925-39.2025.8.13.0604 / Autor: … / Réu: … — Advogado: Pedro
@@ -122,16 +134,20 @@ function partesPub(p) {
   const G = { 'Autor': [], 'Réu': [], 'Partes': [] };
   if (Array.isArray(p.polos) && p.polos.some((d) => d && d.polo)) p.polos.forEach((d) => { if (d && d.nome) G[{ A: 'Autor', P: 'Réu' }[String(d.polo || '').toUpperCase()] || 'Partes'].push(d.nome); });
   else String(p.destinatarios || '').split(/;\s*/).filter(Boolean).forEach((x) => { const m = /^(Autor|Réu):\s*(.*)$/.exec(x); if (m) G[m[1]].push(m[2]); else G.Partes.push(x); });
-  const adv = p.advogado || String(p.advogados || '').split(';')[0].replace(/\s*OAB.*$/i, '').trim();
+  const advs = advsDoEscritorio(p);
+  if (!advs.length) { const a0 = String(p.advogados || '').split(';')[0].replace(/\s*OAB.*$/i, '').trim(); if (a0) advs.push({ nome: a0, oab: '' }); }
   // Backup 79: sempre Processo, Autor e Réu (— quando o Diário não informa); o advogado do escritório vai na linha da parte que é o cliente
   // (a parte monitorada), senão na do Autor
   if (!G.Partes.length || G['Autor'].length || G['Réu'].length) { if (!G['Autor'].length) G['Autor'].push('—'); if (!G['Réu'].length) G['Réu'].push('—'); }
-  const ladoAdv = adv ? ladoDoAdvogado(p, G, adv) : '';
+  // cada advogado do escritório no lado que ele representa; sem certeza do lado, numa linha própria (nunca do lado errado)
+  const porLado = {}, semLado = [];
+  advs.forEach((a) => { const l = ladoDoAdvogado(p, G, a.nome, a.oab); if (l) (porLado[l] = porLado[l] || []).push(a.nome); else semLado.push(a.nome); });
+  const rot = (ns) => (ns.length > 1 ? 'Advogados: ' : 'Advogado: ') + ns.join(', ');
   const linhas = [['Processo', p.processo || '—']].concat(Object.keys(G).filter((k) => G[k].length).map((k) => [k, G[k].join(' · ')]));
-  if (adv && !ladoAdv) linhas.push(['Advogado', adv]);   // sem certeza do lado: o advogado numa linha própria (nunca do lado errado)
-  const txt = linhas.map((l) => l[0] + ': ' + l[1] + (adv && l[0] === ladoAdv ? ' - Advogado: ' + adv : '')).join('\n');
+  if (semLado.length) linhas.push([semLado.length > 1 ? 'Advogados' : 'Advogado', semLado.join(', ')]);
+  const txt = linhas.map((l) => l[0] + ': ' + l[1] + (porLado[l[0]] ? ' - ' + rot(porLado[l[0]]) : '')).join('\n');
   return '<div class="pub-id"><div class="pub-id-txt">' + linhas.map((l) => '<div><b>' + l[0] + ':</b> ' + (l[0] === 'Processo' ? '<span class="mono">' + esc(l[1]) + '</span>' : esc(l[1])) +
-      (adv && l[0] === ladoAdv ? ' <span class="pub-adv">— Advogado: <b>' + esc(adv) + '</b></span>' : '') + '</div>').join('') + '</div>' +
+      (porLado[l[0]] ? ' <span class="pub-adv">— ' + (porLado[l[0]].length > 1 ? 'Advogados' : 'Advogado') + ': <b>' + esc(porLado[l[0]].join(', ')) + '</b></span>' : '') + '</div>').join('') + '</div>' +
     '<button type="button" class="btn btn-o btn-mini" data-copiar-id="' + esc(txt) + '" title="Copiar Processo, Autor, Réu e Advogado">📋 Copiar</button></div>';
 }
 async function carregarPublicacoes() {
@@ -140,7 +156,8 @@ async function carregarPublicacoes() {
     .order('data_disponibilizacao', { ascending: false, nullsFirst: false }); if (F.dias) c = c.gte('data_disponibilizacao', somarDias(hojeISO(), -Number(F.dias))); return c; });
   const opts = (id, vals, rot) => { const s = $(id); if (!s) return; const v = s.value; s.innerHTML = '<option value="">' + rot + '</option>' + [...new Set(vals.filter(Boolean))].sort().map((x) => '<option>' + esc(x) + '</option>').join(''); s.value = v; };
   void opts;
-  E._pubAdvs = await q(sb.from('oabs_monitoradas').select('advogado')).then((l) => l.map((o) => o.advogado)).catch(() => []);
+  E._pubOabs = await q(sb.from('oabs_monitoradas').select('advogado, numero, uf')).catch(() => []);
+  E._pubAdvs = (E._pubOabs || []).map((o) => o.advogado);
   pintarPublicacoes();
 }
 function pintarPublicacoes() {
@@ -181,7 +198,7 @@ function pintarPublicacoes() {
       '<b>' + esc(p.tipo || 'Comunicação') + '</b> · ' + esc(p.tribunal) + ' · <span class="mono">' + dataBR(p.data_disponibilizacao) + '</span>' +
       '<div class="sub">' + esc(p.orgao) + (p.classe ? ' · ' + esc(p.classe) : '') + '</div></div>' +
       '<div class="sub" style="text-align:right">' + (p.processo ? '<b class="mono">' + esc(p.processo) + '</b>' : '') + (p.processo_id ? ' <span class="pill pago" title="Processo cadastrado no ERP">no ERP</span>' : '') +
-      '<div>' + (p.oab_numero ? esc(p.advogado ? p.advogado + ' · ' : '') + 'OAB ' + esc(p.oab_numero + '/' + p.oab_uf) : '🏢 cliente monitorado: ' + esc(p.parte_monitorada || '—')) + '</div></div></div>' +
+      '<div>' + (p.oab_numero ? advsDoEscritorio(p).map((a) => esc(a.nome) + (a.oab ? ' · OAB ' + esc(a.oab + '/' + (a.uf || '')) : '')).join('<br>') : '🏢 cliente monitorado: ' + esc(p.parte_monitorada || '—')) + '</div></div></div>' +   // Backup 89: todos os citados
       partesPub(p) +
       '<div class="pub-texto' + (p.texto.length > 500 ? ' curto' : '') + '">' + destacar(p.texto) + '</div>' + (p.texto.length > 500 ? '<button class="btn-link" data-ver>ver tudo</button>' : '') +
       '<div class="acoes" style="margin-top:10px">' + (p.tarefa_id || p.status === 'tratada' ? '' : '<button class="btn btn-p btn-mini" data-tarefa="' + p.id + '">+ Criar tarefa (' + prazoSugerido(p) + ' dias úteis)</button>') +

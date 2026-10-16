@@ -101,7 +101,8 @@ function empresasPE(base) {
   const sit = (r) => String(r.sitCadastral || '').trim();
   const ops = (f) => unicosB(base.map(f)).map((x) => [x, x]);
   const op = (r) => (/^sim$/i.test(r.emOperacao || '') ? 'Sim' : /^n[aã]o$/i.test(r.emOperacao || '') ? 'Não' : '');
-  tabelaB(el, { id: 'empresas', tabCls: 'b-tab-pe', semContagemAbas: true, linhas: base, chave: (r) => String(r._id), unidade: ['empresa', 'empresas'],
+  tabelaB(el, { id: 'empresas', tabCls: 'b-tab-pe' + (estadoPE().grupo ? ' b-sem-g' : ''),   // Backup 89 (D4)
+    semContagemAbas: true, linhas: base, chave: (r) => String(r._id), unidade: ['empresa', 'empresas'],
     abas: [{ id: 'at', rot: 'Ativos', f: (r) => r.tipoCliente !== 'Inativo' }, { id: 'cons', rot: 'Consultoria', f: (r) => r.tipoCliente === 'Consultoria' },
       { id: 'pont', rot: 'Serviço pontual', f: (r) => r.tipoCliente === 'Serviço pontual' }, { id: 'in', rot: 'Inativos', f: (r) => r.tipoCliente === 'Inativo' }, { id: 'todos', rot: 'Todos', f: () => true }],
     busca: (r) => [r.nome, r.grupo, r.socioAdmin, r.cpfCnpj, String(r.cpfCnpj || '').replace(/\D/g, '')].join(' '), dicaBusca: 'Nome, sócio ou CPF/CNPJ…',
@@ -149,7 +150,8 @@ TELAS.processosERP = async function () {
   const partes = (p) => [p.autor, p.reu].filter(Boolean).map((x) => String(x).replace(/;\s*/g, ' · '));
   const trib = (p) => tribunalProcesso(p) || '', hojeP = new Date(hojeISO() + 'T12:00:00');
   const diasConf = (p) => { const i = isoDeBRp(p.ultimaMovEm); return i ? Math.floor((hojeP - new Date(i + 'T12:00:00')) / 864e5) : null; };
-  tabelaB($('pr-nova'), { id: 'processos', contagem: true, tabCls: 'b-tab-proc', linhas: P, chave: (p) => String(p._id), unidade: ['processo', 'processos'], dicaBusca: 'Nº, grupo, autor, réu…',
+  tabelaB($('pr-nova'), { id: 'processos', contagem: true, tabCls: 'b-tab-proc' + (F.grupo ? ' b-sem-g' : ''),   // Backup 89 (D4)
+    linhas: P, chave: (p) => String(p._id), unidade: ['processo', 'processos'], dicaBusca: 'Nº, grupo, autor, réu…',
     abas: [{ id: 'at', rot: 'Ativos', f: (p) => sit(p) === 'at' }, { id: 'arq', rot: 'Arquivados', f: (p) => sit(p) === 'arq' }, { id: 'ext', rot: 'Extintos', f: (p) => sit(p) === 'ext' }, { id: 'todos', rot: 'Todos', f: () => true }],
     busca: (p) => [p.numero, p.grupo, p.autor, p.reu, p.natureza, p.competencia, p.advogado, p.obs].join(' '), valor: (p) => Number(p.valor) || 0,
     conta: (n) => plural(n, 'processo', 'processos'), ord: { k: 'g', dir: 1 },

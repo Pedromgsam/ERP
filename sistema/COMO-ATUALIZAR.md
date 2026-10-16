@@ -721,6 +721,24 @@ O que mudou:
 
 Ainda falta (próxima rodada): apagar o ERP antigo (ERP.html, remendos e blocos antigos do design.css).
 
+## Backup 89 — Visual premium (novo ambiente de teste), Início "Hoje" e os ajustes pedidos
+1. Merge da pull request.
+2. **SQL no Supabase** (Raw → Ctrl+A/Ctrl+C → conferir a última linha "fim do Backup 89" → Run).
+3. **Ctrl+Shift+R** no ERP.
+
+O que mudou:
+- **Ambiente de teste = visual premium dentro do próprio ERP.** Na barra do alto, ⋯ → "✦ Visual premium (teste)". Mesmos dados e funções; só muda a aparência, e só no seu navegador. "Voltar ao normal" no pé da tela. O ambiente de teste antigo (páginas à parte, com dados fictícios) saiu.
+  No premium: cada número é um cartão separado com borda colorida; tabelas dentro de cartões com a linha de títulos em marinho; azul do ERP antigo (marinho #1B2A4A, azul #2563EB, dourado #C9A84C); filtro de Grupo/Empresa numa pílula marinho com "Limpar filtro" sempre à vista em vermelho suave; títulos em Playfair Display e números em JetBrains Mono.
+- **Início "Hoje" (I1):** uma faixa "Avisos" (Financeiro e Escritório juntos, os mais urgentes primeiro, até 5 à vista e "+N" para o resto), "Para hoje" (atrasadas + o que vence hoje, com Concluir; Só eu / Equipe toda) e Lembretes ao lado. Saiu "Próximos 7 dias" (está em Tarefas → Calendário). "Ver o dia de…" (administrador) foi para o ⋯.
+- **D2:** cabeçalho com no máximo dois botões; em Publicações, "Marcar todas as novas como lidas" foi para o ⋯.
+- **D4:** linhas das tabelas um pouco mais baixas; com um grupo escolhido no alto, a coluna Grupo some (Painel, Processos, Parcelamentos, Acordos).
+- **D5:** clicar num lançamento abre o detalhe no molde único (tipo em cima, números, ficha, Editar no rodapé; Recibo por e-mail/WhatsApp quando pago); clicar numa tarefa da Lista abre o detalhe curto (Concluir · Editar · Ficha completa), o mesmo do calendário.
+- **D6/D7:** modo escuro conferido tela a tela; no tablet a lateral encolhe sozinha; no celular o cabeçalho da tela empilha, a barra do alto não quebra e os filtros do alto rolam para o lado.
+- **Tarefas:** trocar o tipo na "Nova tarefa" (Tarefa ↔ Rotina ↔ Reunião ↔ Audiência) troca a janela no lugar, sem fechar e abrir, e leva junto o que já foi digitado; o dia escolhido na Rotina ficou legível.
+- **Publicações:** aparecem TODOS os advogados do escritório citados na intimação (cada um do lado que representa) e todos recebem o e-mail do dia.
+- **Financeiro:** o Fluxo do mês voltou ao cálculo anterior (base = o que vence no mês), sem a linha "Fora deste mês"; o gráfico da Contabilidade usa o mesmo verde e vermelho do gráfico do Jurídico.
+- **Para decidir:** página "Visual premium do ERP" (link na resposta) com prints e as sugestões P1–P8.
+
 ## Backup 88 — ERP limpo para usar (Tarefas, Painel, Processos, Parcelamentos, Acordos, Publicações, Financeiro)
 1. Merge da pull request.
 2. **SQL no Supabase** (Raw → Ctrl+A/Ctrl+C → conferir a última linha "fim do Backup 88" → Run).
