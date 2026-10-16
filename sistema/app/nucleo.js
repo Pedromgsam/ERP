@@ -664,10 +664,11 @@ function segFiltroB(id, attr, opcoes, valor, rotulo) {
 function marcarSegB(caixa, bt) { if (caixa) caixa.querySelectorAll('.b-seg-bt').forEach((x) => { const on = x === bt; x.setAttribute('aria-pressed', on); x.setAttribute('aria-selected', on); }); }
 // Backup 88: o filtro de Grupo/Empresa fica À DIREITA e FIXO no alto ao rolar a tela (b-fsus-fixo)
 function filtroSusB(id, campos) {
-  return '<div class="b-fsus b-fsus-fixo" id="' + id + '"><span class="b-fsus-rot">Filtros</span>' + campos.map((c) => '<label class="b-fsus-c"><span>' + esc(c.rot) + '</span><select data-fsus="' + c.k + '" aria-label="' + esc(c.rot) + '"><option value="">' + esc(c.todos) + '</option>' +
+  return '<div class="b-fsus b-fsus-fixo" id="' + id + '"><span class="b-fsus-rot">Filtros</span>' + campos.map((c) => '<label class="b-fsus-c' + (c.cls ? ' ' + c.cls : '') + '"><span>' + esc(c.rot) + '</span><select data-fsus="' + c.k + '" aria-label="' + esc(c.rot) + '"><option value="">' + esc(c.todos) + '</option>' +
     c.opcoes.map((o) => '<option' + (o === c.v ? ' selected' : '') + '>' + esc(o) + '</option>').join('') + '</select></label>').join('') +
     // Backup 89: o "Limpar" sempre existe; sem filtro ligado ele fica escondido no visual normal e à vista (apagado) no visual premium
     '<button type="button" class="b-fsus-limpar' + (campos.some((c) => c.v) ? '' : ' b-fsus-limpar-x') + '" data-fsus-limpar>Limpar filtro</button>' + '</div>';
+  // Backup 92: c.cls = 'b-pm-fora' (some no visual premium) ou 'b-pm-so' (só no visual premium)
 }
 function ligarFiltroSusB(id, estado, depois) {
   const el = $(id); if (!el) return;
@@ -687,6 +688,7 @@ function ligarMinB(chave, ids) {
   aplicar();
 }
 // Backup 91 (visual premium): lista suspensa para filtro "menos importante" — só aparece no premium (base.css esconde .b-pm-so; o premium esconde .b-pm-nao)
+const ehPremium = () => document.documentElement.dataset.visual === 'premium';
 function selSusB(id, rot, todos, opcoes, v) {
   return '<select id="' + id + '" class="b-pm-so b-sel-sus" aria-label="' + esc(rot) + '"><option value="">' + esc(todos) + '</option>' +
     opcoes.map((o) => '<option' + (o === v ? ' selected' : '') + '>' + esc(o) + '</option>').join('') + '</select>';

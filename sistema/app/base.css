@@ -1260,3 +1260,6 @@ html body.gx-barra-topo table.b-tab.b-sem-g:not(#_) :is(thead th,tbody td):first
 /* ═══ Backup 91 ═══ lista suspensa dos filtros "menos importantes" só aparece no visual premium (premium.css) */
 .b-pm-so{display:none}
 .b-pm-nao{display:contents}
+/* ═══ Backup 92 ═══ peças só do visual premium */
+.b-pm-fora{}
+.gs-busca-bt kbd{font:600 10.5px var(--font-ui);border:1px solid var(--border);border-radius:5px;padding:1px 5px;margin-left:6px;color:var(--text3);background:var(--surface2)}

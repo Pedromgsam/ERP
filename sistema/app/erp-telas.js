@@ -129,6 +129,8 @@
       '<span id="gs-tela-nome"></span>' +
       // Backup 83: sem o campo de busca na barra do alto (pedido do usuário); a busca geral continua no Ctrl+K (⌘K no Mac)
       '<span class="gs-hd-esp"></span>' +
+      // Backup 92 (M4): no visual premium, um botão "Buscar" à vista abre a mesma caixa do Ctrl+K (clientes, processos, telas e ações)
+      '<button type="button" class="gs-busca-bt b-pm-so" data-acao="buscar" title="Buscar cliente, processo, tela ou ação (Ctrl+K)"><span aria-hidden="true">⌕</span> Buscar <kbd>Ctrl K</kbd></button>' +
       '<div class="tn-lancar gx-so-equipe"><button type="button" class="tn-lancar-bt" aria-haspopup="true" aria-expanded="false">+ Lançar</button>' +
       '<div class="tn-menu tn-menu-dir" role="menu">' + LANCAR.map((x, i) => '<button type="button" role="menuitem" data-lancar="' + i + '">' + esc(x[0]) + '</button>').join('') + '</div></div>' +
       '<div class="hd-usuario"><button type="button" id="gs-ajuda" title="Ajuda desta tela" aria-label="Ajuda desta tela"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .9-1 1.6v.6M12 17h.01"/></svg></button><button type="button" id="gs-tema" title="Modo escuro / claro" aria-label="Alternar modo escuro" aria-pressed="false"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/></svg></button>' +
@@ -200,6 +202,7 @@
       else if (alvo.dataset.acao === 'atualizar') { if (typeof window._dbCacheClear === 'function') window._dbCacheClear(); ED.recarregar(); }
       else if (alvo.dataset.acao === 'meunome') pedirMeuNome(false);
       else if (alvo.dataset.acao === 'premium') trocarVisualPremium();
+      else if (alvo.dataset.acao === 'buscar') { if (GS() && GS().abrirBuscaGeral) GS().abrirBuscaGeral(); }
       else if (alvo.dataset.ir && (e.ctrlKey || e.metaKey || e.shiftKey)) window.open(location.pathname + '#' + alvo.dataset.ir, '_blank', 'noopener');   // Backup 34: Ctrl + clique = aba nova
       else if (alvo.dataset.ir) ir(alvo.dataset.ir);
       else if (alvo.dataset.lancar !== undefined) LANCAR[+alvo.dataset.lancar][1]();

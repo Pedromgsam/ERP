@@ -22,6 +22,7 @@ const PERIODOS_FIN = [['mes', 'Este mês'], ['mesant', 'Mês passado'], ['ano', 
 function estadoFin(empresa) {
   E.fin = E.fin || {};
   if (!E.fin[empresa]) E.fin[empresa] = { aba: 'analise', an: { quem: [], preset: 'ano', de: '', ate: '', tipo: '', grupo: '' }, caixa: 'consolidado', dados: null, lidoEm: 0 };
+  if (E.finAbaPend) { E.fin[empresa].aba = E.finAbaPend; delete E.finAbaPend; }   // Backup 92: a busca (Ctrl+K) pediu a aba Lançamentos
   return E.fin[empresa];
 }
 

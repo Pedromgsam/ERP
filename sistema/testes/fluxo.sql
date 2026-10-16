@@ -369,7 +369,7 @@ insert into email_fila (para, assunto, html, tipo, referencia, status, enviado_e
 insert into email_fila (para, assunto, html, tipo, referencia, status, enviado_em) values ('novo@teste', 'Novo B55', '<p>texto novo</p>', 'cliente', 'b55-novo', 'enviado', now() - interval '1 month');
 reset role; select pg_temp.como('');
 select public.limpar_emails_antigos();
-select pg_temp.ok((select html like '%conteúdo apagado%' and anexo is null from email_fila where referencia = 'b55-velho') and (select html = '<p>texto novo</p>' from email_fila where referencia = 'b55-novo'),
+select pg_temp.ok((select html like '%conteúdo apagado%' and anexo is null from email_fila where referencia = 'b55-velho') and (select html like '%texto novo%' and html not like '%conteúdo apagado%' from email_fila where referencia = 'b55-novo'),
   '55.2 limpeza: e-mail enviado há mais de 6 meses perde o conteúdo (a linha fica); o recente fica inteiro');
 delete from email_fila where referencia in ('b55-velho', 'b55-novo');
 -- ═══ RESUMO ═══

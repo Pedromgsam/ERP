@@ -6890,3 +6890,36 @@ end $$;
 revoke all on function public.email_publicacoes_advogados() from public, anon;
 grant execute on function public.email_publicacoes_advogados() to authenticated, service_role;
 -- ═══ fim do Backup 89 ═══
+
+-- ═══ Backup 92 ═══ TODO e-mail sai no modelo bonito do escritório (nunca texto solto)
+-- 1) os avisos à equipe (tarefas, prazos, agenda, publicações do dia, resumo) usam o MESMO desenho dos e-mails aos clientes:
+--    faixa marinho com "Araújo & Castro" em dourado, título, corpo e rodapé — só o rodapé diz que é aviso do ERP.
+create or replace function public.email_modelo(titulo text, corpo text) returns text
+language sql immutable as $$
+  select '<div style="font-family:Arial,Helvetica,sans-serif;background:#F0F2F7;padding:24px 12px">'
+    || '<div style="max-width:620px;margin:0 auto;background:#fff;border-radius:14px;overflow:hidden;border:1px solid #E5E7EB">'
+    || '<div style="background:#1B2A4A;padding:20px 24px;border-bottom:3px solid #C9A84C">'
+    ||   '<div style="color:#C9A84C;font-family:Georgia,serif;font-size:20px;font-weight:bold">Araújo &amp; Castro</div>'
+    ||   '<div style="color:#CBD5E1;font-size:11px;letter-spacing:.14em;text-transform:uppercase;margin-top:2px">Advocacia · Contabilidade · Consultoria</div></div>'
+    || '<div style="padding:22px 24px;color:#1F2937;font-size:14.5px;line-height:1.6">'
+    ||   '<div style="font-size:18px;font-weight:bold;color:#1B2A4A;margin-bottom:10px">' || replace(replace(replace(coalesce(titulo, ''), '&', '&amp;'), '<', '&lt;'), '>', '&gt;') || '</div>'
+    ||   coalesce(corpo, '') || '</div>'
+    || '<div style="padding:12px 24px;background:#F7F8FB;border-top:1px solid #E5E7EB;color:#6B7280;font-size:11.5px">Aviso do ERP do escritório. '
+    || 'Para mudar o que você recebe, abra o ERP → ⋯ → Meus avisos por e-mail.</div>'
+    || '</div></div>';
+$$;
+-- 2) rede de segurança: qualquer e-mail que entre na fila SEM o modelo (ex.: o teste da Administração, ou algo novo no futuro)
+--    é embrulhado no modelo antes de sair. Propostas do CRM já vêm com o desenho delas e ficam como estão.
+create or replace function public.email_fila_modelo() returns trigger
+language plpgsql security definer set search_path = public as $$
+begin
+  if coalesce(new.tipo, '') <> 'proposta' and position('Advocacia · Contabilidade · Consultoria' in coalesce(new.html, '')) = 0 then
+    new.html := public.email_modelo(coalesce(nullif(new.assunto, ''), 'Mensagem do escritório'),
+      case when coalesce(new.html, '') ~ '<[a-zA-Z]' then new.html
+           else '<p style="margin:0 0 10px">' || replace(replace(replace(replace(coalesce(new.html, ''), '&', '&amp;'), '<', '&lt;'), E'\n\n', '</p><p style="margin:0 0 10px">'), E'\n', '<br>') || '</p>' end);
+  end if;
+  return new;
+end $$;
+drop trigger if exists email_fila_modelo on public.email_fila;
+create trigger email_fila_modelo before insert on public.email_fila for each row execute function public.email_fila_modelo();
+-- ═══ fim do Backup 92 ═══
