@@ -89,6 +89,7 @@
       nome: 'Processo',
       campos: [
         { k: 'grupo_id', rot: 'Grupo', tipo: 'grupo' },
+        { k: 'cliente_id', rot: 'Empresa do cliente', tipo: 'cliente' },   // Backup 93 (U4): o filtro "Empresa" de Processos fica exato
         { k: 'carteira', rot: 'Carteira', tipo: 'sel', ops: [['Ativo', 'Ativos'], ['Prospecção', 'Prospecção']] },
         { k: 'numero', rot: 'Nº do processo', tipo: 'texto', req: true },
         { k: 'advogado', rot: 'Advogado', tipo: 'texto', lista: PESSOAS },

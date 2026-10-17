@@ -305,10 +305,12 @@ async function cardResumoEscritorio() {
     (n !== '' && n != null ? '<b>' + n + '</b>' : '') + '<span class="ini-pil-tx">' + esc(txt) + '</span></button>';
   const finP = [], esc2 = [];
   const fimMes = (() => { const d = new Date(h + 'T12:00:00'); return new Date(d.getFullYear(), d.getMonth() + 1, 0).toISOString().slice(0, 10); })();
-  const [guias, emailsErro, certs] = await Promise.all([
+  const [guias, emailsErro, certs, confAtr] = await Promise.all([
     jur ? conta(sb.from('parcelas').select('id, parcelamentos!inner(emitimos_guia)', { count: 'exact', head: true }).eq('pago', false).is('emitida_em', null).lte('vencimento', fimMes).eq('parcelamentos.emitimos_guia', true)) : 0,
     pode('admin') || pode('clientes') ? conta(cnt('email_fila').eq('status', 'erro').gte('criado_em', somarDias(h, -30))) : 0,
-    pode('clientes') ? conta(sb.from('cliente_certificado').select('cliente_id', { count: 'exact', head: true }).not('validade', 'is', null).lte('validade', somarDias(h, 30))) : 0]);
+    pode('clientes') ? conta(sb.from('cliente_certificado').select('cliente_id', { count: 'exact', head: true }).not('validade', 'is', null).lte('validade', somarDias(h, 30))) : 0,
+    // Backup 93 (A2): grupos com o passivo há mais de 30 dias sem conferência
+    pode('clientes', 'editar') ? q(sb.rpc('conferencias_passivo_atrasadas', { p_dias: 30 })).then((l) => (l || []).length).catch(() => 0) : 0]);
   if (lancs && (pode('financeiro_juridico') || pode('financeiro_contab'))) {
     const atr = (l) => l.filter((x) => x.vencimento <= h), cinco = (l) => l.filter((x) => x.vencimento <= lim5);
     const sm = (l) => brl(soma(l, (x) => Math.abs(vl(x))));
@@ -325,6 +327,7 @@ async function cardResumoEscritorio() {
   if (pubs) esc2.push(pil('publicacoes', pubs, pl(pubs, 'publicação nova', 'publicações novas'), 'info'));
   if (tAtr) esc2.push(pil('tarefas', tAtr, pl(tAtr, 'tarefa atrasada', 'tarefas atrasadas'), 'critico'));
   if (emailsErro) esc2.push(pil('emails', emailsErro, pl(emailsErro, 'e-mail com erro', 'e-mails com erro'), 'critico'));
+  if (confAtr) esc2.push(pil('conferencia', confAtr, pl(confAtr, 'grupo sem conferência do passivo há 30+ dias', 'grupos sem conferência do passivo há 30+ dias'), 'atencao'));
   if (certs) esc2.push(pil('certificados', certs, pl(certs, 'certificado vencendo', 'certificados vencendo'), 'atencao'));
   // Backup 89 (I1): UMA faixa "Avisos" — Financeiro e Escritório juntos, os críticos primeiro, no máximo 5 à vista (o resto em "+N")
   const todosP = finP.concat(esc2), peso = (h2) => (/b-av-critico/.test(h2) ? 0 : /b-av-atencao/.test(h2) ? 1 : 2);
@@ -348,6 +351,7 @@ function abrirDaFaixa(k) {
   if (k === 'publicacoes') { E.pub = Object.assign(E.pub || { tribunal: '', dias: '30', busca: '' }, { status: 'nova', adv: primeiroNomeUsuario() }); return ir('publicacoes'); }
   if (k === 'guias') { E.rt = Object.assign(E.rt || {}, { aba: 'guias' }); return ir('rotina'); }
   if (k === 'emails') { E.adm = Object.assign(E.adm || { tabela: '' }, { aba: 'email', emailAba: 'saida', saidaF: 'erro' }); return ir('admin'); }
+  if (k === 'conferencia') { E.rt = Object.assign(E.rt || {}, { aba: 'passivo' }); return ir('rotina'); }
   if (k === 'certificados') { E.rt = Object.assign(E.rt || {}, { aba: 'passivo' }); return ir('rotina'); }
   return ir(k);
 }

@@ -691,7 +691,26 @@ const EMAILS_EQUIPE = [['fluxo', 'Fluxo / sequência de tarefas', 'Quando algué
   ['mencao', 'Menção (@Nome)', 'Quando alguém é mencionado num comentário'], ['atraso', 'Tarefa atrasada', 'Aviso ao administrador'],
   ['agenda', 'Lembrete de compromisso', 'Antes de reunião, audiência ou compromisso'], ['publicacao', 'Publicações do dia ao advogado', 'Um e-mail por advogado com as intimações novas da busca das 6h (e das buscas feitas depois, no mesmo dia)'],
   ['financeiro', 'Contrato assinado', 'Financeiro lançado'], ['cnpj', 'Cartão CNPJ', 'Mudança no cadastro da Receita'], ['acesso', 'Acesso de aparelho novo', 'Segurança'],
-  ['resumo', 'Resumo do dia', 'Dias úteis, de manhã']];
+  ['resumo', 'Resumo do dia', 'Dias úteis, de manhã'],
+  // Backup 93 (A1/A2)
+  ['resumo_semanal', 'Resumo da semana', 'Segunda, 7h: honorários em atraso, parcelas e acordos da semana, tarefas e audiências'],
+  ['conferencia', 'Conferência do passivo atrasada', 'Grupo há mais de 30 dias sem conferência do passivo: e-mail ao responsável (no máximo 1 por mês)']];
+// Backup 93 (A1): quem recebe o resumo semanal (ninguém marcado = os administradores/sócios)
+async function janelaResumoSemanalQuem() {
+  const [pessoas, quem] = await Promise.all([q(sb.rpc('equipe_hierarquia')).catch(() => q(sb.rpc('equipe_nomes')).catch(() => [])), q(sb.rpc('resumo_semanal_quem')).catch(() => [])]);
+  const lista = (pessoas || []).filter((p) => p.id && (!p.papel || p.papel !== 'inativo')), marc = new Set((quem || []).map(String));
+  const j = abrirJanela({ kick: 'E-mail automático', titulo: 'Quem recebe o resumo da semana', sub: 'Toda segunda, às 7h. Sem ninguém marcado, vai para os administradores.',
+    corpo: '<div class="b-lista em-sem-lista">' + (lista.length ? lista.map((p) => '<label class="b-li-chave"><input type="checkbox" value="' + esc(p.id) + '"' + (marc.has(String(p.id)) ? ' checked' : '') + '>' +
+      '<span><b>' + esc(p.nome || p.email || '—') + '</b><small>' + esc([p.papel === 'admin' ? 'Administrador' : 'Equipe', p.email].filter(Boolean).join(' · ')) + '</small></span></label>').join('') : '<p class="dica">Nenhuma pessoa da equipe cadastrada.</p>') + '</div>',
+    rodape: '<button type="button" class="btn btn-o" data-fechar-j>Cancelar</button><button type="button" class="btn btn-p" id="em-sem-salvar">Salvar</button>' });
+  j.querySelector('[data-fechar-j]').onclick = () => fecharJanela(j);
+  j.querySelector('#em-sem-salvar').onclick = (ev) => comBotao(ev.currentTarget, async () => {
+    const ids = [...j.querySelectorAll('input[type=checkbox]:checked')].map((i) => i.value), antes = [...marc];
+    await q(sb.rpc('salvar_resumo_semanal_quem', { p_ids: ids })); fecharJanela(j);
+    feitoDesfazer(ids.length ? 'Resumo da semana: ' + plural(ids.length, 'pessoa marcada', 'pessoas marcadas') + '.' : 'Resumo da semana: vai para os administradores.',
+      () => q(sb.rpc('salvar_resumo_semanal_quem', { p_ids: antes })));
+  });
+}
 async function admEmailAuto(corpo) {
   const [eq, regras] = await Promise.all([q(sb.rpc('emails_equipe')).catch(() => ({})),
     q(sb.from('regras_tarefas').select('chave, nome, descricao, ligada, oculta, dias').eq('grupo', 'cliente_email').order('nome')).catch(() => [])]);
@@ -712,10 +731,12 @@ async function admEmailAuto(corpo) {
       (vis.length > tres.length ? '<div class="b-bloco"><h3>Outros automáticos do ERP</h3><div class="em-auto-g">' + vis.filter((r) => !TRES_AUTO.some((t) => t[0] === r.chave)).map((r) => chave('data-eq-regra', r.chave, r.ligada, r.nome, r.descricao)).join('') + '</div></div>' : '') +
     '</div></section>' +
     '<section class="card"><div class="card-hd">Para a equipe<span class="sub">ligado = também chega por e-mail</span></div><div class="card-bd">' +
-      EMAILS_EQUIPE.map(([k, r, d]) => '<div class="b-li-chave">' + chaveB('data-eq', k, eq[k] !== false, adm) + '<span><b>' + esc(r) + '</b><small>' + esc(d) + '</small></span></div>').join('') + '</div></section></div>' +
+      EMAILS_EQUIPE.map(([k, r, d]) => '<div class="b-li-chave">' + chaveB('data-eq', k, eq[k] !== false, adm) + '<span><b>' + esc(r) + '</b><small>' + esc(d) + '</small></span>' +
+        (k === 'resumo_semanal' ? '<button type="button" class="btn btn-o btn-mini" id="em-sem-quem"' + (adm ? '' : ' disabled') + '>Quem recebe</button>' : '') + '</div>').join('') + '</div></section></div>' +
     '<p class="dica">Cada pessoa ainda pode desligar os seus em ⋯ → Meus avisos por e-mail. Aqui vale para o escritório todo' + (adm ? '' : ' (só o administrador muda)') + '.</p>';
   corpo.onclick = async (ev) => {
     if (!adm) return;
+    if (ev.target.closest('#em-sem-quem')) return janelaResumoSemanalQuem();
     const a = ev.target.closest('[data-auto]'); if (a) { await trocarRegraEmail(a.dataset.auto, a.getAttribute('aria-checked') !== 'true'); return admEmailAuto(corpo); }
     const e = ev.target.closest('button[data-eq]'); if (e) { const lig = e.getAttribute('aria-checked') !== 'true';
       try { await q(sb.rpc('salvar_email_equipe', { p_tipo: e.dataset.eq, p_ligado: lig }));

@@ -137,10 +137,11 @@ TELAS.processosERP = async function () {
   E.prF = E.prF || { grupo: '', comp: '', adv: '' };
   if (!('emp' in E.prF)) E.prF.emp = '';
   if (ehPremium()) { E.prF.comp = ''; E.prF.adv = ''; } else E.prF.emp = '';   // o filtro escondido nunca fica ligado
-  // Backup 92 (visual premium): Grupo + Empresa, como no Painel (Competência e Advogado somem no premium). O processo não guarda a empresa:
-  // vale o nome da empresa no Autor ou no Réu.
+  // Backup 92 (visual premium): Grupo + Empresa, como no Painel (Competência e Advogado somem no premium).
+  // Backup 93 (U4): o processo ligado a uma empresa (cadastro → "Empresa do cliente") usa a ligação; sem ligação, vale o nome no Autor ou no Réu.
   const empsPr = unicosTxt((dbE().baseDados || []).filter((r) => !E.prF.grupo || r.grupo === E.prF.grupo).map((r) => r.nome));
-  const temEmp = (p, e) => !e || normalizar((p.autor || '') + ' ' + (p.reu || '')).includes(normalizar(e));
+  const idsEmp = (e) => (dbE().baseDados || []).filter((r) => r.nome === e).map((r) => String(r._id));
+  const temEmp = (p, e) => !e || (p.clienteId ? idsEmp(e).includes(String(p.clienteId)) : normalizar((p.autor || '') + ' ' + (p.reu || '')).includes(normalizar(e)));
   // Backup 79: filtro suspenso (Grupo / Competência) — recorta o Resumo da carteira e a lista
   const F = E.prF, L0 = D.processos, L = L0.filter((p) => (!F.grupo || p.grupo === F.grupo) && (!F.comp || p.competencia === F.comp) && (!F.adv || nome1PE(p.advogado || '') === F.adv) && temEmp(p, F.emp)), P = L.filter((p) => p.carteira !== 'Prospecção');
   const podeEd = pode('juridico', 'editar');
@@ -179,11 +180,29 @@ TELAS.processosERP = async function () {
       { k: 'mov', rot: 'Última movimentação', cls: 'b-data b-mov', html: (p) => { const d = p.ultimaMovEm || p.atualizacao, i = isoDeBRp(d), velho = i && i < somarDias(hojeISO(), -30);
         return d ? (velho ? '<span class="b-pz-r" title="Mais de 30 dias sem novidade">' + esc(d) + '</span>' : esc(d)) + (p.ultimaMov ? '<small title="' + esc(p.ultimaMov) + '">' + esc(String(p.ultimaMov).slice(0, 40)) + '</small>' : '') : '—'; }, ord: (p) => isoDeBRp(p.ultimaMovEm || p.atualizacao) || '0' },
       // Backup 85 (PR1): "Conferido" — data da última conferência (verde até 15 dias; âmbar depois; "nunca" em vermelho)
-      { k: 'conf', rot: 'Conferido', cls: 'b-cen b-data', html: (p) => { const d = diasConf(p); return d == null ? '<span class="b-pz-r">nunca</span>' : '<span class="' + (d < 15 ? 'b-ok-txt' : 'b-pz-a') + '">' + esc(String(p.ultimaMovEm).slice(0, 5)) + '</span>'; }, ord: (p) => isoDeBRp(p.ultimaMovEm) || '0' },
+      // Backup 93 (U2): clicar marca "conferido hoje, sem novidade" (com Desfazer), sem ir à Rotina
+      { k: 'conf', rot: 'Conferido', cls: 'b-cen b-data', html: (p) => { const d = diasConf(p), tx = d == null ? '<span class="b-pz-r">nunca</span>' : '<span class="' + (d < 15 ? 'b-ok-txt' : 'b-pz-a') + '">' + esc(String(p.ultimaMovEm).slice(0, 5)) + '</span>';
+        return podeEd && d !== 0 ? '<button type="button" class="b-pr-conf" data-pr-conf="' + esc(String(p._id)) + '" title="Conferi no tribunal e não mudou nada: marcar como conferido hoje">' + tx + '</button>' : tx; }, ord: (p) => isoDeBRp(p.ultimaMovEm) || '0' },
       { k: 'st', rot: 'Status', cls: 'b-cen', html: (p) => '<span class="b-pill ' + (sit(p) === 'at' ? 'b-g' : sit(p) === 'arq' ? 'b-a' : 'b-r') + '">' + esc(p.arquivamento || 'Ativo') + '</span>', ord: sit }],
     clique: (p) => (window.ERP_ABRIR_PROCESSO ? window.ERP_ABRIR_PROCESSO(p) : null),
     vazio: { titulo: 'Nenhum processo aqui', frase: 'Troque a aba (Ativos, Arquivados, Extintos, Todos) ou limpe os filtros.', botao: podeEd ? ['+ Processo', '#pr-novo'] : null } });
+  const nova = $('pr-nova');
+  if (nova && !nova._b93) { nova._b93 = true;
+    nova.addEventListener('click', (ev) => { const b = ev.target.closest('[data-pr-conf]'); if (!b) return; ev.stopPropagation(); ev.preventDefault();
+      const p = (D.processos || []).find((x) => String(x._id) === b.dataset.prConf); if (p) comBotao(b, () => conferirProcessoHoje(p)); }, true); }
 };
+// Backup 93 (U2): "Conferido" em Processos — grava a movimentação "sem novidade" de hoje; Desfazer apaga e devolve a anterior
+async function conferirProcessoHoje(p) {
+  const antes = { ult: p.ultimaMov || '', em: isoDeBRp(p.ultimaMovEm) || null, ultBR: p.ultimaMovEm };
+  const r = await q(sb.from('processo_movimentacoes').insert({ processo_id: p._id, tipo: 'sem_novidade', descricao: '✓ Sem novidade' }).select('id').single());
+  p.ultimaMov = '✓ Sem novidade'; p.ultimaMovEm = dataBR(hojeISO());
+  TELAS.processosERP();
+  feitoDesfazer('Processo ' + (p.numero || '') + ' conferido hoje (sem novidade).', async () => {
+    const ok = await q(sb.rpc('desfazer_conferencia_processo', { p_mov: r.id, p_ult: antes.ult, p_ult_em: antes.em }));
+    if (!ok) throw new Error('Passou do tempo para desfazer (15 minutos).');
+    p.ultimaMov = antes.ult; p.ultimaMovEm = antes.ultBR;
+  }, () => TELAS.processosERP());
+}
 // "Resumo da carteira" (o renderProcAnalise antigo, com os ajustes dos Backups 16/27): o mesmo nº conta uma vez;
 // Processos (em andamento / arquivados-extintos) · Valor em disputa · Passivo em disputas (cliente réu) · Ativo em disputas (cliente autor);
 // e as tabelas por grupo, tribunal e natureza

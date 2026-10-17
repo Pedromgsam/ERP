@@ -1,0 +1,238 @@
+<title>Alternativas do Início</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@600;700&display=swap">
+<style>
+/* Layout: faixa de escolha no alto + "tela do ERP" (lateral marinho do visual premium + área de conteúdo) que troca de desenho */
+:root{
+  --bg:#F0F2F7; --surface:#FFFFFF; --surface2:#F7F8FB; --border:#E3E6EE; --text:#1B2333; --text2:#4A5363; --text3:#5E666D;
+  --marinho:#1B2A4A; --marinho2:#24365E; --ouro:#C9A84C; --ouro-lt:#F4ECD6; --azul-lt:#E8EDF7;
+  --red:#B42318; --red-lt:#FDECEA; --amber:#9A6700; --amber-lt:#FFF4D6; --green:#1E7B3C; --green-lt:#E6F4EA; --blue:#1F4D80;
+  --font-ui:"Inter",system-ui,-apple-system,"Segoe UI",sans-serif; --font-tit:"Playfair Display",Georgia,serif;
+  --r:12px; --sombra:0 1px 2px rgba(16,24,40,.06),0 1px 3px rgba(16,24,40,.08);
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0D1117; --surface:#161B22; --surface2:#1C2129; --border:#30363D; --text:#E6EDF3; --text2:#C2CAD3; --text3:#8B949E;
+  --marinho:#2B4A7E; --marinho2:#22385F; --ouro:#D4B35C; --ouro-lt:#2D2716; --azul-lt:#1A2537;
+  --red:#F47067; --red-lt:#3A1D1D; --amber:#E3B341; --amber-lt:#33290F; --green:#57AB5A; --green-lt:#18301C; --blue:#6CA4F8; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0D1117; --surface:#161B22; --surface2:#1C2129; --border:#30363D; --text:#E6EDF3; --text2:#C2CAD3; --text3:#8B949E;
+  --marinho:#2B4A7E; --marinho2:#22385F; --ouro:#D4B35C; --ouro-lt:#2D2716; --azul-lt:#1A2537;
+  --red:#F47067; --red-lt:#3A1D1D; --amber:#E3B341; --amber-lt:#33290F; --green:#57AB5A; --green-lt:#18301C; --blue:#6CA4F8; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--text);font:13.5px/1.45 var(--font-ui);padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:16px 40px}
+h1,h2,h3{margin:0;text-wrap:balance}
+button{font:inherit;color:inherit;cursor:pointer}
+button:focus-visible,a:focus-visible{outline:2px solid var(--ouro);outline-offset:2px}
+.topo{max-width:1320px;margin:0 auto 14px;display:flex;flex-direction:column;gap:10px}
+.topo h1{font-size:20px}
+.topo p{margin:0;color:var(--text2);max-width:80ch}
+.escolha{display:flex;flex-wrap:wrap;gap:8px}
+.escolha button{border:1px solid var(--border);background:var(--surface);border-radius:10px;padding:8px 12px;display:flex;flex-direction:column;align-items:flex-start;gap:1px;min-width:0;text-align:left}
+.escolha button b{font-size:13px}
+.escolha button small{color:var(--text3);font-size:11.5px}
+.escolha button[aria-pressed="true"]{background:var(--marinho);border-color:var(--marinho);color:#fff}
+.escolha button[aria-pressed="true"] small{color:#CBD5E1}
+.nota{font-size:12px;color:var(--text3)}
+/* tela do ERP */
+.tela{max-width:1320px;margin:0 auto;display:grid;grid-template-columns:188px minmax(0,1fr);border:1px solid var(--border);border-radius:14px;overflow:hidden;background:var(--bg);min-height:640px}
+.lado{background:#1B2A4A;color:#CBD5E1;padding:14px 10px;display:flex;flex-direction:column;gap:2px}
+.lado .marca{color:var(--ouro);font-weight:700;font-size:14px;padding:2px 8px 12px;line-height:1.2}
+.lado .marca small{display:block;font-weight:500;font-size:10.5px;color:#C9A84C;opacity:.8}
+.lado .sec{font-size:10px;letter-spacing:.12em;color:#C9A84C;padding:10px 8px 4px;font-weight:600}
+.lado .it{padding:7px 8px;border-radius:7px;font-size:13px}
+.lado .it.on{background:rgba(255,255,255,.08);color:#F4D27A;font-weight:600}
+.conteudo{padding:18px 20px;display:flex;flex-direction:column;gap:14px;min-width:0}
+.cab{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.cab .ic{width:38px;height:38px;border-radius:10px;background:linear-gradient(135deg,#2B4A7E,#1B2A4A);display:grid;place-items:center;color:#fff;flex:none}
+.cab h2{font-size:19px}
+.cab p{margin:0;color:var(--text3);font-size:12.5px}
+.cab .esp{flex:1}
+.bt{border:1px solid var(--border);background:var(--surface);border-radius:8px;padding:7px 12px;font-weight:600;font-size:12.5px}
+.bt.p{background:var(--marinho);border-color:var(--marinho);color:#fff}
+.cartao{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);box-shadow:var(--sombra);padding:14px 16px;min-width:0}
+.cartao h3{font-size:14px;margin-bottom:8px;display:flex;align-items:center;gap:8px}
+.cartao h3 small{font-weight:500;color:var(--text3);font-size:12px;margin-left:auto}
+.pil{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--border);border-radius:999px;padding:4px 10px;font-size:12px;background:var(--surface);white-space:nowrap}
+.pt{width:7px;height:7px;border-radius:50%;background:var(--text3);flex:none}
+.pt.r{background:var(--red)}.pt.a{background:var(--amber)}.pt.g{background:var(--green)}.pt.b{background:var(--blue)}
+.tag{display:inline-block;font-size:10.5px;font-weight:600;border-radius:5px;padding:1px 6px;background:var(--surface2);color:var(--text2);border:1px solid var(--border)}
+.tag.r{background:var(--red-lt);color:var(--red);border-color:transparent}.tag.a{background:var(--amber-lt);color:var(--amber);border-color:transparent}
+.tag.g{background:var(--green-lt);color:var(--green);border-color:transparent}.tag.b{background:var(--azul-lt);color:var(--blue);border-color:transparent}
+.num{font-variant-numeric:tabular-nums}
+.lista{display:flex;flex-direction:column}
+.lista .l{display:flex;gap:10px;align-items:center;padding:8px 0;border-top:1px solid var(--border);min-width:0}
+.lista .l:first-child{border-top:0}
+.lista .l .tx{flex:1;min-width:0}
+.lista .l .tx small{display:block;color:var(--text3);font-size:11.5px}
+.ok{width:18px;height:18px;border-radius:50%;border:1.5px solid var(--border);flex:none;background:var(--surface)}
+/* A — Portal */
+.portal-busca{display:flex;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:12px 14px;color:var(--text3);font-size:14px;box-shadow:var(--sombra)}
+.portal-busca kbd{margin-left:auto;font:11px var(--font-ui);border:1px solid var(--border);border-radius:5px;padding:1px 6px}
+.blocos{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:12px}
+.bloco{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:6px;text-align:left;box-shadow:var(--sombra);min-width:0;transition:border-color .15s,transform .15s}
+.bloco:hover{border-color:var(--ouro);transform:translateY(-1px)}
+.bloco .bi{width:32px;height:32px;border-radius:9px;background:var(--azul-lt);color:var(--blue);display:grid;place-items:center;font-weight:700;font-size:13px}
+.bloco b{font-size:14px}
+.bloco small{color:var(--text3);font-size:12px}
+.bloco .cont{margin-top:auto;display:flex;gap:6px;flex-wrap:wrap}
+.ext .bi{background:var(--ouro-lt);color:var(--amber)}
+.sub-tit{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);font-weight:600}
+/* B — Mural de notícias */
+.mural{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,1fr);gap:14px}
+.manchete{background:linear-gradient(140deg,#1B2A4A,#2B4A7E);color:#fff;border-radius:14px;padding:20px 22px;display:flex;flex-direction:column;gap:8px;position:relative;overflow:hidden}
+.manchete::after{content:"";position:absolute;right:-40px;top:-40px;width:180px;height:180px;border-radius:50%;border:2px solid rgba(201,168,76,.35)}
+.manchete .kick{color:#F4D27A;font-size:11px;letter-spacing:.14em;text-transform:uppercase;font-weight:600}
+.manchete h3{font-family:var(--font-tit);font-size:24px;line-height:1.2;max-width:28ch}
+.manchete p{margin:0;color:#D6DEEC;max-width:60ch}
+.manchete .bt{align-self:flex-start;background:#C9A84C;border-color:#C9A84C;color:#1B2A4A}
+.noticias{display:flex;flex-direction:column;gap:0}
+.noticia{display:grid;grid-template-columns:52px minmax(0,1fr);gap:12px;padding:12px 0;border-top:1px solid var(--border)}
+.noticia:first-child{border-top:0}
+.noticia .data{text-align:center;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:5px 0;line-height:1.1;height:fit-content}
+.noticia .data b{display:block;font-size:17px}
+.noticia .data small{font-size:10px;text-transform:uppercase;color:var(--text3);letter-spacing:.06em}
+.noticia h4{margin:2px 0 2px;font-size:14px}
+.noticia p{margin:0;color:var(--text2);font-size:12.5px}
+/* C — Cockpit */
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+.kpi{background:var(--surface);border:1px solid var(--border);border-left:3px solid var(--marinho);border-radius:10px;padding:10px 12px;min-width:0}
+.kpi.r{border-left-color:var(--red)}.kpi.g{border-left-color:var(--green)}.kpi.a{border-left-color:var(--amber)}
+.kpi small{color:var(--text3);font-size:11.5px;display:block}
+.kpi b{font-size:18px;display:block;margin:2px 0}
+.kpi svg{display:block;width:100%;height:26px}
+.cockpit{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:14px}
+.horas{display:flex;flex-direction:column}
+.hora{display:grid;grid-template-columns:52px minmax(0,1fr);gap:10px;padding:6px 0;border-top:1px dashed var(--border);min-height:34px}
+.hora:first-child{border-top:0}
+.hora > span{color:var(--text3);font-size:12px;padding-top:4px}
+.evento{border-radius:8px;padding:6px 10px;font-size:12.5px;background:var(--azul-lt);border-left:3px solid var(--blue)}
+.evento.r{background:var(--red-lt);border-left-color:var(--red)}.evento.a{background:var(--amber-lt);border-left-color:var(--amber)}
+.evento small{display:block;color:var(--text3);font-size:11px}
+.agora{border-top:2px solid var(--red)!important}
+/* D — Meu dia (foco) */
+.foco{max-width:760px;width:100%;margin:0 auto;display:flex;flex-direction:column;gap:14px}
+.foco .saud{font-family:var(--font-tit);font-size:28px;line-height:1.2}
+.foco .saud small{display:block;font:500 13px var(--font-ui);color:var(--text3);margin-top:4px}
+.proximo{display:flex;gap:14px;align-items:center;background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:14px 16px;box-shadow:var(--sombra);flex-wrap:wrap}
+.proximo .h{font-size:22px;font-weight:700;color:var(--marinho)}
+.tres{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.tres div{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:10px 12px}
+.tres b{display:block;font-size:18px}
+.tres small{color:var(--text3)}
+/* E — Semana */
+.semana{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px}
+.dia{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:10px;display:flex;flex-direction:column;gap:6px;min-width:0;min-height:260px}
+.dia.hoje{border-color:var(--marinho);box-shadow:0 0 0 1px var(--marinho)}
+.dia > b{font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--text3)}
+.dia.hoje > b{color:var(--marinho)}
+.dia .c{border-radius:7px;padding:6px 8px;font-size:12px;background:var(--surface2);border:1px solid var(--border)}
+.dia .c.r{background:var(--red-lt);border-color:transparent}.dia .c.a{background:var(--amber-lt);border-color:transparent}.dia .c.b{background:var(--azul-lt);border-color:transparent}.dia .c.g{background:var(--green-lt);border-color:transparent}
+.dia .c small{display:block;color:var(--text3);font-size:10.5px}
+.prosc{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:10px;margin:0;padding:0;list-style:none}
+.prosc li{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:10px 12px;font-size:12.5px}
+.prosc li b{display:block;font-size:12px;margin-bottom:2px}
+.prosc .mais{color:var(--green)}.prosc .menos{color:var(--red)}
+@media (max-width:900px){.mural,.cockpit{grid-template-columns:minmax(0,1fr)}.semana{grid-template-columns:repeat(5,minmax(150px,1fr));overflow-x:auto}}
+@media (max-width:700px){.tela{grid-template-columns:minmax(0,1fr)}.lado{display:none}.tres{grid-template-columns:minmax(0,1fr)}.conteudo{padding:14px}}
+@media (prefers-reduced-motion:reduce){.bloco{transition:none}.bloco:hover{transform:none}}
+</style>
+
+<div class="topo">
+  <h1>Início do ERP · alternativas para escolher</h1>
+  <p>Ambiente de teste, com dados fictícios. Nada aqui mexe no ERP. Toque em cada opção, compare e me diga a letra (ou uma mistura, ex.: "A com a faixa de avisos do C").</p>
+  <div class="escolha" id="escolha" role="group" aria-label="Escolher a alternativa">
+    <button type="button" data-alt="A" aria-pressed="true"><b>A · Portal central</b><small>atalhos para todos os sistemas</small></button>
+    <button type="button" data-alt="B" aria-pressed="false"><b>B · Mural de notícias</b><small>o que aconteceu no escritório</small></button>
+    <button type="button" data-alt="C" aria-pressed="false"><b>C · Cockpit</b><small>números + agenda do dia por hora</small></button>
+    <button type="button" data-alt="D" aria-pressed="false"><b>D · Meu dia</b><small>uma coluna, só o que é seu</small></button>
+    <button type="button" data-alt="E" aria-pressed="false"><b>E · Minha semana</b><small>segunda a sexta lado a lado</small></button>
+  </div>
+  <p class="nota" id="nota"></p>
+</div>
+
+<div class="tela">
+  <nav class="lado" aria-label="Menu (ilustração)">
+    <div class="marca">Araújo &amp; Castro<small>Advocacia e Contabilidade</small></div>
+    <div class="sec">PRINCIPAL</div><div class="it on">Início</div><div class="it">Tarefas</div>
+    <div class="sec">MÓDULOS</div><div class="it">Painel Executivo</div><div class="it">Jurídico</div><div class="it">Acordos</div><div class="it">Financeiro</div>
+    <div class="it">Contratos</div><div class="it">Clientes</div><div class="it">CRM</div><div class="it">Documentos</div><div class="it">Rotina</div>
+    <div class="sec">SISTEMA</div><div class="it">Administração</div>
+  </nav>
+  <main class="conteudo" id="conteudo"></main>
+</div>
+
+<script>
+(function () {
+  // dados fictícios (hoje = sexta, 16/10/2026)
+  const AVISOS = [['r', 'R$ 44.675,00', 'de honorários em atraso'], ['r', '6', 'parcelas em atraso'], ['a', '1', 'guia a emitir este mês'], ['a', '3', 'grupos sem conferência há 30+ dias'], ['b', '2', 'publicações novas']];
+  const TAREFAS = [['Protocolar defesa — Grupo Alfa', 'atrasada desde 14/10', 'r'], ['Conferir processo 5000001-11.2024 e prazos', 'hoje', 'a'], ['Enviar guias de outubro — Grupo Beta', 'hoje', 'a'], ['Revisar contrato de consultoria', 'amanhã', '']];
+  const AGENDA = [['09:00', 'Reunião com Grupo Alfa', 'Diagnóstico · sala 1', ''], ['11:30', 'Audiência — 5000001-11.2024.8.13.0024', 'TJMG · virtual', 'r'], ['15:00', 'Ligar para o contador da Beta', 'retorno sobre o Simples', 'a']];
+  const NOTICIAS = [
+    ['16', 'out', 'b', 'Publicação', 'Nova intimação no Diário', 'Processo 5000001-11.2024.8.13.0024 (TJMG): despacho para manifestação em 15 dias. Advogado: Pedro.'],
+    ['16', 'out', 'g', 'Financeiro', 'Honorário recebido: R$ 4.012,50', 'Grupo Alfa pagou a mensalidade de outubro (Contabilidade).'],
+    ['15', 'out', 'a', 'Rotina', 'Guias de parcelamento enviadas', '8 guias enviadas por e-mail a 3 grupos; 1 ficou para o cliente emitir.'],
+    ['15', 'out', '', 'CRM', 'Proposta enviada — Comércio Gama', 'Consultoria mensal em 1,5 salário mínimo. Próximo passo: retorno até 20/10.'],
+    ['14', 'out', 'r', 'Acordos', 'Parcela de acordo venceu sem pagamento', 'Acordo da Beta com o fornecedor X: parcela 4/10, R$ 1.250,00.']];
+  const SISTEMAS = [['Ta', 'Tarefas', '2 para hoje', [['a', '2 hoje']]], ['Pr', 'Processos', '1 ativo', [['r', '1 nunca conferido']]], ['Pa', 'Parcelamentos', 'guias e parcelas', [['r', '1 atrasada']]],
+    ['Ac', 'Acordos', 'parcelas a pagar', [['r', '5 atrasadas']]], ['Fi', 'Financeiro', 'Jurídico e Contabilidade', [['r', 'R$ 44,7 mil atraso']]], ['Cl', 'Clientes', '3 cadastros', []],
+    ['CR', 'CRM', '2 negociações', [['b', 'R$ 3 mil/mês']]], ['Do', 'Documentos', 'arquivos e modelos', [['a', '1 vencendo']]], ['Ro', 'Rotina', 'conferências e guias', [['a', '3 grupos']]]];
+  const EXTERNOS = [['eC', 'e-CAC (Receita)', 'certidões e parcelamentos'], ['PJ', 'PJe / TJMG', 'processos eletrônicos'], ['DJ', 'Diário (DJEN)', 'comunicações'], ['Gm', 'Gmail do escritório', 'caixa e rascunhos'], ['Dr', 'Google Drive', 'pastas dos clientes'], ['Ag', 'Google Agenda', 'prazos e audiências']];
+
+  const pils = () => '<div style="display:flex;flex-wrap:wrap;gap:6px">' + AVISOS.map(([c, n, t]) => '<span class="pil"><span class="pt ' + c + '"></span><b class="num">' + n + '</b>' + t + '</span>').join('') + '</div>';
+  const cab = (tit, sub, extra) => '<div class="cab"><div class="ic" aria-hidden="true">⌂</div><div><h2>' + tit + '</h2><p>' + sub + '</p></div><span class="esp"></span>' + (extra || '') + '</div>';
+  const listaTarefas = () => '<div class="lista">' + TAREFAS.map(([t, s, c]) => '<div class="l"><span class="ok" aria-hidden="true"></span><div class="tx">' + t + '<small>' + s + '</small></div>' + (c ? '<span class="tag ' + c + '">' + (c === 'r' ? 'atrasada' : 'hoje') + '</span>' : '') + '</div>').join('') + '</div>';
+  const spark = (pts, cor) => { const w = 120, h = 26, max = Math.max.apply(null, pts), min = Math.min.apply(null, pts), sx = w / (pts.length - 1), y = (v) => h - 3 - ((v - min) / ((max - min) || 1)) * (h - 6);
+    const d = pts.map((v, i) => (i ? 'L' : 'M') + (i * sx).toFixed(1) + ' ' + y(v).toFixed(1)).join(' ');
+    return '<svg viewBox="0 0 ' + w + ' ' + h + '" preserveAspectRatio="none" aria-hidden="true"><path d="' + d + ' L' + w + ' ' + h + ' L0 ' + h + 'Z" fill="' + cor + '" opacity=".12"/><path d="' + d + '" fill="none" stroke="' + cor + '" stroke-width="1.6"/></svg>'; };
+
+  const ALT = {
+    A: { nota: 'A: o Início vira a porta de entrada de tudo — os módulos do ERP com o que pede ação em cada um, e os sites que o escritório usa todo dia (abrem em outra aba). A busca (Ctrl+K) fica no alto.',
+      html: () => cab('Boa tarde, Pedro', 'sexta-feira, 16 de outubro', '<button class="bt p" type="button">+ Lembrete</button>') +
+        '<div class="portal-busca" role="search">⌕ Buscar cliente, processo, tela ou ação…<kbd>Ctrl K</kbd></div>' +
+        '<div class="cartao"><h3>Avisos</h3>' + pils() + '</div>' +
+        '<div class="sub-tit">Sistemas do ERP</div><div class="blocos">' + SISTEMAS.map(([i, t, s, c]) => '<button type="button" class="bloco"><span class="bi">' + i + '</span><b>' + t + '</b><small>' + s + '</small><span class="cont">' + c.map(([k, x]) => '<span class="tag ' + k + '">' + x + '</span>').join('') + '</span></button>').join('') + '</div>' +
+        '<div class="sub-tit">Sites que o escritório usa</div><div class="blocos">' + EXTERNOS.map(([i, t, s]) => '<button type="button" class="bloco ext"><span class="bi">' + i + '</span><b>' + t + ' ↗</b><small>' + s + '</small></button>').join('') + '</div>' },
+    B: { nota: 'B: estilo portal de notícias — uma manchete com o mais importante do dia e, ao lado, a lista do que aconteceu (publicações, pagamentos, guias, CRM), com data, como num mural. Bom para quem chega e quer saber "o que mudou desde ontem".',
+      html: () => cab('Boa tarde, Pedro', 'sexta-feira, 16 de outubro · 5 novidades desde ontem') +
+        '<div class="mural"><div style="display:flex;flex-direction:column;gap:14px;min-width:0">' +
+          '<article class="manchete"><span class="kick">Destaque do dia</span><h3>Audiência às 11h30 e 1 tarefa atrasada no Grupo Alfa</h3><p>Processo 5000001-11.2024.8.13.0024 (TJMG, virtual). A defesa deveria ter sido protocolada em 14/10.</p><button class="bt" type="button">Abrir o processo</button></article>' +
+          '<div class="cartao"><h3>Notícias do escritório<small>últimos 3 dias</small></h3><div class="noticias">' + NOTICIAS.map(([d, m, c, cat, t, p]) =>
+            '<article class="noticia"><div class="data"><b class="num">' + d + '</b><small>' + m + '</small></div><div><span class="tag ' + c + '">' + cat + '</span><h4>' + t + '</h4><p>' + p + '</p></div></article>').join('') + '</div></div></div>' +
+        '<div style="display:flex;flex-direction:column;gap:14px;min-width:0"><div class="cartao"><h3>Avisos</h3>' + pils() + '</div><div class="cartao"><h3>Para hoje<small>só eu</small></h3>' + listaTarefas() + '</div>' +
+          '<div class="cartao"><h3>Agenda</h3><div class="lista">' + AGENDA.map(([h, t, s]) => '<div class="l"><b class="num" style="width:44px">' + h + '</b><div class="tx">' + t + '<small>' + s + '</small></div></div>').join('') + '</div></div></div></div>' },
+    C: { nota: 'C: cockpit — uma faixa de números com mini-gráfico dos últimos 6 meses (clicar abre o detalhe) e, embaixo, a agenda do dia por hora ao lado das tarefas. Bom para quem decide pelo número.',
+      html: () => cab('Boa tarde, Pedro', 'sexta-feira, 16 de outubro', '<button class="bt" type="button">Só eu</button><button class="bt p" type="button">+ Lembrete</button>') +
+        '<div class="kpis">' + [['r', 'Honorários em atraso', 'R$ 44.675', [30, 34, 31, 38, 41, 44.6], 'var(--red)'], ['g', 'Recebido no mês', 'R$ 24.075', [18, 21, 19, 26, 22, 24], 'var(--green)'],
+          ['', 'Passivo dos clientes', 'R$ 1,32 mi', [1.6, 1.55, 1.5, 1.42, 1.38, 1.32], 'var(--blue)'], ['a', 'Parcelas em atraso', '6', [2, 3, 3, 5, 4, 6], 'var(--amber)'], ['', 'Tarefas abertas', '12', [15, 14, 16, 13, 12, 12], 'var(--blue)']]
+          .map(([c, r, v, p, cor]) => '<button type="button" class="kpi ' + c + '" style="text-align:left"><small>' + r + '</small><b class="num">' + v + '</b>' + spark(p, cor) + '</button>').join('') + '</div>' +
+        '<div class="cartao"><h3>Avisos</h3>' + pils() + '</div>' +
+        '<div class="cockpit"><div class="cartao"><h3>Hoje, por hora<small>agora: 14:10</small></h3><div class="horas">' +
+          ['08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00'].map((h) => { const e = AGENDA.find((x) => x[0].slice(0, 2) === h.slice(0, 2));
+            return '<div class="hora' + (h === '14:00' ? ' agora' : '') + '"><span class="num">' + h + '</span><div>' + (e ? '<div class="evento ' + e[3] + '">' + e[0] + ' · ' + e[1] + '<small>' + e[2] + '</small></div>' : '') + '</div></div>'; }).join('') + '</div></div>' +
+        '<div class="cartao"><h3>Tarefas<small>atrasadas e de hoje</small></h3>' + listaTarefas() + '</div></div>' },
+    D: { nota: 'D: foco — uma coluna só, sem números do escritório: o próximo compromisso em destaque, as suas tarefas na ordem em que devem ser feitas e só 3 números. Bom para a equipe; os sócios veem o resto no Painel.',
+      html: () => '<div class="foco"><div class="saud">Boa tarde, Pedro.<small>Sexta, 16/10 · 3 coisas para hoje e 1 atrasada</small></div>' +
+        '<div class="proximo"><span class="h num">11:30</span><div style="flex:1;min-width:200px"><b>Audiência — 5000001-11.2024.8.13.0024</b><div style="color:var(--text3);font-size:12.5px">TJMG · virtual · em 2 h 20 min</div></div><button class="bt p" type="button">Abrir</button></div>' +
+        '<div class="cartao"><h3>Faça nesta ordem</h3>' + listaTarefas() + '</div>' +
+        '<div class="tres"><div><b class="num">2</b><small>publicações novas</small></div><div><b class="num">1</b><small>guia a emitir</small></div><div><b class="num">3</b><small>lembretes da semana</small></div></div></div>' },
+    E: { nota: 'E: semana — segunda a sexta lado a lado, com tarefas, audiências, reuniões e vencimentos de cada dia. Os avisos ficam no alto. Bom para planejar a semana na segunda de manhã.',
+      html: () => cab('Boa tarde, Pedro', 'semana de 12 a 16 de outubro') + '<div class="cartao"><h3>Avisos</h3>' + pils() + '</div>' +
+        '<div class="semana">' + [['Seg 12', [['g', 'Recebido Alfa', 'R$ 4.012,50']]], ['Ter 13', [['b', 'Reunião Gama', '10:00 · proposta'], ['', 'Rotina: conferir passivo', 'Pedro']]],
+          ['Qua 14', [['r', 'Protocolar defesa', 'Grupo Alfa · atrasada']]], ['Qui 15', [['a', 'Guias de outubro', '8 enviadas'], ['', 'Revisar contrato', 'Emanuelle']]],
+          ['Sex 16', [['b', '09:00 Reunião Alfa', 'diagnóstico'], ['r', '11:30 Audiência', 'TJMG · virtual'], ['a', 'Conferir processo', 'hoje'], ['a', 'Parcela 3/60 vence', 'Beta · parcelamento']], true]]
+          .map(([d, l, h]) => '<div class="dia' + (h ? ' hoje' : '') + '"><b>' + d + (h ? ' · hoje' : '') + '</b>' + l.map(([c, t, s]) => '<div class="c ' + c + '">' + t + '<small>' + s + '</small></div>').join('') + '</div>').join('') + '</div>' +
+        '<div class="sub-tit">Próxima semana</div><ul class="prosc"><li><b>3 parcelas vencem</b>Beta e Alfa · R$ 2.480,00</li><li><b>1 audiência</b>qua 21/10, 14:00</li><li><b>Resumo do mês</b><span class="mais">recebido +12%</span> · <span class="menos">atraso +8%</span></li></ul>' }
+  };
+  const conteudo = document.getElementById('conteudo'), nota = document.getElementById('nota'), esc = document.getElementById('escolha');
+  function mostrar(k) {
+    conteudo.innerHTML = ALT[k].html(); nota.textContent = ALT[k].nota;
+    esc.querySelectorAll('[data-alt]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.alt === k)));
+    try { localStorage.setItem('inicio_alt', k); } catch (e) { /* sem memória: tudo bem */ }
+  }
+  esc.addEventListener('click', (ev) => { const b = ev.target.closest('[data-alt]'); if (b) mostrar(b.dataset.alt); });
+  let ini = 'A'; try { const s = localStorage.getItem('inicio_alt'); if (s && ALT[s]) ini = s; } catch (e) { /* nada */ }
+  if (/^#[A-E]$/.test(location.hash)) ini = location.hash.slice(1);
+  mostrar(ini);
+})();
+</script>

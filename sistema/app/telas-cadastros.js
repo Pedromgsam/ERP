@@ -22,13 +22,15 @@ TELAS.clientes = async function () {
   const C = E.cli;
   $('conteudo').innerHTML =
     '<div class="titulo-pag b-cab"><div class="b-cab-ic">' + iconeB('clientes') + '</div><div class="b-cab-tx"><h1>Clientes</h1><p id="cli-conta"></p></div>' +
-    '<div class="acoes"><button class="btn btn-o" id="cli-email-lote" title="Marcar vários clientes de uma vez: recebem ou não os e-mails do escritório">✉ Recebe e-mails…</button><button class="btn btn-p" data-novo="cliente">+ Novo cliente</button></div></div>' +
+    '<div class="acoes"><button class="btn btn-o b-pm-fora" id="cli-email-lote" title="Marcar vários clientes de uma vez: recebem ou não os e-mails do escritório">✉ Recebe e-mails…</button><button class="btn btn-p" data-novo="cliente">+ Novo cliente</button></div></div>' +
     '<div class="filtros">' +
     '<div class="segmento" id="cli-visao" title="Como mostrar a lista">' + [['grupo', 'Por grupo'], ['lista', 'Lista']].map(([v, r]) => '<button data-v="' + v + '">' + r + '</button>').join('') + '</div>' +
     '<div class="segmento" id="cli-tipo">' + [['ativos', 'Ativos'], ['Consultoria', 'Consultoria'], ['Demanda', 'Serviço pontual'], ['Inativo', 'Inativos'], ['todos', 'Todos']]
       .map(([v, r]) => '<button data-v="' + v + '">' + r + '</button>').join('') + '</div>' +
     // Backup 40: área em botões, como Ativos/Consultoria
-    (minhasAreas() === 'ambos' ? '<div class="segmento" id="cli-area" aria-label="Área">' + [['', 'Todas as áreas'], ['juridico', 'Jurídico'], ['contabil', 'Contabilidade']].map(([v, r]) => '<button data-v="' + v + '">' + r + '</button>').join('') + '</div>' : '') +
+    // Backup 93 (visual premium): área em lista suspensa; o "Recebe e-mails" sai da lista (fica em Administração → E-mail → Quem recebe)
+    (minhasAreas() === 'ambos' ? '<span class="b-pm-nao"><div class="segmento" id="cli-area" aria-label="Área">' + [['', 'Todas as áreas'], ['juridico', 'Jurídico'], ['contabil', 'Contabilidade']].map(([v, r]) => '<button data-v="' + v + '">' + r + '</button>').join('') + '</div></span>' +
+      '<select id="cli-area-sel" class="b-pm-so b-sel-sus" aria-label="Área">' + [['', 'Todas as áreas'], ['juridico', 'Jurídico'], ['contabil', 'Contabilidade']].map(([v, r]) => '<option value="' + v + '"' + ((C.area || '') === v ? ' selected' : '') + '>' + r + '</option>').join('') + '</select>' : '') +
     '<select class="busca sel" id="cli-grupo" autocomplete="off"><option value="">Todos os grupos</option>' +
     E.grupos.map((g) => '<option value="' + g.id + '">' + esc(g.nome) + '</option>').join('') + '</select>' +
     '<input class="busca" id="cli-busca" placeholder="Buscar nome, grupo, responsável ou CPF/CNPJ" autocomplete="off">' +
@@ -37,6 +39,7 @@ TELAS.clientes = async function () {
   $('cli-visao').onclick = (ev) => { const b = ev.target.closest('button'); if (b) { C.visao = b.dataset.v; pintarClientes(); } };
   $('cli-grupo').onchange = (ev) => { C.grupo = ev.target.value; pintarClientes(); };
   if ($('cli-area')) $('cli-area').onclick = (ev) => { const b = ev.target.closest('button'); if (b) { C.area = b.dataset.v; pintarClientes(); } };
+  if ($('cli-area-sel')) $('cli-area-sel').onchange = (ev) => { C.area = ev.target.value; pintarClientes(); };
   let t;
   $('cli-busca').oninput = (ev) => { clearTimeout(t); t = setTimeout(() => { C.busca = ev.target.value; pintarClientes(); }, 250); };
   ligarBotoesNovo($('conteudo'));
@@ -108,12 +111,12 @@ function pintarClientes() {
       '<td class="mono">' + esc(mascaraDoc(c.cpf_cnpj) || '—') + '</td>' +
       '<td>' + pillAreaCli(c.area) + '</td>' +
       '<td>' + pillPessoa(c.responsavel) + '</td><td>' + pillSimNao(c.procuracao) + '</td><td>' + pillSimNao(c.certificado) + '</td>' +
-      '<td>' + pillSitCad(c.situacao_cadastral) + '</td><td>' + pillRecebeEmail(c) + '</td></tr>');
+      '<td>' + pillSitCad(c.situacao_cadastral) + '</td><td class="b-pm-fora">' + pillRecebeEmail(c) + '</td></tr>');
   // Backup 52 (O1): primeiro as linhas que cabem na tela; o resto entra logo depois (a tela aparece na hora, mesmo com 500 clientes)
   const PRIMEIRAS = 60, vez = (pintarClientes._vez = (pintarClientes._vez || 0) + 1);
   $('cli-corpo').innerHTML = '<div class="card">' + (lista.length ?
     '<div class="tabela-wrap"><table class="' + (porGrupo ? '' : 'ordenavel ') + 'cli-tabela"><thead><tr><th>Grupo</th><th>Nome</th><th>CPF/CNPJ</th><th>Área</th><th>Responsável</th>' +
-    '<th>Procuração</th><th>Certificado</th><th>Situação</th><th title="Recebe os e-mails do escritório">E-mails</th></tr></thead><tbody id="cli-tbody">' +
+    '<th>Procuração</th><th>Certificado</th><th>Situação</th><th class="b-pm-fora" title="Recebe os e-mails do escritório">E-mails</th></tr></thead><tbody id="cli-tbody">' +
     linhas.slice(0, PRIMEIRAS).join('') + '</tbody></table></div>'
     : (E.clientes.length ? vazio('Nenhum cliente neste recorte — mude o filtro ou a busca.') : vazio('Nenhum cliente ainda. Cadastre o primeiro ou importe a Base de Dados em Administração.', '+ Novo cliente', '[data-novo=cliente]'))) + '</div>';
   if (linhas.length > PRIMEIRAS) requestAnimationFrame(() => setTimeout(() => { const tb = $('cli-tbody');

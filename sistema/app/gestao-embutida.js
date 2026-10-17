@@ -694,6 +694,17 @@ function ligarMinB(chave, ids) {
 }
 // Backup 91 (visual premium): lista suspensa para filtro "menos importante" — só aparece no premium (base.css esconde .b-pm-so; o premium esconde .b-pm-nao)
 const ehPremium = () => document.documentElement.dataset.visual === 'premium';
+// Backup 93: selecionar um texto para copiar NÃO abre o detalhe da linha/cartão — só um clique de verdade abre (vale para o sistema todo)
+if (!window._b93Selecao) {
+  window._b93Selecao = true;
+  window.addEventListener('click', (ev) => {
+    const sel = window.getSelection ? String(window.getSelection()) : '';
+    if (!sel.trim() || !ev.target || !ev.target.closest) return;
+    if (ev.target.closest('button, a, input, select, textarea, label, [contenteditable]')) return;
+    if (!ev.target.closest('tr, .b-cg, .clicavel, .b-cl, [data-b-k], .b-lista, .b-cal-it, .ini-pil, .cg')) return;
+    ev.stopImmediatePropagation(); ev.preventDefault();
+  }, true);
+}
 function selSusB(id, rot, todos, opcoes, v) {
   return '<select id="' + id + '" class="b-pm-so b-sel-sus" aria-label="' + esc(rot) + '"><option value="">' + esc(todos) + '</option>' +
     opcoes.map((o) => '<option' + (o === v ? ' selected' : '') + '>' + esc(o) + '</option>').join('') + '</select>';
@@ -1657,10 +1668,12 @@ async function cardResumoEscritorio() {
     (n !== '' && n != null ? '<b>' + n + '</b>' : '') + '<span class="ini-pil-tx">' + esc(txt) + '</span></button>';
   const finP = [], esc2 = [];
   const fimMes = (() => { const d = new Date(h + 'T12:00:00'); return new Date(d.getFullYear(), d.getMonth() + 1, 0).toISOString().slice(0, 10); })();
-  const [guias, emailsErro, certs] = await Promise.all([
+  const [guias, emailsErro, certs, confAtr] = await Promise.all([
     jur ? conta(sb.from('parcelas').select('id, parcelamentos!inner(emitimos_guia)', { count: 'exact', head: true }).eq('pago', false).is('emitida_em', null).lte('vencimento', fimMes).eq('parcelamentos.emitimos_guia', true)) : 0,
     pode('admin') || pode('clientes') ? conta(cnt('email_fila').eq('status', 'erro').gte('criado_em', somarDias(h, -30))) : 0,
-    pode('clientes') ? conta(sb.from('cliente_certificado').select('cliente_id', { count: 'exact', head: true }).not('validade', 'is', null).lte('validade', somarDias(h, 30))) : 0]);
+    pode('clientes') ? conta(sb.from('cliente_certificado').select('cliente_id', { count: 'exact', head: true }).not('validade', 'is', null).lte('validade', somarDias(h, 30))) : 0,
+    // Backup 93 (A2): grupos com o passivo há mais de 30 dias sem conferência
+    pode('clientes', 'editar') ? q(sb.rpc('conferencias_passivo_atrasadas', { p_dias: 30 })).then((l) => (l || []).length).catch(() => 0) : 0]);
   if (lancs && (pode('financeiro_juridico') || pode('financeiro_contab'))) {
     const atr = (l) => l.filter((x) => x.vencimento <= h), cinco = (l) => l.filter((x) => x.vencimento <= lim5);
     const sm = (l) => brl(soma(l, (x) => Math.abs(vl(x))));
@@ -1677,6 +1690,7 @@ async function cardResumoEscritorio() {
   if (pubs) esc2.push(pil('publicacoes', pubs, pl(pubs, 'publicação nova', 'publicações novas'), 'info'));
   if (tAtr) esc2.push(pil('tarefas', tAtr, pl(tAtr, 'tarefa atrasada', 'tarefas atrasadas'), 'critico'));
   if (emailsErro) esc2.push(pil('emails', emailsErro, pl(emailsErro, 'e-mail com erro', 'e-mails com erro'), 'critico'));
+  if (confAtr) esc2.push(pil('conferencia', confAtr, pl(confAtr, 'grupo sem conferência do passivo há 30+ dias', 'grupos sem conferência do passivo há 30+ dias'), 'atencao'));
   if (certs) esc2.push(pil('certificados', certs, pl(certs, 'certificado vencendo', 'certificados vencendo'), 'atencao'));
   // Backup 89 (I1): UMA faixa "Avisos" — Financeiro e Escritório juntos, os críticos primeiro, no máximo 5 à vista (o resto em "+N")
   const todosP = finP.concat(esc2), peso = (h2) => (/b-av-critico/.test(h2) ? 0 : /b-av-atencao/.test(h2) ? 1 : 2);
@@ -1700,6 +1714,7 @@ function abrirDaFaixa(k) {
   if (k === 'publicacoes') { E.pub = Object.assign(E.pub || { tribunal: '', dias: '30', busca: '' }, { status: 'nova', adv: primeiroNomeUsuario() }); return ir('publicacoes'); }
   if (k === 'guias') { E.rt = Object.assign(E.rt || {}, { aba: 'guias' }); return ir('rotina'); }
   if (k === 'emails') { E.adm = Object.assign(E.adm || { tabela: '' }, { aba: 'email', emailAba: 'saida', saidaF: 'erro' }); return ir('admin'); }
+  if (k === 'conferencia') { E.rt = Object.assign(E.rt || {}, { aba: 'passivo' }); return ir('rotina'); }
   if (k === 'certificados') { E.rt = Object.assign(E.rt || {}, { aba: 'passivo' }); return ir('rotina'); }
   return ir(k);
 }
@@ -1860,7 +1875,7 @@ async function telaHonorarios(empresa, forcar) {
       cabecalhoTela({ icone: 'financeiro', titulo: info.titulo, frase: info.frase,
         extra: '<div class="b-seg" role="tablist" id="fin-abas">' + info.abas.map((a) => '<button type="button" role="tab" class="b-seg-bt" data-aba="' + a[0] + '">' + a[1] + '</button>').join('') + '</div>' +
           '<button type="button" class="btn btn-o b-bt" id="fin-recibo" title="Recibo de um honorário recebido">' + iconeB('recibo') + 'Recibo</button>' +
-          (pode(empresa === 'contabilidade' ? 'financeiro_contab' : 'financeiro_juridico', 'editar') ? '<button type="button" class="btn btn-p b-bt" id="fin-lancar">' + iconeB('mais') + 'Lançar</button>' : '') }) +
+          (pode(empresa === 'contabilidade' ? 'financeiro_contab' : 'financeiro_juridico', 'editar') ? '<button type="button" class="btn btn-p b-bt" id="fin-lancar">' + iconeB('mais') + '<span class="b-pm-nao">Lançar</span><span class="b-pm-so">Receita / Despesa</span></button>' : '') }) +
       '<div id="fin-corpo"><div class="carregando">Carregando…</div></div></div>';
     // Backup 85 (FI3): como no ambiente — "Lançar" é um botão só; Receita ou Despesa se escolhe no próprio formulário
     { const bl = c.querySelector('#fin-lancar');
@@ -2037,9 +2052,11 @@ function analiseFin(empresa, corpo) {
   const topG = grupos.slice().sort((a, b) => (recGr[b] || 0) - (recGr[a] || 0) || a.localeCompare(b, 'pt-BR')).slice(0, 8);
   if (an.grupo && !topG.includes(an.grupo)) topG.push(an.grupo);
   const outrosG = grupos.filter((g) => !topG.includes(g));
-  const linhaF = (rot, html) => '<div class="b-fin-f"><span class="b-fin-rot">' + rot + '</span>' + html + '</div>';
+  const linhaF = (rot, html) => '<div class="b-fin-f b-fin-f-' + normalizar(rot).replace(/[^a-z]/g, '') + '"><span class="b-fin-rot">' + rot + '</span>' + html + '</div>';
   const fil = '<section class="b-fin-filtros b-filtro-linha b-fin-filtros-88" id="fa-filtros">' +
-    (pessoas.length > 1 ? linhaF('Quem', segFiltroB('', 'data-fa-quem', [['', 'Todos']].concat(pessoas.map((p) => [p, p])), an.quem[0] || '', 'Quem')) : '') +
+    // Backup 93 (visual premium): "Quem" também em lista suspensa; a ordem fica Período na 1ª linha e Quem · Tipo · Grupo na 2ª (CSS)
+    (pessoas.length > 1 ? linhaF('Quem', '<span class="b-pm-nao">' + segFiltroB('', 'data-fa-quem', [['', 'Todos']].concat(pessoas.map((p) => [p, p])), an.quem[0] || '', 'Quem') + '</span>' +
+      selSusB('fa-quem-sel', 'Quem', 'Todos', pessoas, an.quem[0] || '')) : '') +
     linhaF('Período', segFiltroB('', 'data-fa-per', PERIODOS_FIN, an.de || an.ate ? '' : an.preset, 'Período') +
       '<span class="b-fx"><span class="b-fin-rot">de</span>' + campoDataB('id="fa-de"', an.de, 'De') + '<span class="b-fin-rot">até</span>' + campoDataB('id="fa-ate"', an.ate, 'Até') + '<button type="button" class="btn btn-o btn-mini" id="fa-aplicar">Aplicar</button><small class="b-fx-aviso" id="fa-aviso"></small></span>') +
     // Backup 91 (visual premium): Tipo e Grupo são filtros "menos importantes" → no premium viram lista suspensa (.b-pm-so); no normal continuam os botões (.b-pm-nao)
@@ -2104,7 +2121,7 @@ function analiseFin(empresa, corpo) {
       if (!de || !ate) { fl.querySelector('#fa-aviso').textContent = 'Preencha as duas datas (dd/mm/aaaa).'; return; }
       an.de = de < ate ? de : ate; an.ate = de < ate ? ate : de; return analiseFin(empresa, corpo); }
   };
-  fl.onchange = (ev) => { if (ev.target.id === 'fa-tipo' || ev.target.id === 'fa-tipo-sel') { an.tipo = ev.target.value; analiseFin(empresa, corpo); } else if (ev.target.id === 'fa-grupo-sel') { an.grupo = ev.target.value; analiseFin(empresa, corpo); } else if (ev.target.id === 'fa-grupo') { an.grupo = ev.target.value; analiseFin(empresa, corpo); } };
+  fl.onchange = (ev) => { if (ev.target.id === 'fa-quem-sel') { an.quem = ev.target.value ? [ev.target.value] : []; analiseFin(empresa, corpo); } else if (ev.target.id === 'fa-tipo' || ev.target.id === 'fa-tipo-sel') { an.tipo = ev.target.value; analiseFin(empresa, corpo); } else if (ev.target.id === 'fa-grupo-sel') { an.grupo = ev.target.value; analiseFin(empresa, corpo); } else if (ev.target.id === 'fa-grupo') { an.grupo = ev.target.value; analiseFin(empresa, corpo); } };
   const fx = corpo.querySelector('#fa-fluxo');
   if (fx) fx.onclick = (ev) => { const b = ev.target.closest('[data-fm]'); if (!b) return; an.fluxoMes = somarMesB(an.fluxoMes || hojeISO().slice(0, 7), Number(b.dataset.fm)); analiseFin(empresa, corpo); };
   fl.onkeydown = (ev) => { if (ev.key === 'Enter' && (ev.target.id === 'fa-de' || ev.target.id === 'fa-ate')) fl.querySelector('#fa-aplicar').click(); };
@@ -2144,6 +2161,7 @@ function resultadoMeses(meses, receita, pagos, contab) {
 
 // ───────────────────────────── Caixa (Contabilidade) ─────────────────────────────
 // Livro-caixa: só o que já foi pago mexe no caixa (recebido − pago, pela data de pagamento); saldo acumulado desde o 1º mês.
+const ehDistLucro = (l) => /distribui[cç][aã]o de lucros/i.test(l.categoria || '');
 function mesesCaixa(L) {
   const mov = L.filter((l) => l._c === 'recebido' || l._c === 'pago');
   const ch = mov.map((l) => dataLanc(l).slice(0, 7)).filter(Boolean).sort();
@@ -2152,15 +2170,20 @@ function mesesCaixa(L) {
   let saldo = 0;
   return mesesEntre(ch[0], fim).map((k) => {
     const r = somaV(mov.filter((l) => l._c === 'recebido' && dataLanc(l).startsWith(k))), d = somaV(mov.filter((l) => l._c === 'pago' && dataLanc(l).startsWith(k)));
-    saldo += r - d; return { k, r, d, res: r - d, saldo, itens: mov.filter((l) => dataLanc(l).startsWith(k)).sort((a, b) => dataLanc(a).localeCompare(dataLanc(b))) };
+    // Backup 93: lucro apurado = receita − despesas da operação (sem a distribuição de lucros); a distribuição sai do lucro e o que sobra é o saldo do mês
+    const dist = somaV(mov.filter((l) => l._c === 'pago' && ehDistLucro(l) && dataLanc(l).startsWith(k))), dop = d - dist;
+    saldo += r - d; return { k, r, d, dop, dist, lucro: r - dop, res: r - d, saldo, itens: mov.filter((l) => dataLanc(l).startsWith(k)).sort((a, b) => dataLanc(a).localeCompare(dataLanc(b))) };
   });
 }
 function caixaFin(empresa, corpo) {
   const F = estadoFin(empresa), meses = mesesCaixa(F.dados || []);
   if (!meses.length) { corpo.innerHTML = vazioB({ icone: 'financeiro', titulo: 'Nada pago ainda', frase: 'O caixa usa só os lançamentos já recebidos ou pagos — assim que houver um, ele aparece aqui.' }); return; }
   const hk = hojeISO().slice(0, 7), atual = meses.find((m) => m.k === hk) || meses[meses.length - 1], saldo = meses[meses.length - 1].saldo;
-  const nums = numsFaixa([['Saldo em caixa', brl(saldo), 'acumulado desde o início', saldo < 0 ? 'b-verm' : ''], ['Receita do mês', brl(atual.r), rotMesB(atual.k), 'b-verde'],
-    ['Despesas do mês', brl(atual.d), rotMesB(atual.k)], ['Resultado do mês', brl(atual.res), atual.res >= 0 ? 'superávit' : 'déficit', atual.res < 0 ? 'b-verm' : 'b-verde']]);
+  // Backup 93: o caixa conta a história do lucro — quanto entrou, quanto custou a operação, o lucro apurado, quanto foi distribuído e o que ficou
+  const somaM = (f) => meses.reduce((a, m) => a + m[f], 0), lucroT = somaM('lucro'), distT = somaM('dist');
+  const nums = numsFaixa([['Receita', brl(somaM('r')), 'recebida desde o início', 'b-verde'], ['Despesas', brl(somaM('dop')), 'da operação (sem distribuição)'],
+    ['Lucro apurado', brl(lucroT), rotMesB(atual.k) + ': ' + brl(atual.lucro), lucroT < 0 ? 'b-verm' : 'b-verde'], ['Distribuição de lucros', brl(distT), distT && lucroT > 0 ? Math.round(distT / lucroT * 100) + '% do lucro apurado' : 'nada distribuído ainda'],
+    ['Saldo em caixa', brl(saldo), 'lucro apurado − distribuído', saldo < 0 ? 'b-verm' : '']]);
   const seg = '<div class="b-seg b-seg-mini" id="cx-vista"><button type="button" class="b-seg-bt" data-cx="consolidado" aria-selected="' + (F.caixa === 'consolidado') + '">Consolidado</button><button type="button" class="b-seg-bt" data-cx="detalhado" aria-selected="' + (F.caixa === 'detalhado') + '">Mês a mês</button></div>';
   let miolo;
   if (F.caixa === 'detalhado') {
@@ -2177,14 +2200,16 @@ function caixaFin(empresa, corpo) {
         (cats.length ? '<div class="b-cx-cats">' + cats.map(([k, v]) => '<span>' + esc(k) + ' <b>' + brl(v) + '</b></span>').join('') + '</div>' : '') + '</details>';
     }).join('');
   } else {
-    const ks = meses.map((m) => m.k);
-    const despCat = somaPor((F.dados || []).filter((l) => l._c === 'pago'), (l) => l.categoria);
-    miolo = cartaoFin('Saldo em caixa mês a mês', 'Acumulado — receita menos despesa, mês após mês.', '<div class="b-fin-graf">' + graficoColunasB(ks, [], { linha: { nome: 'Saldo', cor: 'var(--chart-1)', valores: meses.map((m) => m.saldo) }, titulo: 'Saldo mês a mês' }) + '</div>') +
-      cartaoFin('Receita × despesa mês a mês', 'Recebido contra pago — passe o mouse no mês para ver os dois juntos.', '<div class="b-fin-graf">' + graficoColunasB(ks, [{ nome: 'Receita', cor: 'var(--chart-2)', valores: meses.map((m) => m.r) }, { nome: 'Despesa', cor: 'var(--chart-5)', valores: meses.map((m) => m.d) }], { titulo: 'Receita e despesa' }) + '</div>') +
-      cartaoFin('Despesas por categoria', 'Acumulado de todo o período.', barrasFin(despCat)) +
-      cartaoFin('Resumo mensal', 'Receita, despesa, resultado e saldo final de cada mês.', '<div class="b-rola b-rola-solta" data-sem-pagina><table class="b-tab"><thead><tr><th>Mês</th><th class="b-dir">Receita</th><th class="b-dir">Despesa</th><th class="b-dir">Resultado</th><th class="b-dir">Saldo final</th></tr></thead><tbody>' +
-        meses.map((m) => '<tr' + (!m.r && !m.d ? ' class="b-apagada"' : '') + '><td>' + esc(rotMesB(m.k)) + '</td><td class="b-dir b-verde-v">' + (m.r ? brl(m.r) : '—') + '</td><td class="b-dir b-verm-v">' + (m.d ? brl(m.d) : '—') + '</td><td class="b-dir' + (m.res < 0 ? ' b-verm-v' : '') + '">' + brl(m.res) + '</td><td class="b-dir"><b>' + brl(m.saldo) + '</b></td></tr>').join('') +
-        '</tbody><tfoot><tr><td>Total</td><td class="b-dir">' + brl(meses.reduce((s, m) => s + m.r, 0)) + '</td><td class="b-dir">' + brl(meses.reduce((s, m) => s + m.d, 0)) + '</td><td class="b-dir">' + brl(meses.reduce((s, m) => s + m.res, 0)) + '</td><td class="b-dir">' + brl(saldo) + '</td></tr></tfoot></table></div>');
+    // Backup 93 (pedido do usuário): 1º o resumo mensal (receita → despesas → LUCRO APURADO → distribuição → saldo), depois receita × despesa
+    // em verde/vermelho como na Análise. Saíram o gráfico "Saldo em caixa mês a mês" e a tabela "Despesas por categoria".
+    const ks = meses.map((m) => m.k), tot = (f) => meses.reduce((s, m) => s + m[f], 0);
+    miolo = cartaoFin('Resumo mensal', 'Lucro apurado = receita − despesas da operação. A distribuição de lucros sai do lucro; o que sobra fica no caixa.',
+      '<div class="b-rola b-rola-solta" data-sem-pagina><table class="b-tab b-tab-cx"><thead><tr><th>Mês</th><th class="b-dir">Receita</th><th class="b-dir">Despesas</th><th class="b-dir">Lucro apurado</th><th class="b-dir">Distribuição de lucros</th><th class="b-dir">Ficou no caixa</th><th class="b-dir">Saldo acumulado</th></tr></thead><tbody>' +
+        meses.slice().reverse().map((m) => '<tr' + (!m.r && !m.d ? ' class="b-apagada"' : '') + '><td>' + esc(rotMesB(m.k)) + '</td><td class="b-dir b-verde-v">' + (m.r ? brl(m.r) : '—') + '</td><td class="b-dir b-verm-v">' + (m.dop ? brl(m.dop) : '—') + '</td>' +
+          '<td class="b-dir"><b class="' + (m.lucro < 0 ? 'b-verm' : '') + '">' + brl(m.lucro) + '</b></td><td class="b-dir">' + (m.dist ? '− ' + brl(m.dist) : '—') + '</td><td class="b-dir' + (m.res < 0 ? ' b-verm-v' : '') + '">' + brl(m.res) + '</td><td class="b-dir"><b>' + brl(m.saldo) + '</b></td></tr>').join('') +
+        '</tbody><tfoot><tr><td>Total</td><td class="b-dir">' + brl(tot('r')) + '</td><td class="b-dir">' + brl(tot('dop')) + '</td><td class="b-dir">' + brl(tot('lucro')) + '</td><td class="b-dir">' + (tot('dist') ? '− ' + brl(tot('dist')) : '—') + '</td><td class="b-dir">' + brl(tot('res')) + '</td><td class="b-dir">' + brl(saldo) + '</td></tr></tfoot></table></div>') +
+      cartaoFin('Receita × despesa mês a mês', 'Recebido contra pago (despesas da operação) — passe o mouse no mês para ver os dois juntos.', '<div class="b-fin-graf">' + graficoColunasB(ks, [{ nome: 'Receita', cor: corBarraPessoa('Pedro'), valores: meses.map((m) => m.r) },
+        { nome: 'Despesas', cor: corBarraPessoa('Emanuelle'), valores: meses.map((m) => m.dop) }], { titulo: 'Receita e despesa' }) + '</div>');
   }
   corpo.innerHTML = seg + nums + miolo;
   corpo.querySelector('#cx-vista').onclick = (ev) => { const b = ev.target.closest('[data-cx]'); if (b) { F.caixa = b.dataset.cx; caixaFin(empresa, corpo); } };
@@ -2701,13 +2726,15 @@ TELAS.clientes = async function () {
   const C = E.cli;
   $('conteudo').innerHTML =
     '<div class="titulo-pag b-cab"><div class="b-cab-ic">' + iconeB('clientes') + '</div><div class="b-cab-tx"><h1>Clientes</h1><p id="cli-conta"></p></div>' +
-    '<div class="acoes"><button class="btn btn-o" id="cli-email-lote" title="Marcar vários clientes de uma vez: recebem ou não os e-mails do escritório">✉ Recebe e-mails…</button><button class="btn btn-p" data-novo="cliente">+ Novo cliente</button></div></div>' +
+    '<div class="acoes"><button class="btn btn-o b-pm-fora" id="cli-email-lote" title="Marcar vários clientes de uma vez: recebem ou não os e-mails do escritório">✉ Recebe e-mails…</button><button class="btn btn-p" data-novo="cliente">+ Novo cliente</button></div></div>' +
     '<div class="filtros">' +
     '<div class="segmento" id="cli-visao" title="Como mostrar a lista">' + [['grupo', 'Por grupo'], ['lista', 'Lista']].map(([v, r]) => '<button data-v="' + v + '">' + r + '</button>').join('') + '</div>' +
     '<div class="segmento" id="cli-tipo">' + [['ativos', 'Ativos'], ['Consultoria', 'Consultoria'], ['Demanda', 'Serviço pontual'], ['Inativo', 'Inativos'], ['todos', 'Todos']]
       .map(([v, r]) => '<button data-v="' + v + '">' + r + '</button>').join('') + '</div>' +
     // Backup 40: área em botões, como Ativos/Consultoria
-    (minhasAreas() === 'ambos' ? '<div class="segmento" id="cli-area" aria-label="Área">' + [['', 'Todas as áreas'], ['juridico', 'Jurídico'], ['contabil', 'Contabilidade']].map(([v, r]) => '<button data-v="' + v + '">' + r + '</button>').join('') + '</div>' : '') +
+    // Backup 93 (visual premium): área em lista suspensa; o "Recebe e-mails" sai da lista (fica em Administração → E-mail → Quem recebe)
+    (minhasAreas() === 'ambos' ? '<span class="b-pm-nao"><div class="segmento" id="cli-area" aria-label="Área">' + [['', 'Todas as áreas'], ['juridico', 'Jurídico'], ['contabil', 'Contabilidade']].map(([v, r]) => '<button data-v="' + v + '">' + r + '</button>').join('') + '</div></span>' +
+      '<select id="cli-area-sel" class="b-pm-so b-sel-sus" aria-label="Área">' + [['', 'Todas as áreas'], ['juridico', 'Jurídico'], ['contabil', 'Contabilidade']].map(([v, r]) => '<option value="' + v + '"' + ((C.area || '') === v ? ' selected' : '') + '>' + r + '</option>').join('') + '</select>' : '') +
     '<select class="busca sel" id="cli-grupo" autocomplete="off"><option value="">Todos os grupos</option>' +
     E.grupos.map((g) => '<option value="' + g.id + '">' + esc(g.nome) + '</option>').join('') + '</select>' +
     '<input class="busca" id="cli-busca" placeholder="Buscar nome, grupo, responsável ou CPF/CNPJ" autocomplete="off">' +
@@ -2716,6 +2743,7 @@ TELAS.clientes = async function () {
   $('cli-visao').onclick = (ev) => { const b = ev.target.closest('button'); if (b) { C.visao = b.dataset.v; pintarClientes(); } };
   $('cli-grupo').onchange = (ev) => { C.grupo = ev.target.value; pintarClientes(); };
   if ($('cli-area')) $('cli-area').onclick = (ev) => { const b = ev.target.closest('button'); if (b) { C.area = b.dataset.v; pintarClientes(); } };
+  if ($('cli-area-sel')) $('cli-area-sel').onchange = (ev) => { C.area = ev.target.value; pintarClientes(); };
   let t;
   $('cli-busca').oninput = (ev) => { clearTimeout(t); t = setTimeout(() => { C.busca = ev.target.value; pintarClientes(); }, 250); };
   ligarBotoesNovo($('conteudo'));
@@ -2787,12 +2815,12 @@ function pintarClientes() {
       '<td class="mono">' + esc(mascaraDoc(c.cpf_cnpj) || '—') + '</td>' +
       '<td>' + pillAreaCli(c.area) + '</td>' +
       '<td>' + pillPessoa(c.responsavel) + '</td><td>' + pillSimNao(c.procuracao) + '</td><td>' + pillSimNao(c.certificado) + '</td>' +
-      '<td>' + pillSitCad(c.situacao_cadastral) + '</td><td>' + pillRecebeEmail(c) + '</td></tr>');
+      '<td>' + pillSitCad(c.situacao_cadastral) + '</td><td class="b-pm-fora">' + pillRecebeEmail(c) + '</td></tr>');
   // Backup 52 (O1): primeiro as linhas que cabem na tela; o resto entra logo depois (a tela aparece na hora, mesmo com 500 clientes)
   const PRIMEIRAS = 60, vez = (pintarClientes._vez = (pintarClientes._vez || 0) + 1);
   $('cli-corpo').innerHTML = '<div class="card">' + (lista.length ?
     '<div class="tabela-wrap"><table class="' + (porGrupo ? '' : 'ordenavel ') + 'cli-tabela"><thead><tr><th>Grupo</th><th>Nome</th><th>CPF/CNPJ</th><th>Área</th><th>Responsável</th>' +
-    '<th>Procuração</th><th>Certificado</th><th>Situação</th><th title="Recebe os e-mails do escritório">E-mails</th></tr></thead><tbody id="cli-tbody">' +
+    '<th>Procuração</th><th>Certificado</th><th>Situação</th><th class="b-pm-fora" title="Recebe os e-mails do escritório">E-mails</th></tr></thead><tbody id="cli-tbody">' +
     linhas.slice(0, PRIMEIRAS).join('') + '</tbody></table></div>'
     : (E.clientes.length ? vazio('Nenhum cliente neste recorte — mude o filtro ou a busca.') : vazio('Nenhum cliente ainda. Cadastre o primeiro ou importe a Base de Dados em Administração.', '+ Novo cliente', '[data-novo=cliente]'))) + '</div>';
   if (linhas.length > PRIMEIRAS) requestAnimationFrame(() => setTimeout(() => { const tb = $('cli-tbody');
@@ -4226,7 +4254,26 @@ const EMAILS_EQUIPE = [['fluxo', 'Fluxo / sequência de tarefas', 'Quando algué
   ['mencao', 'Menção (@Nome)', 'Quando alguém é mencionado num comentário'], ['atraso', 'Tarefa atrasada', 'Aviso ao administrador'],
   ['agenda', 'Lembrete de compromisso', 'Antes de reunião, audiência ou compromisso'], ['publicacao', 'Publicações do dia ao advogado', 'Um e-mail por advogado com as intimações novas da busca das 6h (e das buscas feitas depois, no mesmo dia)'],
   ['financeiro', 'Contrato assinado', 'Financeiro lançado'], ['cnpj', 'Cartão CNPJ', 'Mudança no cadastro da Receita'], ['acesso', 'Acesso de aparelho novo', 'Segurança'],
-  ['resumo', 'Resumo do dia', 'Dias úteis, de manhã']];
+  ['resumo', 'Resumo do dia', 'Dias úteis, de manhã'],
+  // Backup 93 (A1/A2)
+  ['resumo_semanal', 'Resumo da semana', 'Segunda, 7h: honorários em atraso, parcelas e acordos da semana, tarefas e audiências'],
+  ['conferencia', 'Conferência do passivo atrasada', 'Grupo há mais de 30 dias sem conferência do passivo: e-mail ao responsável (no máximo 1 por mês)']];
+// Backup 93 (A1): quem recebe o resumo semanal (ninguém marcado = os administradores/sócios)
+async function janelaResumoSemanalQuem() {
+  const [pessoas, quem] = await Promise.all([q(sb.rpc('equipe_hierarquia')).catch(() => q(sb.rpc('equipe_nomes')).catch(() => [])), q(sb.rpc('resumo_semanal_quem')).catch(() => [])]);
+  const lista = (pessoas || []).filter((p) => p.id && (!p.papel || p.papel !== 'inativo')), marc = new Set((quem || []).map(String));
+  const j = abrirJanela({ kick: 'E-mail automático', titulo: 'Quem recebe o resumo da semana', sub: 'Toda segunda, às 7h. Sem ninguém marcado, vai para os administradores.',
+    corpo: '<div class="b-lista em-sem-lista">' + (lista.length ? lista.map((p) => '<label class="b-li-chave"><input type="checkbox" value="' + esc(p.id) + '"' + (marc.has(String(p.id)) ? ' checked' : '') + '>' +
+      '<span><b>' + esc(p.nome || p.email || '—') + '</b><small>' + esc([p.papel === 'admin' ? 'Administrador' : 'Equipe', p.email].filter(Boolean).join(' · ')) + '</small></span></label>').join('') : '<p class="dica">Nenhuma pessoa da equipe cadastrada.</p>') + '</div>',
+    rodape: '<button type="button" class="btn btn-o" data-fechar-j>Cancelar</button><button type="button" class="btn btn-p" id="em-sem-salvar">Salvar</button>' });
+  j.querySelector('[data-fechar-j]').onclick = () => fecharJanela(j);
+  j.querySelector('#em-sem-salvar').onclick = (ev) => comBotao(ev.currentTarget, async () => {
+    const ids = [...j.querySelectorAll('input[type=checkbox]:checked')].map((i) => i.value), antes = [...marc];
+    await q(sb.rpc('salvar_resumo_semanal_quem', { p_ids: ids })); fecharJanela(j);
+    feitoDesfazer(ids.length ? 'Resumo da semana: ' + plural(ids.length, 'pessoa marcada', 'pessoas marcadas') + '.' : 'Resumo da semana: vai para os administradores.',
+      () => q(sb.rpc('salvar_resumo_semanal_quem', { p_ids: antes })));
+  });
+}
 async function admEmailAuto(corpo) {
   const [eq, regras] = await Promise.all([q(sb.rpc('emails_equipe')).catch(() => ({})),
     q(sb.from('regras_tarefas').select('chave, nome, descricao, ligada, oculta, dias').eq('grupo', 'cliente_email').order('nome')).catch(() => [])]);
@@ -4247,10 +4294,12 @@ async function admEmailAuto(corpo) {
       (vis.length > tres.length ? '<div class="b-bloco"><h3>Outros automáticos do ERP</h3><div class="em-auto-g">' + vis.filter((r) => !TRES_AUTO.some((t) => t[0] === r.chave)).map((r) => chave('data-eq-regra', r.chave, r.ligada, r.nome, r.descricao)).join('') + '</div></div>' : '') +
     '</div></section>' +
     '<section class="card"><div class="card-hd">Para a equipe<span class="sub">ligado = também chega por e-mail</span></div><div class="card-bd">' +
-      EMAILS_EQUIPE.map(([k, r, d]) => '<div class="b-li-chave">' + chaveB('data-eq', k, eq[k] !== false, adm) + '<span><b>' + esc(r) + '</b><small>' + esc(d) + '</small></span></div>').join('') + '</div></section></div>' +
+      EMAILS_EQUIPE.map(([k, r, d]) => '<div class="b-li-chave">' + chaveB('data-eq', k, eq[k] !== false, adm) + '<span><b>' + esc(r) + '</b><small>' + esc(d) + '</small></span>' +
+        (k === 'resumo_semanal' ? '<button type="button" class="btn btn-o btn-mini" id="em-sem-quem"' + (adm ? '' : ' disabled') + '>Quem recebe</button>' : '') + '</div>').join('') + '</div></section></div>' +
     '<p class="dica">Cada pessoa ainda pode desligar os seus em ⋯ → Meus avisos por e-mail. Aqui vale para o escritório todo' + (adm ? '' : ' (só o administrador muda)') + '.</p>';
   corpo.onclick = async (ev) => {
     if (!adm) return;
+    if (ev.target.closest('#em-sem-quem')) return janelaResumoSemanalQuem();
     const a = ev.target.closest('[data-auto]'); if (a) { await trocarRegraEmail(a.dataset.auto, a.getAttribute('aria-checked') !== 'true'); return admEmailAuto(corpo); }
     const e = ev.target.closest('button[data-eq]'); if (e) { const lig = e.getAttribute('aria-checked') !== 'true';
       try { await q(sb.rpc('salvar_email_equipe', { p_tipo: e.dataset.eq, p_ligado: lig }));
@@ -5100,7 +5149,10 @@ TELAS.tarefas = async function () {
     // Backup 80: Lista · Semana · Calendário · Fluxos no alto, ao lado de "+ Nova tarefa" (como no ambiente de teste)
     '<div class="b-seg tf-vista b-pm-fora" id="tf-vista" role="tablist">' + [['lista', 'Lista'], ['calendario', 'Calendário']]
       .map(([v, r]) => '<button type="button" role="tab" class="b-seg-bt" data-v="' + v + '">' + r + '</button>').join('') + '</div>' +
-    '<span class="tf-cfg-wrap"><button class="btn btn-o tf-bt-ic" id="tf-config" title="Configurar: feriados e Google Agenda" aria-expanded="false">⚙</button>' +
+    // Backup 93 (U3, visual premium): no lugar da engrenagem, dois botões que dizem o que fazem
+    '<button type="button" class="btn btn-o b-bt b-pm-so" id="tf-feriados2">' + iconeB('calendario') + 'Feriados</button>' +
+    '<button type="button" class="btn btn-o b-bt b-pm-so" id="tf-agenda2" title="Prazos e audiências no seu Google Agenda">' + iconeB('calendario') + 'Agenda</button>' +
+    '<span class="tf-cfg-wrap b-pm-fora"><button class="btn btn-o tf-bt-ic" id="tf-config" title="Configurar: feriados e Google Agenda" aria-expanded="false">⚙</button>' +
       '<span class="tf-cfg-menu" id="tf-cfg-menu" hidden>' +   // Backup 88: sem "Modelos de fluxo" 
       '<button class="btn btn-o" id="tf-feriados">Feriados</button><button class="btn btn-o" id="tf-agenda" title="Prazos fatais e audiências no seu Google Agenda">📅 Google Agenda</button></span></span>' +
     // Backup 54: "Delegar" saiu daqui — virou o botão "Fluxo" (as sequências com validação, como "Lead completo", estão na lista de modelos do fluxo)
@@ -5118,7 +5170,9 @@ TELAS.tarefas = async function () {
   if (!window._tfCfgDoc) { window._tfCfgDoc = true; document.addEventListener('click', (ev) => { const m = $('tf-cfg-menu'); if (m && !m.hidden && !ev.target.closest('.tf-cfg-wrap')) m.hidden = true; }); }
   $('tf-cfg-menu').addEventListener('click', () => { setTimeout(() => { const m = $('tf-cfg-menu'); if (m) m.hidden = true; }, 0); });
   $('tf-feriados').onclick = () => janelaFeriados();
+  $('tf-feriados2').onclick = () => janelaFeriados();
   $('tf-agenda').onclick = () => janelaAgenda();
+  $('tf-agenda2').onclick = () => janelaAgenda();
   $('tf-vista').onclick = $('tf-vista2').onclick = (ev) => { const b = ev.target.closest('button'); if (b) { F.vista = b.dataset.v; pintarTarefas(); } };
   $('tf-chips').onclick = (ev) => { const b = ev.target.closest('button'); if (!b) return;
     if (b.dataset.tfMostra != null) F.mostra = b.dataset.tfMostra;
@@ -7129,7 +7183,9 @@ TELAS.crm = async function () {
     '<div class="filtros cr-filtros"><div class="segmento" id="cr-abas">' + [['andamento', 'Em andamento'], ['ganho', 'Contratos assinados'], ['perdido', 'Leads perdidos']]
       .map(([v, r]) => '<button data-aba="' + v + '">' + r + '</button>').join('') + '</div>' +
     '<div class="segmento" id="cr-vista">' + [['funil', 'Funil'], ['lista', 'Lista']].map(([v, r]) => '<button data-v="' + v + '">' + r + '</button>').join('') + '</div></div>' +
-    '<div class="filtros"><div class="segmento" id="cr-resp-seg"><button data-r="">Todos</button>' + Object.keys(PESSOA).map((p) => '<button data-r="' + esc(p) + '">' + esc(p) + '</button>').join('') + '</div>' +
+    // Backup 93 (visual premium): a pessoa em lista suspensa
+    '<div class="filtros"><span class="b-pm-nao"><div class="segmento" id="cr-resp-seg"><button data-r="">Todos</button>' + Object.keys(PESSOA).map((p) => '<button data-r="' + esc(p) + '">' + esc(p) + '</button>').join('') + '</div></span>' +
+    selSusB('cr-resp-sel', 'Responsável', 'Todos', Object.keys(PESSOA), F.resp || '') +
     '<select class="busca sel" id="cr-origem"><option value="">Todas as origens</option>' + ORIGENS_CRM.map((o) => '<option>' + esc(o) + '</option>').join('') + '</select>' +
     '<input class="busca" id="cr-busca" placeholder="Buscar nome, empresa, CNPJ ou telefone" autocomplete="off"></div>' +
     '<div id="cr-corpo"><div class="carregando">Carregando…</div></div>';
@@ -7143,6 +7199,7 @@ TELAS.crm = async function () {
   $('cr-vista').onclick = (ev) => { const b = ev.target.closest('button'); if (b) { F.vista = b.dataset.v; pintarCrm(); } };
   $('cr-abas').onclick = (ev) => { const b = ev.target.closest('button'); if (b) { F.aba = b.dataset.aba; pintarCrm(); } };
   $('cr-resp-seg').onclick = (ev) => { const b = ev.target.closest('button'); if (b) { F.resp = b.dataset.r; pintarCrm(); } };
+  $('cr-resp-sel').onchange = (ev) => { F.resp = ev.target.value; pintarCrm(); };
   [['cr-origem', 'origem']].forEach(([id, k]) => { $(id).value = F[k]; $(id).onchange = (ev) => { F[k] = ev.target.value; pintarCrm(); }; });
   $('cr-busca').value = F.busca;
   let t; $('cr-busca').oninput = (ev) => { clearTimeout(t); t = setTimeout(() => { F.busca = ev.target.value; pintarCrm(); }, 250); };
@@ -10732,10 +10789,11 @@ TELAS.processosERP = async function () {
   E.prF = E.prF || { grupo: '', comp: '', adv: '' };
   if (!('emp' in E.prF)) E.prF.emp = '';
   if (ehPremium()) { E.prF.comp = ''; E.prF.adv = ''; } else E.prF.emp = '';   // o filtro escondido nunca fica ligado
-  // Backup 92 (visual premium): Grupo + Empresa, como no Painel (Competência e Advogado somem no premium). O processo não guarda a empresa:
-  // vale o nome da empresa no Autor ou no Réu.
+  // Backup 92 (visual premium): Grupo + Empresa, como no Painel (Competência e Advogado somem no premium).
+  // Backup 93 (U4): o processo ligado a uma empresa (cadastro → "Empresa do cliente") usa a ligação; sem ligação, vale o nome no Autor ou no Réu.
   const empsPr = unicosTxt((dbE().baseDados || []).filter((r) => !E.prF.grupo || r.grupo === E.prF.grupo).map((r) => r.nome));
-  const temEmp = (p, e) => !e || normalizar((p.autor || '') + ' ' + (p.reu || '')).includes(normalizar(e));
+  const idsEmp = (e) => (dbE().baseDados || []).filter((r) => r.nome === e).map((r) => String(r._id));
+  const temEmp = (p, e) => !e || (p.clienteId ? idsEmp(e).includes(String(p.clienteId)) : normalizar((p.autor || '') + ' ' + (p.reu || '')).includes(normalizar(e)));
   // Backup 79: filtro suspenso (Grupo / Competência) — recorta o Resumo da carteira e a lista
   const F = E.prF, L0 = D.processos, L = L0.filter((p) => (!F.grupo || p.grupo === F.grupo) && (!F.comp || p.competencia === F.comp) && (!F.adv || nome1PE(p.advogado || '') === F.adv) && temEmp(p, F.emp)), P = L.filter((p) => p.carteira !== 'Prospecção');
   const podeEd = pode('juridico', 'editar');
@@ -10774,11 +10832,29 @@ TELAS.processosERP = async function () {
       { k: 'mov', rot: 'Última movimentação', cls: 'b-data b-mov', html: (p) => { const d = p.ultimaMovEm || p.atualizacao, i = isoDeBRp(d), velho = i && i < somarDias(hojeISO(), -30);
         return d ? (velho ? '<span class="b-pz-r" title="Mais de 30 dias sem novidade">' + esc(d) + '</span>' : esc(d)) + (p.ultimaMov ? '<small title="' + esc(p.ultimaMov) + '">' + esc(String(p.ultimaMov).slice(0, 40)) + '</small>' : '') : '—'; }, ord: (p) => isoDeBRp(p.ultimaMovEm || p.atualizacao) || '0' },
       // Backup 85 (PR1): "Conferido" — data da última conferência (verde até 15 dias; âmbar depois; "nunca" em vermelho)
-      { k: 'conf', rot: 'Conferido', cls: 'b-cen b-data', html: (p) => { const d = diasConf(p); return d == null ? '<span class="b-pz-r">nunca</span>' : '<span class="' + (d < 15 ? 'b-ok-txt' : 'b-pz-a') + '">' + esc(String(p.ultimaMovEm).slice(0, 5)) + '</span>'; }, ord: (p) => isoDeBRp(p.ultimaMovEm) || '0' },
+      // Backup 93 (U2): clicar marca "conferido hoje, sem novidade" (com Desfazer), sem ir à Rotina
+      { k: 'conf', rot: 'Conferido', cls: 'b-cen b-data', html: (p) => { const d = diasConf(p), tx = d == null ? '<span class="b-pz-r">nunca</span>' : '<span class="' + (d < 15 ? 'b-ok-txt' : 'b-pz-a') + '">' + esc(String(p.ultimaMovEm).slice(0, 5)) + '</span>';
+        return podeEd && d !== 0 ? '<button type="button" class="b-pr-conf" data-pr-conf="' + esc(String(p._id)) + '" title="Conferi no tribunal e não mudou nada: marcar como conferido hoje">' + tx + '</button>' : tx; }, ord: (p) => isoDeBRp(p.ultimaMovEm) || '0' },
       { k: 'st', rot: 'Status', cls: 'b-cen', html: (p) => '<span class="b-pill ' + (sit(p) === 'at' ? 'b-g' : sit(p) === 'arq' ? 'b-a' : 'b-r') + '">' + esc(p.arquivamento || 'Ativo') + '</span>', ord: sit }],
     clique: (p) => (window.ERP_ABRIR_PROCESSO ? window.ERP_ABRIR_PROCESSO(p) : null),
     vazio: { titulo: 'Nenhum processo aqui', frase: 'Troque a aba (Ativos, Arquivados, Extintos, Todos) ou limpe os filtros.', botao: podeEd ? ['+ Processo', '#pr-novo'] : null } });
+  const nova = $('pr-nova');
+  if (nova && !nova._b93) { nova._b93 = true;
+    nova.addEventListener('click', (ev) => { const b = ev.target.closest('[data-pr-conf]'); if (!b) return; ev.stopPropagation(); ev.preventDefault();
+      const p = (D.processos || []).find((x) => String(x._id) === b.dataset.prConf); if (p) comBotao(b, () => conferirProcessoHoje(p)); }, true); }
 };
+// Backup 93 (U2): "Conferido" em Processos — grava a movimentação "sem novidade" de hoje; Desfazer apaga e devolve a anterior
+async function conferirProcessoHoje(p) {
+  const antes = { ult: p.ultimaMov || '', em: isoDeBRp(p.ultimaMovEm) || null, ultBR: p.ultimaMovEm };
+  const r = await q(sb.from('processo_movimentacoes').insert({ processo_id: p._id, tipo: 'sem_novidade', descricao: '✓ Sem novidade' }).select('id').single());
+  p.ultimaMov = '✓ Sem novidade'; p.ultimaMovEm = dataBR(hojeISO());
+  TELAS.processosERP();
+  feitoDesfazer('Processo ' + (p.numero || '') + ' conferido hoje (sem novidade).', async () => {
+    const ok = await q(sb.rpc('desfazer_conferencia_processo', { p_mov: r.id, p_ult: antes.ult, p_ult_em: antes.em }));
+    if (!ok) throw new Error('Passou do tempo para desfazer (15 minutos).');
+    p.ultimaMov = antes.ult; p.ultimaMovEm = antes.ultBR;
+  }, () => TELAS.processosERP());
+}
 // "Resumo da carteira" (o renderProcAnalise antigo, com os ajustes dos Backups 16/27): o mesmo nº conta uma vez;
 // Processos (em andamento / arquivados-extintos) · Valor em disputa · Passivo em disputas (cliente réu) · Ativo em disputas (cliente autor);
 // e as tabelas por grupo, tribunal e natureza
