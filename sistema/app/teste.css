@@ -71,6 +71,10 @@ html[data-amb="teste"] body.gx-barra-topo .gs .b-nums.b-nums-faixa > div:not(#_)
 .ts-mapa-caixa{background:linear-gradient(160deg,#EEF2F8,#E3E9F3);border-radius:14px;padding:14px}
 html[data-tema="escuro"] .ts-mapa-caixa{background:linear-gradient(160deg,#121D33,#0D1526)}
 .ts-mapa{display:block;width:100%;height:auto;max-height:560px}
+/* Backup 97: mapa bem maior (janela larga) */
+.fundo .janela.ts-jan:not(#_){width:min(1400px,96vw)!important;max-width:96vw!important}
+.ts-jan .ts-trib{grid-template-columns:minmax(0,1.7fr) minmax(300px,1fr)}
+.ts-jan .ts-mapa{max-height:calc(100vh - 230px);min-height:420px}
 .ts-uf{fill:#FFFFFF;stroke:#B9C4D8;stroke-width:1;cursor:pointer;transition:fill .12s}
 .ts-uf:hover,.ts-uf:focus-visible{fill:#D3DDF0;outline:none}
 .ts-uf.on{fill:#1B2A4A;stroke:#C9A84C;stroke-width:1.5}
@@ -92,3 +96,41 @@ html[data-tema="escuro"] .ts-rots text.on{fill:#1B2A4A}
 .ts-link b{font-size:13px}.ts-link small{font-size:11.5px;color:var(--text3)}
 .ts-nada{color:var(--text3);margin:0}
 @media (max-width:760px){.ts-trib{grid-template-columns:minmax(0,1fr)}}
+
+/* ═══ Backup 97 ═══ */
+/* tabelas e informações: leve sombreado ao passar o mouse */
+html[data-amb="teste"] body.gx-barra-topo .gs :is(table.b-tab,.tw table,.tabela-wrap table,.cli-tabela table) tbody tr:hover > td:not(#_){background:color-mix(in srgb,var(--primario) 7%,var(--surface))!important}
+html[data-amb="teste"] .gs :is(.b-cg,.b-li,.ini-it,.ti-bloco,.ti-ext-it,.ti-kpi,.ts-link,.b-lista > *,.b-ev){transition:box-shadow .12s,background-color .12s}
+html[data-amb="teste"] .gs :is(.b-cg,.ti-bloco,.ti-ext-it,.ti-kpi,.ts-link):hover{box-shadow:0 2px 6px rgba(16,24,40,.10),0 6px 16px rgba(16,24,40,.08)!important}
+html[data-amb="teste"] .gs :is(.b-li,.ini-it,.b-lista > *,.b-ev):hover{background:color-mix(in srgb,var(--primario) 6%,var(--surface))}
+html[data-amb="teste"] .ts-link:hover{box-shadow:0 2px 6px rgba(16,24,40,.10),0 6px 16px rgba(16,24,40,.08)}
+/* calendário: cada item sombreado com a cor do tipo (como na legenda) */
+html[data-amb="teste"] .gs .b-cal-it.ag-tarefa{background:color-mix(in srgb,var(--primario) 9%,var(--surface));box-shadow:inset 3px 0 0 var(--primario)}
+html[data-amb="teste"] .gs .b-cal-it.ag-reuniao{background:var(--blue-lt);color:var(--blue-d);box-shadow:inset 3px 0 0 var(--blue)}
+html[data-amb="teste"] .gs .b-cal-it.ag-audiencia{background:var(--violet-lt);color:var(--violet-d);box-shadow:inset 3px 0 0 var(--violet)}
+html[data-amb="teste"] .gs .b-cal-it.ag-compromisso{background:var(--green-lt);color:var(--green-d);box-shadow:inset 3px 0 0 var(--green)}
+html[data-amb="teste"] .gs .b-cal-it.ag-rotina{background:var(--orange-lt);color:var(--orange-d);box-shadow:inset 3px 0 0 var(--orange)}
+html[data-amb="teste"] .gs .b-cal-it:is(.ag-atrasada,.ag-fatal){background:var(--red-lt);color:var(--red-d);box-shadow:inset 3px 0 0 var(--red)}
+html[data-amb="teste"] .gs .b-cal-it.ag-feita{background:var(--surface2);box-shadow:inset 3px 0 0 var(--border-strong)}
+html[data-amb="teste"] .gs .b-cal-it:hover{filter:brightness(.96);outline:0}
+/* Início: Hoje por hora | Tarefas atrasadas lado a lado */
+.ti-par{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:14px;margin-top:14px}
+.ti-par > .ti-cartao{margin:0}
+.ti-k-azul{border-left-color:var(--blue)}.ti-k-azul b{color:var(--blue-d)}
+.ti-hd .b-chip{margin-left:6px}
+a.ti-bloco{text-decoration:none}
+.ti-bloco-sem{opacity:.75;border-style:dashed}
+.ti-bloco-sem[disabled]{cursor:default}
+.ti-tag{margin-top:4px;font-size:10.5px;font-weight:600;padding:1px 7px;border-radius:999px;background:var(--blue-lt);color:var(--blue-d)}
+.ti-tag-g{background:var(--green-lt);color:var(--green-d)}.ti-tag-o{background:#F5EDD6;color:#8A6D14}
+.ts-end{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:10px 14px}
+/* Tribunais: busca e Nacionais */
+.ts-topo{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin:0 0 14px}
+.ts-busca{flex:1 1 320px;display:flex;align-items:center;gap:8px;border:1px solid var(--border-strong);border-radius:10px;padding:0 12px;background:var(--surface);min-height:40px}
+.ts-busca:focus-within{border-color:var(--primario);box-shadow:0 0 0 3px color-mix(in srgb,var(--primario) 18%,transparent)}
+.ts-busca .b-ic{width:16px;height:16px;color:var(--text3)}
+.ts-busca input{flex:1;border:0!important;outline:0;background:transparent!important;font:inherit;font-size:13.5px;min-height:38px;padding:0!important;box-shadow:none!important;color:var(--text)}
+.ts-nac{min-height:40px}
+.ts-nac[aria-pressed="true"]{background:#1B2A4A;color:#FFFFFF;border-color:#1B2A4A}
+.ts-ufs{display:flex;flex-wrap:wrap;gap:6px}
+@media (max-width:900px){.ti-par{grid-template-columns:minmax(0,1fr)}.ts-jan .ts-trib{grid-template-columns:minmax(0,1fr)}.ts-jan .ts-mapa{min-height:0;max-height:52vh}}

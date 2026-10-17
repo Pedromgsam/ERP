@@ -721,6 +721,27 @@ O que mudou:
 
 Ainda falta (próxima rodada): apagar o ERP antigo (ERP.html, remendos e blocos antigos do design.css).
 
+## Backup 97 — Financeiro preto (vermelho só no negativo), Mês a mês com Distribuição e Início de teste com sistemas do escritório
+1. Merge da pull request.
+2. **Sem SQL desta vez** (o banco não mudou).
+3. **Ctrl+Shift+R** no ERP.
+4. Para ver o ambiente de teste: **⋯** (barra do alto) → **🧪 Ambiente de teste**. Para sair: **Voltar ao normal** no pé da tela.
+
+O que mudou (vale para todos):
+- **Financeiro → Análise → Resultado do mês:** a coluna Resultado fica na cor padrão (preto); só fica **vermelha quando negativa**.
+- **Caixa (Consolidado):** Resultado e **Saldo acumulado** em preto; vermelho só quando negativo. O número "Resultado" do alto também ficou preto.
+- **Caixa (Mês a mês):** ao abrir o mês, o detalhe tem as mesmas colunas do resumo — **Receita · Despesa · Distribuição de lucros · Saldo** ("Entrada" virou Receita e "Saída" virou Despesa; a distribuição de lucros ganhou coluna própria). Saldo preto, vermelho só se negativo.
+
+Só no ambiente de teste (para aprovar):
+- **Tabelas e informações:** leve sombreado ao passar o mouse na linha (e sombra suave nos cartões).
+- **Calendário de Tarefas:** cada item pintado com a cor do tipo (reunião azul, audiência roxo, compromisso verde, rotina laranja, atrasada vermelho).
+- **Início:** números novos — Recebido no mês (mini-gráfico), Publicações novas, Tarefas atrasadas, Compromissos hoje e Prazos da semana (saíram Honorários em atraso, Parcelas em atraso e Passivo).
+  "Hoje, por hora" ao lado de **"Tarefas atrasadas"** (só as que passaram do prazo, com Concluir).
+- **Atalhos:** no lugar dos atalhos do ERP, os **sistemas do escritório que ficam fora do ERP** (Minhas Planilhas, Planejamento Tributário, Holding, Esteira de Produtos, Mapa Societário, Documentos, Contratos e Documentos e Documentos da Contabilidade, Manual do Escritório).
+  Como esses sistemas são arquivos no computador/Drive, o endereço de cada um é posto pelo administrador no botão **Endereços** do cartão (só Minhas Planilhas já vem com o link).
+- **Tribunais:** mapa bem maior, **busca** (digite TJMG, Minas, TRT-3, eproc…) e botão **Nacionais** (STF, STJ, TST e SEEU).
+- Página de alternativas (dados fictícios): https://claude.ai/artifact/QZurvjNrQ9h2wS2TZ81rEk
+
 ## Backup 96 — Ambiente de teste dentro do ERP, Tribunais com mapa do Brasil e Financeiro com cores só no Resultado
 1. Merge da pull request.
 2. **Sem SQL desta vez** (o banco não mudou).

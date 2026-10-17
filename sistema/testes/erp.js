@@ -1029,25 +1029,27 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
       !/Comparativo por cliente|Comparativo por fornecedor/.test(await p.textContent('#panel-financeiroContab #fin-corpo')) && /Recebido × pago mês a mês/.test(await p.textContent('#panel-financeiroContab #fin-corpo')) &&
       /Recebido por tipo de serviço/.test(await p.textContent('#panel-financeiroContab #fin-corpo')) && /Maiores grupos/.test(await p.textContent('#panel-financeiroContab #fin-corpo')) && !!(await p.$('#panel-financeiroContab #fin-corpo .b-barras, #panel-financeiroContab #fin-corpo .b-barras-vazio')));
     ok('B74 Financeiro: Análise na estrutura do ambiente (faixa de números, cartões e barras simples)', !!(await p.$('#panel-financeiroContab #fin-corpo .b-nums-faixa')) && (await p.$$('#panel-financeiroContab #fin-corpo .b-fin-cartao')).length >= 4 && /Despesas por categoria/.test(await p.textContent('#panel-financeiroContab #fin-corpo')));
-    ok('B96 Resultado do mês: verde/vermelho só na coluna Resultado e só o total do Resultado em negrito', await p.evaluate(() => { const t = document.querySelector('#panel-financeiroContab .b-tab-res'); if (!t) return false;
+    ok('B97 Resultado do mês: Resultado preto (vermelho só se negativo) e só o total do Resultado em negrito', await p.evaluate(() => { const t = document.querySelector('#panel-financeiroContab .b-tab-res'); if (!t) return false;
       const lin = [...t.querySelectorAll('tbody tr')], tf = [...t.querySelectorAll('tfoot td')];
-      return lin.every((r) => !r.cells[1].className.match(/verde|verm/) && !r.cells[2].className.match(/verde|verm/) && !r.cells[3].querySelector('b')) && tf.filter((c) => c.querySelector('b')).length === 1 && !!tf[3].querySelector('b'); }));
+      return lin.every((r) => !r.cells[1].className.match(/verde|verm/) && !r.cells[2].className.match(/verde|verm/) && !r.cells[3].className.match(/verde/) && (r.cells[3].classList.contains('b-verm-v') === /-/.test(r.cells[3].textContent)) && !r.cells[3].querySelector('b')) && tf.filter((c) => c.querySelector('b')).length === 1 && !!tf[3].querySelector('b'); }));
     ok('Contabilidade: gráfico mês a mês com recebido (verde) e pago (vermelho)', await p.evaluate(() => { const g = document.querySelector('#panel-financeiroContab #fin-corpo .b-graf'); const leg = g && g.nextElementSibling ? g.nextElementSibling.textContent : '';
       return !!g && /Recebido/.test(leg) && /Pago/.test(leg); }));
     sql("insert into lancamentos(empresa,tipo,descricao,vencimento,valor,pago,data_pagamento) values ('contabilidade','receita','Caixa teste',current_date-5,500,true,current_date-5)");
     await p.evaluate(() => ERP_RECARREGAR()); await p.waitForTimeout(2500);
     await finAba(p, 'financeiroContab', 'caixa');
-    ok('B96 Caixa: coluna "Resultado" (sem "Lucro apurado"), verde/vermelho só no Resultado e linha de Total sem fundo colorido', await p.evaluate(() => { const t = document.querySelector('#panel-financeiroContab .b-tab-cx'); if (!t) return false;
+    ok('B97 Caixa: coluna "Resultado" (sem "Lucro apurado"), sem verde no Resultado/Saldo e linha de Total sem fundo colorido', await p.evaluate(() => { const t = document.querySelector('#panel-financeiroContab .b-tab-cx'); if (!t) return false;
       const ths = [...t.querySelectorAll('thead th')].map((x) => x.textContent.trim().toLowerCase()), iR = ths.indexOf('resultado'), lin = t.querySelector('tbody tr'), tf = t.querySelector('tfoot td');
-      const cor = [...lin.cells].map((c, i) => (/b-verde-v|b-verm-v/.test(c.className) ? i : -1)).filter((i) => i >= 0);
-      return iR > 0 && !ths.includes('lucro apurado') && cor.length === 1 && cor[0] === iR && getComputedStyle(tf).backgroundColor === getComputedStyle(t.closest('.b-fin-cartao') || document.body).backgroundColor; }));
-    ok('B95 Caixa: Resumo mensal sem o quadro "Receita × despesa"; Saldo acumulado em azul e sem negrito no mês', /Resumo mensal/.test(await p.textContent('#panel-financeiroContab #fin-corpo')) &&
+      const cor = [...lin.cells].filter((c) => /b-verde-v|b-azul-v/.test(c.className));
+      return iR > 0 && !ths.includes('lucro apurado') && cor.length === 0 && getComputedStyle(tf).backgroundColor === getComputedStyle(t.closest('.b-fin-cartao') || document.body).backgroundColor; }));
+    ok('B97 Caixa: Resumo mensal sem o quadro "Receita × despesa"; Saldo acumulado preto (vermelho só se negativo) e sem negrito no mês', /Resumo mensal/.test(await p.textContent('#panel-financeiroContab #fin-corpo')) &&
       !/Receita × despesa/.test(await p.textContent('#panel-financeiroContab #fin-corpo')) && await p.evaluate(() => { const td = document.querySelector('#panel-financeiroContab .b-tab-cx tbody tr td:last-child');
-        return !!td && td.classList.contains('b-azul-v') && !td.querySelector('b'); }));
+        return !!td && !td.classList.contains('b-azul-v') && td.classList.contains('b-verm-v') === /-/.test(td.textContent) && !td.querySelector('b'); }));
     await p.click('#panel-financeiroContab #cx-vista [data-cx=detalhado]'); await p.waitForTimeout(500);
     ok('B76 Caixa: "Mês a mês" mostra o livro-caixa do mês aberto', !!(await p.$('#panel-financeiroContab details.b-cx-mes[open] table')));
-    ok('B96 Caixa → Mês a mês: Receita · Despesa · Distribuição de lucros · Saldo em 4 colunas alinhadas', await p.evaluate(() => { const sm = document.querySelector('#panel-financeiroContab details.b-cx-mes > summary'); if (!sm) return false;
-      const c = [...sm.querySelectorAll('.b-cx-c')]; return getComputedStyle(sm).display === 'grid' && c.length === 4 && c[0].classList.contains('b-verde-v') && c[1].classList.contains('b-verm-v') && /Distribuição/.test(c[2].textContent) && c[3].classList.contains('b-azul-v'); }));
+    ok('B97 Caixa → Mês a mês: resumo e detalhe com Receita · Despesa · Distribuição de lucros · Saldo (saldo sem azul)', await p.evaluate(() => { const d = document.querySelector('#panel-financeiroContab details.b-cx-mes[open]') || document.querySelector('#panel-financeiroContab details.b-cx-mes'), sm = d && d.querySelector('summary'); if (!sm) return false;
+      const c = [...sm.querySelectorAll('.b-cx-c')], th = [...d.querySelectorAll('table thead th')].map((x) => x.textContent.trim());
+      return getComputedStyle(sm).display === 'grid' && c.length === 4 && c[0].classList.contains('b-verde-v') && c[1].classList.contains('b-verm-v') && /Distribuição/.test(c[2].textContent) && !c[3].classList.contains('b-azul-v') &&
+        th.join('|') === 'Data|Histórico|Categoria|Receita|Despesa|Distribuição de lucros|Saldo'; }));
     ok('B94 Caixa: Distribuição de lucros dentro do Caixa (sem aba própria) e abas Análise · Caixa · Lançamentos', !!(await p.$('#panel-financeiroContab #fin-corpo .cx-lucros')) &&
       (await p.$$eval('#panel-financeiroContab #fin-abas [data-aba]', (b) => b.map((x) => x.dataset.aba).join('|'))) === 'analise|caixa|lanc');
     await p.click('#panel-financeiroContab #cx-vista [data-cx=consolidado]'); await p.waitForTimeout(400);
@@ -1059,15 +1061,37 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     ok('B96: ⋯ tem "Ambiente de teste"', !!(await p.$('#gs-teste')));
     await p.evaluate(() => window.trocarAmbTeste()); await nav(p, 'hoje'); await p.waitForSelector('#ti-kpis .ti-kpi:not(.ti-esq)', { timeout: 10000 }).catch(() => {});
     ok('B96: no ambiente de teste o Início tem números com mini-gráfico, o dia por hora, atalhos e sites', await p.evaluate(() => document.documentElement.dataset.amb === 'teste') &&
-      !!(await p.$('#ti-kpis .ti-spark')) && (await p.$$('#ti-horas .ti-hora')).length === 11 && (await p.$$('[data-ti-ir]')).length >= 5 && !!(await p.$('#gx-faixa-amb')));
+      !!(await p.$('#ti-kpis .ti-spark')) && (await p.$$('#ti-horas .ti-hora')).length === 11 && !!(await p.$('#gx-faixa-amb')));
+    await p.waitForSelector('#ti-sis [data-ti-sis]', { timeout: 5000 }).catch(() => {});
+    ok('B97 Início de teste: números sem Honorários/Parcelas em atraso/Passivo (com Publicações novas, Tarefas atrasadas, Compromissos hoje e Prazos da semana)', await p.evaluate(() => {
+      const t = document.getElementById('ti-kpis').textContent; return !/Honorários em atraso|Parcelas em atraso|Passivo/.test(t) && /Publicações novas/.test(t) && /Tarefas atrasadas/.test(t) && /Compromissos hoje/.test(t) && /Prazos da semana/.test(t); }));
+    ok('B97 Início de teste: "Tarefas atrasadas" ao lado de "Hoje, por hora" e só atrasadas', await p.evaluate(() => { const par = document.querySelector('.ti-par'); if (!par) return false;
+      const c = [...par.children], a = c[0].getBoundingClientRect(), b = c[1].getBoundingClientRect(); return /Hoje, por hora/.test(c[0].textContent) && /Tarefas atrasadas/.test(c[1].textContent) && Math.abs(a.top - b.top) < 4 && b.left > a.right - 1 &&
+        [...document.querySelectorAll('#ini-dia [data-ini-t]')].every((x) => x.classList.contains('ini-it-atr')); }));
+    ok('B97 Início de teste: atalhos só para o que fica fora do ERP (Planilhas, Planejamento, Holding…), sem módulos do ERP', await p.evaluate(() => { const t = document.getElementById('ti-sis').textContent;
+      return /Minhas Planilhas/.test(t) && /Planejamento Tributário/.test(t) && /Holding/.test(t) && /Mapa Societário/.test(t) && !document.querySelector('.ti-blocos [data-ti-ir]') && !!document.querySelector('#ti-sis a[data-ti-sis="planilhas"][target=_blank]'); }));
     await p.click('[data-ti-ext=tribunais]'); await p.waitForSelector('.ts-mapa', { timeout: 5000 }).catch(() => {});
     ok('B96 Tribunais: mapa real com os 27 estados; MG mostra TJMG PJe/eProc, TRF-6 e TRT-3 (Estadual · Federal · Trabalho)', (await p.$$('.ts-mapa .ts-uf')).length === 27 &&
       await p.evaluate(() => { const t = document.getElementById('ts-lista').textContent; return /TJMG · PJe/.test(t) && /TJMG · eProc/.test(t) && /TRF-6/.test(t) && /TRT-3/.test(t) && /Justiça Estadual.*Justiça Federal.*Justiça do Trabalho/.test(t) && !/Eleitoral/.test(t); }));
     await p.click('.ts-uf[data-uf=SP]'); await p.waitForTimeout(200);
     ok('B96 Tribunais: clicar em SP troca para e-SAJ + eProc do TJSP e TRT-2/TRT-15', await p.evaluate(() => { const t = document.getElementById('ts-lista').textContent; return /TJSP · e-SAJ/.test(t) && /TJSP · eProc/.test(t) && /TRT-2/.test(t) && /TRT-15/.test(t); }));
+    await p.click('[data-ts-nac]'); await p.waitForTimeout(150);
+    ok('B97 Tribunais: botão Nacionais mostra STF, STJ, TST e SEEU', await p.evaluate(() => { const t = document.getElementById('ts-lista').textContent; return /STF/.test(t) && /STJ/.test(t) && /TST/.test(t) && /SEEU/.test(t) && !document.querySelector('.ts-uf.on'); }));
+    await p.fill('#ts-q', 'trt-3'); await p.waitForTimeout(150);
+    ok('B97 Tribunais: busca "trt-3" acha o TRT-3', await p.evaluate(() => /TRT-3 · PJe/.test(document.getElementById('ts-lista').textContent)));
+    await p.fill('#ts-q', 'Paraná'); await p.waitForTimeout(150);
+    ok('B97 Tribunais: busca pelo nome do estado abre o estado (Paraná → TJPR)', await p.evaluate(() => /TJPR/.test(document.getElementById('ts-lista').textContent) || !!document.querySelector('[data-ts-uf=PR]')));
+    ok('B97 Tribunais: mapa bem maior (janela larga, mapa com mais de 600 px)', await p.evaluate(() => document.querySelector('.ts-mapa').getBoundingClientRect().width > 600));
+    await p.hover('.ts-link').catch(() => {});
     await p.click('#janelas [data-fechar]'); await p.click('[data-ti-ext=fiscal]'); await p.waitForTimeout(300);
     ok('B96 Sistemas fiscais: e-CAC e SIARE', await p.evaluate(() => /e-CAC/.test(document.getElementById('janelas').textContent) && /SIARE/.test(document.getElementById('janelas').textContent)));
-    await p.click('#janelas [data-fechar]'); await p.evaluate(() => window.trocarAmbTeste()); await p.waitForTimeout(300);
+    await p.click('#janelas [data-fechar]');
+    await nav(p, 'processos'); await p.waitForSelector('#pr-nova table.b-tab tbody tr', { timeout: 8000 }).catch(() => {});
+    { const linhas = p.locator('#pr-nova table.b-tab tbody tr:visible'); const fundo = (i) => linhas.nth(i).locator('td').first().evaluate((td) => getComputedStyle(td).backgroundColor);
+      await p.mouse.move(5, 5); const antes = await fundo(0).catch(() => ''); await linhas.nth(0).hover().catch(() => {}); await p.waitForTimeout(200); const depois = await fundo(0).catch(() => '');
+      ok('B97 ambiente de teste: linha da tabela ganha sombreado ao passar o mouse', !!antes && antes !== depois); }
+    ok('B97 ambiente de teste: itens do calendário com a cor do tipo (regra no teste.css)', await p.evaluate(() => [...document.styleSheets].some((sh) => { try { return [...sh.cssRules].some((r) => /data-amb="teste"\] \.gs \.b-cal-it\.ag-reuniao/.test(r.selectorText || '')); } catch (e) { return false; } })));
+    await p.evaluate(() => window.trocarAmbTeste()); await p.waitForTimeout(300);
     ok('B96: "Voltar ao normal" tira o ambiente de teste', await p.evaluate(() => !document.documentElement.dataset.amb && !document.getElementById('gx-faixa-amb')));
     await nav(p, 'financeiro'); await p.waitForTimeout(1000);
     ok('Financeiro: Análise sem a tabela "Em atraso" (já está em A receber)', !(await p.evaluate(() => [...document.querySelectorAll('#panel-financeiro .cc-t')].some((x) => /^Em atraso$/.test(x.textContent.trim())))));
