@@ -21,6 +21,7 @@
 /* Backup 91: modo escuro do premium com a base do GitHub (fundo #0D1117, cartões #161B22, bordas #30363D, texto #E6EDF3/#8B949E);
    o azul continua o da lateral, um tom mais claro para aparecer no escuro */
 :root[data-visual="premium"][data-tema="escuro"]{
+  --red:#FF7B72;--red-d:#FF7B72;   /* Backup 95: vermelho mais claro no escuro (contraste ≥ 4,5:1 nas pílulas) */
   --pm-navy:#1B2A4A;--pm-navy2:#243659;--pm-borda:#30363D;--pm-sombra:0 1px 2px rgba(1,4,9,.6);--pm-sombra-alta:0 12px 30px rgba(1,4,9,.75);--pm-limpar:#F87171;
   --bg:#0D1117;--surface:#161B22;--surface2:#1C2128;--surface3:#21262D;--white:#161B22;--hover:#1F2630;--gray-lt:#161B22;--gray-mid:#21262D;
   --ink:#F0F6FC;--text:#E6EDF3;--text2:#C9D1D9;--text3:#8B949E;--text4:#8B949E;
@@ -32,10 +33,6 @@
   --shadow-hover:0 0 0 1px #3D444D;--shadow-lg:0 0 0 1px #30363D,0 24px 64px rgba(1,4,9,.85);
 }
 
-/* ── faixa "teste" no pé da tela ── */
-#gx-faixa-premium{position:fixed;left:50%;bottom:14px;transform:translateX(-50%);z-index:3000;display:flex;align-items:center;gap:12px;padding:7px 8px 7px 16px;
-  border-radius:999px;background:#1B2A4A;color:#F5EDD6;font:600 12px var(--font-ui,'Inter',system-ui,sans-serif);box-shadow:0 8px 24px rgba(0,0,0,.25);border:1px solid rgba(201,168,76,.45)}
-#gx-faixa-premium button{border:0;border-radius:999px;padding:5px 12px;background:#C9A84C;color:#1B2A4A;font:700 12px var(--font-ui,'Inter',system-ui,sans-serif);cursor:pointer}
 
 /* ── 4 / 4.1 / 4.2: barra lateral do ERP antigo (marinho), dourado nos títulos das seções e no item escolhido ── */
 html[data-visual="premium"] body.gx-barra-topo #gs-lado:not(#_){background:linear-gradient(180deg,#1B2A4A 0%,#18253F 100%)!important;border-right:1px solid rgba(201,168,76,.18)}
@@ -111,7 +108,7 @@ html[data-visual="premium"] body.gx-barra-topo .gs .b-fsus.b-fsus-fixo > :is(.b-
 html[data-visual="premium"] body.gx-barra-topo .gs .b-fsus.b-fsus-fixo > .b-fsus-rot:not(#_){border-radius:999px 0 0 999px;padding:0 6px 0 16px}
 html[data-visual="premium"] body.gx-barra-topo .gs .b-fsus.b-fsus-fixo > .b-fsus-c:not(#_){padding:0 3px}
 html[data-visual="premium"] body.gx-barra-topo .gs .b-fsus.b-fsus-fixo > .b-fsus-limpar:not(#_){border-radius:0 999px 999px 0;padding:0 14px 0 6px;opacity:1}
-html[data-visual="premium"] body.gx-barra-topo .gs .b-fsus.b-fsus-fixo > .b-fsus-limpar.b-fsus-limpar-x:not(#_){color:rgba(252,165,165,.7)}
+html[data-visual="premium"] body.gx-barra-topo .gs .b-fsus.b-fsus-fixo > .b-fsus-limpar.b-fsus-limpar-x:not(#_){color:rgba(252,165,165,.82)}
 
 /* ── janelas: cantos e sombra do premium (cores e letras do normal) ── */
 html[data-visual="premium"] body.gx-barra-topo .gs .janela:not(#_){border-radius:18px!important;box-shadow:0 24px 60px rgba(16,24,40,.28)!important}
@@ -121,8 +118,7 @@ html[data-visual="premium"] body.gx-barra-topo .gs .janela:not(#_){border-radius
   html[data-visual="premium"] body.gx-barra-topo .gs .b-fsus.b-fsus-fixo:not(#_){background:var(--pm-navy);border-radius:16px;padding:10px 12px;gap:8px;margin:0 0 14px}
   html[data-visual="premium"] body.gx-barra-topo .gs .b-fsus.b-fsus-fixo > :is(.b-fsus-rot,.b-fsus-c,.b-fsus-limpar):not(#_){height:auto;background:transparent;border-radius:0;padding:0;margin:0}
   html[data-visual="premium"] body.gx-barra-topo .gs .b-fsus.b-fsus-fixo > .b-fsus-c:not(#_){flex:1 1 100%}
-  html[data-visual="premium"] body.gx-barra-topo .gs .b-fsus.b-fsus-fixo > .b-fsus-c select:not(#_){width:100%}
-  #gx-faixa-premium{white-space:nowrap;font-size:11px;padding:5px 6px 5px 12px;bottom:calc(var(--bn-h,64px) + 10px)}
+  html[data-visual="premium"] body.gx-barra-topo .gs .b-fsus.b-fsus-fixo > .b-fsus-c select:not(#_){width:100%!important;max-width:none}
 }
 
 /* ═══ Backup 91 (respostas de 16/10) ═══ */
@@ -207,18 +203,18 @@ html[data-visual="premium"] body.gx-barra-topo .gs .b-fsus.b-fsus-fixo > .b-fsus
 html[data-visual="premium"] body.gx-barra-topo .gs .b-fsus.b-fsus-fixo > .b-fsus-c:not(#_){padding:0 3px!important;border-radius:0!important}
 html[data-visual="premium"] body.gx-barra-topo .gs .b-fsus.b-fsus-fixo > .b-fsus-limpar:not(#_){border-radius:0 999px 999px 0!important;padding:0 12px 0 5px!important;color:#FCA5A5!important;font-weight:600!important;font-size:11.5px!important;opacity:1}
 html[data-visual="premium"] body.gx-barra-topo .gs .b-fsus.b-fsus-fixo > .b-fsus-limpar:not(#_)::before{background:rgba(220,38,38,.18);border:1px solid rgba(248,113,113,.4);color:#FCA5A5;padding:2px 8px;font-size:10px}
-html[data-visual="premium"] body.gx-barra-topo .gs .b-fsus.b-fsus-fixo > .b-fsus-limpar.b-fsus-limpar-x:not(#_){color:rgba(252,165,165,.7)!important;opacity:1}
+html[data-visual="premium"] body.gx-barra-topo .gs .b-fsus.b-fsus-fixo > .b-fsus-limpar.b-fsus-limpar-x:not(#_){color:rgba(252,165,165,.82)!important;opacity:1}
 html[data-visual="premium"] body.gx-barra-topo .gs .b-fsus.b-fsus-fixo select:not(#_),
 html[data-visual="premium"] body.gx-barra-topo .gs .b-fsus.b-fsus-fixo select:has(option:checked:not([value=""])):not(#_){height:28px;background-color:var(--pm-navy2)!important;color:#FFFFFF!important;border:1px solid rgba(255,255,255,.14)!important;
-  border-radius:999px!important;padding:0 28px 0 11px!important;font-weight:600!important;font-size:12px!important;max-width:220px;
+  border-radius:999px!important;padding:0 28px 0 11px!important;font-weight:600!important;font-size:12px!important;max-width:min(560px,70vw);min-width:0;
   background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23C9A84C' stroke-width='1.6' fill='none'/%3E%3C/svg%3E")!important;background-repeat:no-repeat!important;background-position:right 10px center!important}
 @media (max-width:600px){
   html[data-visual="premium"] body.gx-barra-topo .gs .b-fsus.b-fsus-fixo:not(#_){background:var(--pm-navy);border-radius:16px;padding:8px 10px;gap:6px}
   html[data-visual="premium"] body.gx-barra-topo .gs .b-fsus.b-fsus-fixo > :is(.b-fsus-rot,.b-fsus-c,.b-fsus-limpar):not(#_){height:auto;border-radius:0!important;padding:0!important}
 }
-/* Tarefas: "Feriados" e "Agenda" no mesmo desenho dos filtros (pílula clara), com o ícone em azul como o de Tarefas */
-html[data-visual="premium"] body.gx-barra-topo .gs :is(#tf-feriados2,#tf-agenda2):not(#_){border:1px solid var(--border)!important;background:var(--surface)!important;color:var(--text2)!important;border-radius:999px!important;
-  padding:4px 12px!important;height:auto;min-height:0;font:600 12.5px var(--font-ui)!important;line-height:1.45;gap:6px;box-shadow:none!important}
-html[data-visual="premium"] body.gx-barra-topo .gs :is(#tf-feriados2,#tf-agenda2):hover:not(#_){border-color:var(--primario)!important;color:var(--text)!important}
-html[data-visual="premium"] body.gx-barra-topo .gs :is(#tf-feriados2,#tf-agenda2) .b-ic:not(#_){color:#2E5EAA;width:15px;height:15px}
-html[data-visual="premium"][data-tema="escuro"] body.gx-barra-topo .gs :is(#tf-feriados2,#tf-agenda2) .b-ic:not(#_){color:#6CA0F0}
+/* Backup 95: Tarefas — "Feriados" e "Agenda" do TAMANHO dos botões normais (como "+ Nova tarefa"), com o ícone no quadrinho
+   preenchido em degradê azul e o desenho branco, igual ao ícone do cabeçalho de Tarefas (.b-cab-ic) */
+html[data-visual="premium"] body.gx-barra-topo .gs .b-bt-quad:not(#_){display:inline-grid;place-items:center;width:20px;height:20px;border-radius:6px;flex:none;
+  background:linear-gradient(135deg,#1B2A4A,#2E5EAA);color:#FFFFFF;margin-right:2px}
+html[data-visual="premium"] body.gx-barra-topo .gs .b-bt-quad .b-ic:not(#_){width:12px;height:12px;color:#FFFFFF;stroke:#FFFFFF}
+html[data-visual="premium"] body.gx-barra-topo .gs :is(#tf-feriados2,#tf-agenda2):not(#_){display:inline-flex;align-items:center;gap:7px}

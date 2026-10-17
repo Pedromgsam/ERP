@@ -306,7 +306,7 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
       (await p.$$eval('#panel-tarefas table.b-tab-tf thead th', (l) => l.map((t) => t.textContent.replace(/[↑↓]/g, '').trim()).join('|'))) === 'Tarefa|Pessoa|Prioridade|Prazo|Situação|');
     ok('B88 Tarefas: abas Em aberto/Atrasadas/Concluídas, Mostrar · De quem · Urgência no padrão do escritório também na Lista, sem busca, "Filtros" e "Marcar várias"',
       (await p.$$eval('#panel-tarefas [data-b-aba]', (l) => l.map((b) => b.dataset.bAba).join(','))) === 'abertas,atrasadas,concluidas' && (await p.$$('#panel-tarefas [data-b-prazo]')).length === 0 &&
-      await p.isVisible('#tf-chips #tf-f-mostra.b-seg') && await p.isVisible('#tf-chips #tf-f-pri.b-seg') && !(await p.$('#panel-tarefas [data-bt=l][data-k=pri]')) &&
+      await p.isVisible('#tf-chips #tf-f-mostra.b-seg') && await p.isVisible('#tf-chips #tf-pri-sel') && !(await p.$('#panel-tarefas [data-bt=l][data-k=pri]')) &&
       !(await p.$('#panel-tarefas [data-bt=q]')) && !(await p.$('#tf-busca')) && !!(await p.$('#panel-tarefas [data-bt=painel]')) && !!(await p.$('#panel-tarefas [data-bt=loteon]')));
     ok('B72 Tarefas: os selos de Pessoa têm o mesmo tamanho', await p.evaluate(() => new Set([...document.querySelectorAll('#panel-tarefas td.b-tf-pes .pill-pessoa')].map((x) => Math.round(x.getBoundingClientRect().width))).size === 1));
     await p.click('#panel-tarefas tr:has-text("Protocolar defesa") [data-concluir]'); await p.waitForTimeout(2000);
@@ -439,13 +439,13 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     ok('fluxo cria etapas e subtarefas', sql("select count(*) from tarefas where fluxo_id is not null") === '7' && sql("select count(*) from tarefas where tarefa_pai_id is not null") === '2');
     ok('prazos em dias úteis pulam fim de semana e feriado (12/10)', sql("select prazo from tarefas where titulo='Minuta da defesa'") === '2026-10-09' && sql("select prazo_fatal from tarefas where titulo='Protocolo'") === '2026-10-16');
     ok('responsável do fluxo recebe aviso', sql("select count(*) from notificacoes n join perfis p on p.id=n.usuario_id where p.email='equipe@teste'") === '1');
-    await p.click('#tf-vista [data-v=calendario]'); await p.waitForTimeout(500);
-    ok('B88: vistas só Lista e Calendário (a Semana fica dentro do Calendário; sem Fluxos)', (await p.$$eval('#tf-vista button', (bs) => bs.map((b) => b.dataset.v).join(','))) === 'lista,calendario' &&
+    await p.click('#tf-vista2 [data-v=calendario]'); await p.waitForTimeout(500);
+    ok('B88: vistas só Lista e Calendário (a Semana fica dentro do Calendário; sem Fluxos)', (await p.$$eval('#tf-vista2 button', (bs) => bs.map((b) => b.dataset.v).join(','))) === 'lista,calendario' &&
       (await p.$$eval('#tf-cal-vista [data-cal-v]', (bs) => bs.map((b) => b.dataset.calV).join(','))) === 'mes,semana,dia');
     ok('Tarefas (B88): só "+ Nova tarefa" e ⚙ (Feriados, Google Agenda); sem Fluxo, Modelos de fluxo e busca',
-      await p.isVisible('#tf-nova') && !(await p.$('#tf-fluxo')) && !(await p.$('#tf-modelos')) && !(await p.$('#tf-delegar')) && await p.isVisible('#tf-config') && !(await p.$('#tf-busca')));
+      await p.isVisible('#tf-nova') && !(await p.$('#tf-fluxo')) && !(await p.$('#tf-modelos')) && !(await p.$('#tf-delegar')) && await p.isVisible('#tf-agenda2') && !(await p.$('#tf-busca')));
     ok('B88: legenda do calendário Reunião · Audiência · Tarefa · Rotina · Atrasada · Concluída (sem prazo fatal e sem "próxima")', /Reunião.*Audiência.*Tarefa.*Rotina.*Atrasada.*Concluída/.test(await p.textContent('#tf-vista-corpo .ag-leg')) && !/fatal|Próxima/i.test(await p.textContent('#tf-vista-corpo .ag-leg')));
-    await p.evaluate(() => { GS.E.tf.atalho = ''; GS.E.tf.pri = ''; }); await p.click('#tf-vista [data-v=lista]'); await p.click('#tf-vista-corpo [data-b-aba=abertas]'); await p.waitForTimeout(500);
+    await p.evaluate(() => { GS.E.tf.atalho = ''; GS.E.tf.pri = ''; }); await p.click('#tf-vista2 [data-v=lista]'); await p.click('#tf-vista-corpo [data-b-aba=abertas]'); await p.waitForTimeout(500);
     // Backup 85 (TF8): clicar na tarefa abre o formulário; o botão "Ficha da tarefa" (mantido) abre a ficha de leitura
     await p.click('#tf-vista-corpo tr[data-b-k]:has-text("Protocolo")'); await p.waitForSelector('#gs-raiz #ag-ficha'); await p.waitForTimeout(300);
     ok('B89 (D5): clicar na tarefa abre o detalhe curto (Concluir · Editar · Ficha completa), igual ao do calendário', !!(await p.$('#gs-raiz #ag-ficha')) && !!(await p.$('#gs-raiz #ag-editar')));
@@ -465,7 +465,7 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     ok('com revisão: concluir manda para "Aguardando revisão" e avisa o revisor', sql("select status from tarefas where titulo='Peça com revisão'") === 'revisao' &&
       sql("select count(*) from notificacoes n join perfis p on p.id=n.usuario_id where p.email='equipe@teste' and n.tipo='revisao'") === '1');
     // horas: ▶ e ■
-    await p.evaluate(() => { GS.E.tf.atalho = ''; GS.E.tf.pri = ''; }); await p.click('#tf-vista [data-v=lista]'); await p.click('#tf-vista-corpo [data-b-aba=abertas]'); await p.waitForTimeout(600);
+    await p.evaluate(() => { GS.E.tf.atalho = ''; GS.E.tf.pri = ''; }); await p.click('#tf-vista2 [data-v=lista]'); await p.click('#tf-vista-corpo [data-b-aba=abertas]'); await p.waitForTimeout(600);
     await p.click('#tf-vista-corpo tr[data-b-k]:has-text("Revisão do sócio") td:nth-child(2)'); await p.waitForSelector('#gs-raiz #ag-editar'); await p.click('#gs-raiz #ag-editar'); await p.waitForSelector('#tf-crono'); await p.waitForTimeout(300);   // Backup 89 (D5): a linha abre o detalhe; Editar abre o formulário
     await p.click('#tf-crono'); await p.waitForTimeout(800); await p.click('#tf-crono'); await p.waitForTimeout(800);
     ok('▶/■ registra horas na tarefa', sql("select count(*) from tarefa_tempos where fim is not null") === '1');
@@ -767,7 +767,7 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     sql("insert into tarefas(titulo,responsavel,prazo,prazo_fatal) values ('Contestação Beta','Pedro',current_date+3,current_date+5)");
     sql("insert into tarefas(titulo,responsavel,participantes,prazo,tipo_agenda,hora) values ('Reunião com cliente B50','Adriana','Pedro',current_date+2,'reuniao','14:30'), ('Tarefa simples B50','Pedro','',current_date+4,'',null)");
     await nav(p, 'tarefas'); await p.waitForTimeout(1200);
-    await p.click('#tf-config'); await p.click('#tf-agenda'); await p.waitForSelector('#ag-link'); await p.waitForTimeout(300);
+    await p.click('#tf-agenda2'); await p.waitForSelector('#ag-link'); await p.waitForTimeout(300);
     { const link = await p.inputValue('#ag-link'); const r = await p.request.get(link.replace(/^https?:\/\/[^/]+/, BASE)); const ics = await r.text();
       ok('Google Agenda: link pessoal devolve a agenda (.ics) com prazo fatal e audiência', r.status() === 200 && /BEGIN:VCALENDAR/.test(ics) && /Prazo fatal: Contestação Beta/.test(ics) && /⚖ Audiência de instrução/.test(ics), ics.slice(0, 300));
       ok('agenda mostra só as tarefas da própria pessoa', !/Audiência de outra pessoa/.test(ics));
@@ -1034,10 +1034,13 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     sql("insert into lancamentos(empresa,tipo,descricao,vencimento,valor,pago,data_pagamento) values ('contabilidade','receita','Caixa teste',current_date-5,500,true,current_date-5)");
     await p.evaluate(() => ERP_RECARREGAR()); await p.waitForTimeout(2500);
     await finAba(p, 'financeiroContab', 'caixa');
-    ok('Composição de Caixa aparece (gráficos não somem)', await p.evaluate(() => { const c = document.querySelector('#panel-financeiroContab #fin-corpo .b-graf'); return !!c && c.getBoundingClientRect().height > 50; }) &&
-      /Resumo mensal/.test(await p.textContent('#panel-financeiroContab #fin-corpo')));
+    ok('B95 Caixa: Resumo mensal sem o quadro "Receita × despesa"; Saldo acumulado em azul e sem negrito no mês', /Resumo mensal/.test(await p.textContent('#panel-financeiroContab #fin-corpo')) &&
+      !/Receita × despesa/.test(await p.textContent('#panel-financeiroContab #fin-corpo')) && await p.evaluate(() => { const td = document.querySelector('#panel-financeiroContab .b-tab-cx tbody tr td:last-child');
+        return !!td && td.classList.contains('b-azul-v') && !td.querySelector('b'); }));
     await p.click('#panel-financeiroContab #cx-vista [data-cx=detalhado]'); await p.waitForTimeout(500);
     ok('B76 Caixa: "Mês a mês" mostra o livro-caixa do mês aberto', !!(await p.$('#panel-financeiroContab details.b-cx-mes[open] table')));
+    ok('B95 Caixa → Mês a mês: Receita · Despesa · Saldo em 3 colunas alinhadas (verde, vermelho, azul)', await p.evaluate(() => { const sm = document.querySelector('#panel-financeiroContab details.b-cx-mes > summary'); if (!sm) return false;
+      const c = [...sm.querySelectorAll('.b-cx-c')]; return getComputedStyle(sm).display === 'grid' && c.length === 3 && c[0].classList.contains('b-verde-v') && c[1].classList.contains('b-verm-v') && c[2].classList.contains('b-azul-v'); }));
     ok('B94 Caixa: Distribuição de lucros dentro do Caixa (sem aba própria) e abas Análise · Caixa · Lançamentos', !!(await p.$('#panel-financeiroContab #fin-corpo .cx-lucros')) &&
       (await p.$$eval('#panel-financeiroContab #fin-abas [data-aba]', (b) => b.map((x) => x.dataset.aba).join('|'))) === 'analise|caixa|lanc');
     await p.click('#panel-financeiroContab #cx-vista [data-cx=consolidado]'); await p.waitForTimeout(400);
@@ -1111,7 +1114,7 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     // Backup 83: o Início não tem mais calendário — a agenda (e o "+ Agendar") fica em Tarefas → Calendário
     await nav(p, 'hoje'); await p.waitForTimeout(1500);
     ok('B83 Início: sem o calendário e sem "+ Agendar" (a agenda fica em Tarefas)', !(await p.$('#panel-hoje .ini-fila')) && !(await p.$('#panel-hoje [data-agendar]')));
-    await nav(p, 'tarefas'); await p.click('#tf-vista [data-v=calendario]'); await p.waitForSelector('#tf-vista-corpo [data-agendar]', { timeout: 8000 }).catch(() => {});
+    await nav(p, 'tarefas'); await p.click('#tf-vista2 [data-v=calendario]'); await p.waitForSelector('#tf-vista-corpo [data-agendar]', { timeout: 8000 }).catch(() => {});
     ok('Tarefas → Calendário: "+ Agendar" e legenda de cores', !!(await p.$('#tf-vista-corpo [data-agendar]')) && !!(await p.$('#tf-vista-corpo .ag-leg')));
     await p.click('#tf-vista-corpo [data-agendar]'); await p.waitForSelector('#gs-raiz #f-ag');
     // Backup 40: só pessoas cadastradas; audiência exige o nº do processo; início e fim; aviso antes
@@ -1129,7 +1132,7 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
       /Audiência de teste B36/.test(await p.textContent('#tf-vista-corpo')));
     // Backup 48: Tarefas com os mesmos filtros (Mostrar / De quem) e o mesmo desenho da agenda do Início
     sql("insert into tarefas(titulo,responsavel,status,prazo,tipo_agenda) values ('Audiência filtro B48','Pedro Castro','pendente',current_date + 3,'audiencia')");
-    await nav(p, 'tarefas'); await p.click('#tf-vista [data-v=calendario]'); await p.waitForSelector('#tf-chips [data-tf-mostra]'); await p.waitForTimeout(800);
+    await nav(p, 'tarefas'); await p.click('#tf-vista2 [data-v=calendario]'); await p.waitForSelector('#tf-chips [data-tf-mostra]'); await p.waitForTimeout(800);
     { const ordem = await p.$$eval('#tf-chips [data-tf-mostra]', (bs) => bs.map((b) => b.dataset.tfMostra).join(','));
       const pes = await p.$$eval('#tf-chips [data-tf-pes]', (bs) => bs.map((b) => b.textContent.trim()));
       const pri = await p.$$eval('#tf-chips [data-tf-pri]', (bs) => bs.map((b) => b.textContent.trim()).join(','));
@@ -1142,12 +1145,12 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
       await p.click('#tf-chips [data-tf-mostra=audiencia]'); await p.waitForTimeout(500);
       ok('Tarefas (B88): Mostrar vale na Lista — "Tarefas" tira a audiência; "Audiências" mostra', antes && !depois && /Audiência filtro B48/.test(await p.textContent('#tf-corpo')));
       await p.click('#tf-chips [data-tf-mostra=""]'); await p.waitForTimeout(400);
-      await p.click('#tf-chips [data-tf-pri=alta]'); await p.waitForTimeout(400);
+      await p.selectOption('#tf-chips #tf-pri-sel', 'alta'); await p.waitForTimeout(400);
       ok('Tarefas (B88): Urgência "Alta" filtra a lista (a audiência de prioridade média sai)', !/Audiência filtro B48/.test(await p.textContent('#tf-corpo')));
-      await p.click('#tf-chips [data-tf-pri=""]'); await p.waitForTimeout(300); }
+      await p.selectOption('#tf-chips #tf-pri-sel', ''); await p.waitForTimeout(300); }
     sql("delete from tarefas where titulo='Audiência filtro B48'");
     // Backup 45: tarefa para outra pessoa + dois avisos (B83: pelo calendário de Tarefas)
-    await nav(p, 'tarefas'); await p.click('#tf-vista [data-v=calendario]'); await p.waitForSelector('#tf-vista-corpo [data-agendar]', { timeout: 8000 }).catch(() => {});
+    await nav(p, 'tarefas'); await p.click('#tf-vista2 [data-v=calendario]'); await p.waitForSelector('#tf-vista-corpo [data-agendar]', { timeout: 8000 }).catch(() => {});
     await p.click('#tf-vista-corpo [data-agendar]'); await p.waitForSelector('#gs-raiz #f-ag');
     ok('B88: Agendar tem os tipos Tarefa · Rotina · Reunião · Audiência', (await p.$$eval('#gs-raiz #ag-tipo [data-v]', (l) => l.map((b) => b.dataset.v).join(','))) === 'tarefa,rotina,reuniao,audiencia');
     await p.fill('#gs-raiz #f-ag [name=titulo]', 'Tarefa para a equipe B45');
@@ -1157,7 +1160,7 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
       await p.click('#gs-raiz #ag-ok'); await p.waitForTimeout(1500);
       ok('Agendar (B45/B88): reunião lançada para outra pessoa, com dois avisos (1 dia + 30 min)', !!outro && sql("select responsavel||'|'||coalesce(nullif(tipo_agenda,''),'-')||'|'||coalesce(hora::text,'-')||'|'||aviso_min||'|'||aviso2_min from tarefas where titulo='Tarefa para a equipe B45'") === outro + '|reuniao|09:00:00|1440|30',
         sql("select responsavel||'|'||coalesce(nullif(tipo_agenda,''),'-')||'|'||coalesce(hora::text,'-')||'|'||aviso_min||'|'||coalesce(aviso2_min::text,'-') from tarefas where titulo='Tarefa para a equipe B45'")); }
-    await p.click('#tf-vista [data-v=lista]'); await p.waitForTimeout(500);
+    await p.click('#tf-vista2 [data-v=lista]'); await p.waitForTimeout(500);
     await nav(p, 'hoje'); await p.waitForTimeout(1500);
     ok('Início: sem "+ Receita/+ Despesa/+ Contrato" (o "+ Lançar" faz isso)', !/\+ Receita|\+ Despesa|\+ Contrato/.test(await p.textContent('#panel-hoje')));
     await p.click('#lemb-novo'); await p.waitForSelector('#f-lemb');
@@ -1189,7 +1192,7 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
       ok('B73 Painel → Empresas do grupo: tabela nova com as colunas de antes, em ordem de grupo e sem bolinha no grupo', (await p.$$eval('#pe-nova thead th', (l) => l.map((t) => t.textContent.replace(/[↑↓]/g, '').trim()).join('|'))) === 'Grupo|Entidade / sócio|CPF/CNPJ|RFB|PGFN|AGE/MG|Total|Operação|Situação' &&
         grupos.length > 0 && grupos.every((g, i) => grupos.indexOf(g) === i || grupos[i - 1] === g) && !(await p.$('#pe-nova .b-ponto')) && !(await p.isVisible('#execRankWrap')), grupos.join(' | ')); }
     ok('B73/B76 Painel: abas Ativos · Consultoria · Serviço pontual · Inativos · Todos e "Filtros" (área, operação, situação; grupo no topo)', (await p.$$eval('#pe-nova [data-b-aba]', (l) => l.map((b) => b.dataset.bAba).join(','))) === 'at,cons,pont,in,todos' && (await p.$$('#pe-nova [data-bt=l]')).length === 3 && !!(await p.$('#pe-filtro [data-fsus=grupo]')));   // B76: o grupo fica no topo da tela (vale para os números, a evolução e a tabela)
-    ok('B78 Painel (enxuto): 5 números no topo (RFB · PGFN · AGE/MG numa linha sob o Passivo total), sem os 3 blocos de cartões', (await p.$$('#pe-nums .b-nums-faixa > div')).length === 5 && /RFB .* · PGFN .* · AGE\/MG/.test(await p.textContent('#pe-nums .b-nums-faixa > div:first-child small')) && !(await p.isVisible('#execKpiSection')) && /Passivo total/.test(await p.textContent('#pe-nums')));
+    ok('B78 Painel (enxuto): 5 números no topo (RFB · PGFN · AGE/MG numa linha sob o Passivo total), sem os 3 blocos de cartões', (await p.$$('#pe-nums .b-nums-faixa > div')).length === 5 && /RFB\s.*\s·\sPGFN\s.*\s·\sAGE\/MG/.test(await p.textContent('#pe-nums .b-nums-faixa > div:first-child small')) && !(await p.isVisible('#execKpiSection')) && /Passivo total/.test(await p.textContent('#pe-nums')));
     await p.click('#pe-nova tbody tr[data-b-k]:has-text("Alfa Comércio") td:nth-child(2)'); await p.waitForTimeout(400);
     await p.waitForFunction(() => [...document.querySelectorAll('#janelas .janela h2')].some((h) => /Alfa Comércio/i.test(h.textContent)), null, { timeout: 8000 }).catch(() => {});
     ok('Painel: clicar na empresa abre direto a ficha completa', !/uuid|Erro no ERP/.test(await p.textContent('#gs-raiz #aviso').catch(() => '')) &&
@@ -1245,7 +1248,7 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     // Tarefas: excluir manda para a aba Excluídas; restaurar volta
     sql("insert into tarefas(titulo,responsavel,status) values ('Tarefa B15 excluir','Pedro','pendente')");
     await p.evaluate(() => { GS.E.tf = null; }); await nav(p, 'tarefas'); await p.waitForTimeout(1500);
-    await p.click('#tf-vista [data-v=lista]'); await p.click('#tf-vista-corpo [data-b-aba=abertas]'); await p.waitForTimeout(800);
+    await p.click('#tf-vista2 [data-v=lista]'); await p.click('#tf-vista-corpo [data-b-aba=abertas]'); await p.waitForTimeout(800);
     await p.click('#panel-tarefas tr[data-b-k="' + sql("select id from tarefas where titulo='Tarefa B15 excluir'") + '"] td:nth-child(1)'); await p.waitForSelector('#gs-raiz #ag-editar'); await p.click('#gs-raiz #ag-editar'); await p.waitForSelector('#btn-excluir-tf');   // Backup 89 (D5): detalhe → Editar
     await p.click('#btn-excluir-tf'); await p.waitForTimeout(1500);
     ok('Tarefas: excluir tira da lista (fica no histórico como cancelada)', sql("select status from tarefas where titulo='Tarefa B15 excluir'") === 'cancelada' && !/Tarefa B15 excluir/.test(await p.textContent('#tf-corpo')));
@@ -1256,7 +1259,7 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     ok('Tarefas (B55): sem a criação rápida ⚡', !(await p.$('#tf-rapida-bt')) && !(await p.$('#tf-rapida')));
     sql("insert into tarefas(titulo,responsavel,status,prazo,recorrencia) values ('Semana B16','Pedro','pendente',date_trunc('week', current_date)::date,'mensal')");
     await p.evaluate(() => { GS.E.tf = null; }); await nav(p, 'hoje'); await p.waitForTimeout(800); await nav(p, 'tarefas'); await p.waitForTimeout(1500);
-    await p.click('#tf-vista [data-v=calendario]'); await p.waitForTimeout(400); await p.click('#tf-cal-vista [data-cal-v=semana]'); await p.waitForTimeout(600);
+    await p.click('#tf-vista2 [data-v=calendario]'); await p.waitForTimeout(400); await p.click('#tf-cal-vista [data-cal-v=semana]'); await p.waitForTimeout(600);
     { const terca = sql("select (date_trunc('week', current_date)::date + 1)::text");
       await p.evaluate((d) => { const c = [...document.querySelectorAll('.sm-card')].find((x) => /Semana B16/.test(x.textContent)), col = document.querySelector('.sm-col[data-dia="' + d + '"]'), dt = new DataTransfer();
         c.dispatchEvent(new DragEvent('dragstart', { dataTransfer: dt, bubbles: true })); col.dispatchEvent(new DragEvent('dragover', { dataTransfer: dt, bubbles: true, cancelable: true }));
@@ -1265,7 +1268,7 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     { const idS = sql("select id from tarefas where titulo='Semana B16'"), p0 = sql("select prazo::text from tarefas where titulo='Semana B16'");
       await p.evaluate((id) => GS.abrirTarefa(id), idS); await p.waitForSelector('#tf-f-pular'); await p.click('#tf-f-pular'); await p.waitForTimeout(1500);
       ok('Tarefa recorrente: "Pular esta vez" passa para o mês seguinte sem concluir', sql("select status||'|'||(prazo = ('" + p0 + "'::date + interval '1 month')::date)::text from tarefas where titulo='Semana B16'") === 'pendente|true'); }
-    ok('Tarefas: sem a vista Relatório (Backup 41)', !(await p.$('#tf-vista [data-v=relatorio]')));
+    ok('Tarefas: sem a vista Relatório (Backup 41)', !(await p.$('#tf-vista2 [data-v=relatorio]')));
     // Alertas: virar tarefa com subtarefas
     await nav(p, 'alertas'); await p.waitForTimeout(2500);
     { let bt = null;
@@ -1844,7 +1847,11 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
       // C1 (B83: o Início não tem mais agenda — a Semana é a de Tarefas): arrastar remarca
       sql("insert into tarefas(titulo,responsavel,prazo) values ('Arrastar B52','Pedro',current_date)");
       await nav(p, 'tarefas'); await p.waitForTimeout(1200);
-      await p.click('#tf-vista [data-v=calendario]'); await p.waitForTimeout(400); await p.click('#tf-cal-vista [data-cal-v=semana]'); await p.waitForSelector('#tf-vista-corpo .sm-grade', { timeout: 8000 }).catch(() => {});
+      await p.click('#tf-vista2 [data-v=calendario]'); await p.waitForTimeout(400); await p.click('#tf-cal-vista [data-cal-v=semana]'); await p.waitForSelector('#tf-vista-corpo .sm-grade', { timeout: 8000 }).catch(() => {});
+      // Backup 95: no sábado/domingo a semana mostrada não tem "hoje" — a tarefa vai para o 1º dia da semana à vista (o teste não depende do dia em que roda)
+      { const d0 = await p.evaluate(() => { const c = [...document.querySelectorAll('#tf-vista-corpo .sm-col[data-dia]')].find((x) => x.dataset.dia !== 'sem'); return c ? c.dataset.dia : ''; });
+        if (d0 && !(await p.$('#tf-vista-corpo .sm-card:has-text("Arrastar B52")'))) { sql("update tarefas set prazo='" + d0 + "' where titulo='Arrastar B52'");
+          await nav(p, 'tarefas'); await p.waitForTimeout(800); await p.click('#tf-vista2 [data-v=calendario]'); await p.waitForTimeout(400); await p.click('#tf-cal-vista [data-cal-v=semana]'); await p.waitForSelector('#tf-vista-corpo .sm-grade', { timeout: 8000 }).catch(() => {}); } }
       ok('B52 C1/B87: Tarefas → Semana (colunas Seg a Sex + faixa discreta das atrasadas à esquerda)', (await p.$$('#tf-vista-corpo .sm-col[data-dia]')).length >= 5 && !!(await p.$('#tf-vista-corpo .b-cal-atrs')));
       { const card = await p.$('#tf-vista-corpo .sm-card:has-text("Arrastar B52")');
         const destino = await p.evaluate(() => { const cs = [...document.querySelectorAll('#tf-vista-corpo .sm-col[data-dia]')].filter((c) => c.dataset.dia !== 'sem' && !c.classList.contains('sm-hoje')); return cs.length ? cs[cs.length - 1].dataset.dia : ''; });
@@ -1852,7 +1859,7 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
           c.dispatchEvent(new DragEvent('dragstart', { dataTransfer: dt, bubbles: true })); col.dispatchEvent(new DragEvent('dragover', { dataTransfer: dt, bubbles: true, cancelable: true }));
           col.dispatchEvent(new DragEvent('drop', { dataTransfer: dt, bubbles: true, cancelable: true })); }, destino); await p.waitForTimeout(1500); }
         ok('B52 C1: arrastar a tarefa para outro dia remarca o prazo', !!card && !!destino && sql("select prazo from tarefas where titulo='Arrastar B52'") === destino, destino + ' / ' + sql("select prazo from tarefas where titulo='Arrastar B52'")); }
-      await p.click('#tf-vista [data-v=lista]'); await p.waitForTimeout(500);
+      await p.click('#tf-vista2 [data-v=lista]'); await p.waitForTimeout(500);
       // C4/P3: sem borda azul nos grupos; cabeçalho de grupo igual ao de Clientes
       await nav(p, 'clientes'); await p.waitForTimeout(1500);
       const grpCli = await p.evaluate(() => { const td = document.querySelector('#panel-clientes tr.cli-grp > td'); if (!td) return null; const c = getComputedStyle(td); return [c.backgroundColor, c.boxShadow, c.fontSize].join('|'); });
@@ -1922,9 +1929,9 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
       await fecharTudo();
       // (B83: o Início não tem mais a fila — os filtros de prioridade e prazo ficam só em Tarefas)
       // Tarefas: cartões acima da barra de vistas; Semana do tamanho do Mês
-      await nav(p, 'tarefas'); await p.waitForSelector('#tf-vista', { timeout: 10000 }).catch(() => {});
+      await nav(p, 'tarefas'); await p.waitForSelector('#tf-vista2', { timeout: 10000 }).catch(() => {});
       ok('B72 Tarefas: sem os cartões do topo (os números estão nas abas)', !(await p.$('#tf-kpis')) && !(await p.$('#panel-tarefas .kpis')));
-      await p.click('#tf-vista [data-v=calendario]'); await p.waitForTimeout(300); await p.click('#tf-cal-vista [data-cal-v=mes]'); await p.waitForSelector('#tf-cal-corpo .b-cal', { timeout: 8000 }).catch(() => {}); await p.waitForTimeout(500);
+      await p.click('#tf-vista2 [data-v=calendario]'); await p.waitForTimeout(300); await p.click('#tf-cal-vista [data-cal-v=mes]'); await p.waitForSelector('#tf-cal-corpo .b-cal', { timeout: 8000 }).catch(() => {}); await p.waitForTimeout(500);
       const hMes = await p.evaluate(() => (document.querySelector('#tf-cal-corpo .b-cal') || {}).offsetHeight || 0);
       await p.click('#tf-cal-vista [data-cal-v=semana]'); await p.waitForSelector('#tf-cal-corpo .tf-sem', { timeout: 8000 }).catch(() => {}); await p.waitForTimeout(400);
       const hSem = await p.evaluate(() => (document.querySelector('#tf-cal-corpo .tf-sem') || {}).offsetHeight || 0);
@@ -1941,7 +1948,7 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
       await p.click('#gs-raiz .ag-janela #ag-concluir'); await p.waitForTimeout(1500);
       ok('B86 Tarefas: "Concluir" no detalhe do calendário conclui a tarefa', sql("select status from tarefas where titulo='Reunião calendário B86'") === 'concluida');
       sql("delete from tarefas where titulo='Reunião calendário B86'");
-      await p.evaluate(() => { GS.E.tf.calVista = 'mes'; }); await p.click('#tf-vista [data-v=lista]'); await p.waitForTimeout(300);
+      await p.evaluate(() => { GS.E.tf.calVista = 'mes'; }); await p.click('#tf-vista2 [data-v=lista]'); await p.waitForTimeout(300);
       await p.click('#tf-nova'); await p.waitForSelector('#gs-raiz #tf-rep-tipo', { state: 'attached' }); await p.click('#gs-raiz #tf-tipo [data-tf-tp=rotina]'); await p.waitForTimeout(200);
       ok('B53 Tarefas: repetir "Quinzenal" e "Todo dia útil"', await p.evaluate(() => { const o = [...document.querySelectorAll('#gs-raiz #tf-rep-tipo option')].map((x) => x.value); return o.includes('quinzenal') && o.includes('uteis'); }));
       await p.selectOption('#gs-raiz #tf-rep-tipo', 'quinzenal'); await p.waitForTimeout(200);
@@ -2064,8 +2071,9 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
         if (nm) nm.firstChild.textContent = 'COMERCIO E DISTRIBUIDORA DE ALIMENTOS FICTICIA SANTA LUZIA LTDA EPP FILIAL CENTRO';
         const w = t.closest('.b-rola'); return { ws: getComputedStyle(nm).whiteSpace, tab: t.scrollWidth, caixa: w.clientWidth }; });
       ok('B56 Painel: nome longo quebra em 2–3 linhas e a tabela cabe na tela (sem barra para o lado)', caberB56.ws !== 'nowrap' && caberB56.tab <= caberB56.caixa + 2, JSON.stringify(caberB56));
-      ok('Backup 63 visual: cabeçalho da tabela CLARO (fundo branco, letra cinza) e letra Inter em tudo', await p.evaluate(() => { const th = document.querySelector('#pe-nova table thead th');
-        return getComputedStyle(th).backgroundColor === 'rgb(255, 255, 255)' && getComputedStyle(th).color !== 'rgb(255, 255, 255)' && /^"?Inter/.test(getComputedStyle(document.body).fontFamily); }));
+      // Backup 95: o premium é o único visual — cabeçalho da tabela marinho com letra branca
+      ok('B95 visual: cabeçalho da tabela marinho (letra branca) e letra Inter em tudo', await p.evaluate(() => { const th = document.querySelector('#pe-nova table thead th');
+        return getComputedStyle(th).backgroundColor !== 'rgb(255, 255, 255)' && getComputedStyle(th).color === 'rgb(255, 255, 255)' && /^"?Inter/.test(getComputedStyle(document.body).fontFamily); }));
       ok('B55 tabelas: CPF/CNPJ discreto (letra menor)', await p.evaluate(() => { const td = document.querySelector('#pe-nova tbody td.b-num'); if (!td) return false; return parseFloat(getComputedStyle(td).fontSize) <= 13; }));
       await nav(p, 'acordos'); await p.waitForSelector('#ac-tabela tr[data-b-k]', { timeout: 10000 }).catch(() => {});
       ok('B58/B70 Acordos: botão só "Emitir"; o "emitido" fica embaixo do prazo', await p.evaluate(() => {

@@ -688,7 +688,7 @@ function ligarMinB(chave, ids) {
   aplicar();
 }
 // Backup 91 (visual premium): lista suspensa para filtro "menos importante" — só aparece no premium (base.css esconde .b-pm-so; o premium esconde .b-pm-nao)
-const ehPremium = () => document.documentElement.dataset.visual === 'premium';
+const ehPremium = () => true;   // Backup 95: o premium é o único visual
 // Backup 93: selecionar um texto para copiar NÃO abre o detalhe da linha/cartão — só um clique de verdade abre (vale para o sistema todo)
 if (!window._b93Selecao) {
   window._b93Selecao = true;
@@ -931,9 +931,23 @@ function enfeitarB() {
     const n = h.firstChild; if (n && n.nodeType === 3 && EMOJI_INI_B.test(n.nodeValue)) n.nodeValue = n.nodeValue.replace(EMOJI_INI_B, '');
   });
 }
+// Backup 95: a lista suspensa do FILTRO PRINCIPAL (.b-fsus-fixo) cresce/encolhe conforme o texto escolhido (grupo, empresa…)
+let _lsbCanvas = null;
+function larguraSelB(sel) {
+  const o = sel.options[sel.selectedIndex], tx = o ? o.text : '';
+  if (sel.dataset.lsb === tx && sel.style.width) return;
+  const cs = getComputedStyle(sel); if (!cs.fontSize) return;
+  _lsbCanvas = _lsbCanvas || document.createElement('canvas');
+  const cx = _lsbCanvas.getContext('2d'); if (!cx) return;
+  cx.font = cs.fontWeight + ' ' + cs.fontSize + ' ' + cs.fontFamily;
+  const extra = (parseFloat(cs.paddingLeft) || 0) + (parseFloat(cs.paddingRight) || 0) + (parseFloat(cs.borderLeftWidth) || 0) + (parseFloat(cs.borderRightWidth) || 0) + 2;
+  sel.style.width = Math.ceil(cx.measureText(tx).width + extra) + 'px'; sel.dataset.lsb = tx;
+}
+const ajustarSelsB = () => document.querySelectorAll('.gs .b-fsus-fixo select').forEach(larguraSelB);
+document.addEventListener('change', (ev) => { if (ev.target && ev.target.matches && ev.target.matches('.b-fsus-fixo select')) larguraSelB(ev.target); }, true);
 (() => {
   let agendado = false;
-  const agendar = () => { if (agendado) return; agendado = true; requestAnimationFrame(() => { agendado = false; paginarTabelas(); nomearBotoesIcone(); mascararCampos(); enfeitarB(); }); };
+  const agendar = () => { if (agendado) return; agendado = true; requestAnimationFrame(() => { agendado = false; paginarTabelas(); nomearBotoesIcone(); mascararCampos(); enfeitarB(); ajustarSelsB(); }); };
   const ligar = () => new MutationObserver((ms) => { if (ms.some((m) => m.target.closest && m.target.closest('table, .tw, .tabela-wrap, main, .gs-area, #conteudo, #janelas, .janela, .gx-modal, form'))) agendar(); })
     .observe(document.body, { childList: true, subtree: true });
   if (document.body) ligar(); else document.addEventListener('DOMContentLoaded', ligar);

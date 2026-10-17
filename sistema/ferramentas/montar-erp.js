@@ -696,8 +696,8 @@ trocar("  if(id==='relatorio')    { renderTudoAgora(); _initRelatorio(); }\n  if
 trocar("function _pintar(id){\n", "function _pintar(id){\n  if(window.ERP_TELA_NOVA&&window.ERP_TELA_NOVA(id)){ delete _SUJOS[id]; return; }\n", 1);
 trocar('\n</head>\n', '\n<link rel="stylesheet" href="tokens.css">\n<link rel="stylesheet" href="tema-escuro.css">\n<link rel="stylesheet" href="design.css">\n<link rel="stylesheet" href="base.css">\n<link rel="stylesheet" href="premium.css">\n' +
   '<script>try{if(localStorage.getItem("erp_tema")==="escuro")document.documentElement.setAttribute("data-tema","escuro")}catch(e){}' +
-  // Backup 89: visual premium (teste) — ?visual=premium|normal no endereço ou a escolha guardada neste navegador
-  'try{var _v=(location.search.match(/[?&]visual=(premium|normal)/)||[])[1];if(_v)localStorage.setItem("erp_visual",_v==="premium"?"premium":"");if(localStorage.getItem("erp_visual")==="premium")document.documentElement.setAttribute("data-visual","premium")}catch(e){}</script>\n</head>\n', 1);
+  // Backup 95: o visual premium virou o ÚNICO visual do ERP (sem botão para voltar ao antigo; a camada premium.css segue presa a html[data-visual="premium"])
+  'document.documentElement.setAttribute("data-visual","premium");try{localStorage.removeItem("erp_visual")}catch(e){}</script>\n</head>\n', 1);
 fs.writeFileSync(destino, s);
 
 // ═══════ Gestão embutido: as telas do Gestão rodando dentro do ERP ═══════
