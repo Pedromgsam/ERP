@@ -1,0 +1,94 @@
+/* ═══ Backup 96: AMBIENTE DE TESTE dentro do ERP (última camada; tudo sob html[data-amb="teste"]) ═══
+   Liga pelo ⋯ da barra do alto → "Ambiente de teste" (ou ?teste=1 no endereço). Os dados são os do ERP.
+   3) letras levemente azuladas · 4) cartões com canto de 12 px e sombra suave, números com mini-gráfico, o dia por hora e blocos de atalho.
+   As janelas de Tribunais e Sistemas fiscais (.ts-*) valem com ou sem o ambiente de teste. */
+
+/* ── 3) cores do texto levemente azuladas (o mesmo contraste das de hoje) ── */
+html[data-amb="teste"]:not([data-tema="escuro"]){--ink:#141B2D;--text:#1B2333;--text2:#4A5363;--titulo:#141B2D}
+
+/* ── 4) cartões: canto 12 px e sombra suave ── */
+html[data-amb="teste"] body.gx-barra-topo .gs :is(.b-quadro,.b-fin-cartao,.card,.b-cg,.b-bloco,.ti-cartao,.b-faixa-av):not(#_){border-radius:12px!important;
+  box-shadow:0 1px 2px rgba(16,24,40,.06),0 1px 3px rgba(16,24,40,.08)!important}
+html[data-amb="teste"] body.gx-barra-topo .gs .b-nums.b-nums-faixa > div:not(#_){border-radius:12px!important;box-shadow:0 1px 2px rgba(16,24,40,.06),0 1px 3px rgba(16,24,40,.08)!important}
+
+/* faixa "ambiente de teste" no pé da tela */
+#gx-faixa-amb{position:fixed;left:50%;bottom:14px;transform:translateX(-50%);z-index:3000;display:flex;align-items:center;gap:12px;padding:7px 8px 7px 16px;
+  border-radius:999px;background:#1B2A4A;color:#F5EDD6;font:600 12px var(--font-ui,'Inter',system-ui,sans-serif);box-shadow:0 8px 24px rgba(0,0,0,.25);border:1px solid rgba(201,168,76,.45)}
+#gx-faixa-amb button{border:0;border-radius:999px;padding:5px 12px;background:#C9A84C;color:#1B2A4A;font:700 12px var(--font-ui,'Inter',system-ui,sans-serif);cursor:pointer}
+@media (max-width:600px){#gx-faixa-amb{white-space:nowrap;font-size:11px;padding:5px 6px 5px 12px;bottom:calc(var(--bn-h,64px) + 10px)}#gx-faixa-amb span{overflow:hidden;text-overflow:ellipsis;max-width:52vw}}
+
+/* ── Início do ambiente de teste (Cockpit + Portal) ── */
+.ti-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin:0 0 14px}
+.ti-kpi{display:flex;flex-direction:column;align-items:flex-start;gap:2px;text-align:left;background:var(--surface);border:1px solid var(--border);border-left:3px solid var(--primario);
+  border-radius:12px;padding:12px 14px 8px;box-shadow:0 1px 2px rgba(16,24,40,.06),0 1px 3px rgba(16,24,40,.08);font:inherit;color:var(--text);cursor:pointer;min-width:0;min-height:96px}
+.ti-kpi:hover{border-color:var(--border-strong)}
+.ti-kpi small{font-size:12px;color:var(--text3)}
+.ti-kpi b{font-size:20px;font-weight:700;color:var(--ink);font-variant-numeric:tabular-nums}
+.ti-kpi em{font-style:normal;font-size:11.5px;color:var(--text3)}
+.ti-k-verde{border-left-color:var(--green)}.ti-k-verde b{color:var(--green-d)}
+.ti-k-verm{border-left-color:var(--red)}.ti-k-verm b{color:var(--red-d)}
+.ti-esq{background:var(--surface2);border-left-color:var(--border);animation:none}
+.ti-spark{display:block;width:100%;height:28px;margin-top:4px}
+.ti-spark-l{fill:none;stroke:var(--primario);stroke-width:1.6;vector-effect:non-scaling-stroke}
+.ti-spark-a{fill:var(--primario);opacity:.1}
+.ti-k-verde .ti-spark-l{stroke:var(--green)}.ti-k-verde .ti-spark-a{fill:var(--green)}
+.ti-k-verm .ti-spark-l{stroke:var(--red)}.ti-k-verm .ti-spark-a{fill:var(--red)}
+.ti-grade{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr);gap:14px;margin-top:14px}
+.ti-col{display:flex;flex-direction:column;gap:14px;min-width:0}
+.gs .ti-cartao.ini-b74{display:block;margin:0}
+.ti-cartao{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px 16px;box-shadow:0 1px 2px rgba(16,24,40,.06),0 1px 3px rgba(16,24,40,.08);min-width:0}
+.ti-hd{display:flex;align-items:baseline;gap:10px;margin:0 0 10px}
+.ti-hd h2{font-size:15px;margin:0}
+.ti-hd small{margin-left:auto;color:var(--text3);font-size:12px}
+.ti-horas{display:flex;flex-direction:column}
+.ti-hora{display:grid;grid-template-columns:52px minmax(0,1fr);gap:10px;padding:5px 0;border-top:1px dashed var(--border);min-height:32px}
+.ti-hora:first-child{border-top:0}
+.ti-hora > span{color:var(--text3);font-size:12px;padding-top:3px;font-variant-numeric:tabular-nums}
+.ti-hora > div{display:flex;flex-direction:column;gap:4px;min-width:0}
+.ti-agora{border-top:2px solid var(--red)!important}
+.ti-ev{display:block;text-align:left;border:0;border-left:3px solid var(--blue);background:var(--blue-lt);border-radius:8px;padding:6px 10px;font:inherit;font-size:12.5px;color:var(--text);cursor:pointer;width:100%}
+.ti-ev small{display:block;color:var(--text3);font-size:11px}
+.ti-ev-audiencia{border-left-color:var(--red);background:var(--red-lt)}
+.ti-ev-reuniao{border-left-color:var(--primario);background:var(--primario-lt,var(--blue-lt))}
+.ti-vazio{color:var(--text3);font-size:12.5px;margin:6px 0 0}
+.ti-blocos{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.ti-bloco{display:flex;flex-direction:column;align-items:flex-start;gap:3px;text-align:left;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:10px;font:inherit;color:var(--text);cursor:pointer;min-width:0}
+.ti-bloco:hover{border-color:#C9A84C}
+.ti-bloco b{font-size:13px}
+.ti-bloco small{font-size:11.5px;color:var(--text3)}
+.ti-bi{width:28px;height:28px;border-radius:8px;display:grid;place-items:center;background:linear-gradient(135deg,#1B2A4A,#2E5EAA);color:#FFFFFF;flex:none}
+.ti-bi .b-ic{width:15px;height:15px;color:#FFFFFF;stroke:#FFFFFF}
+.ti-bi-ouro{background:linear-gradient(135deg,#8A6D14,#C9A84C)}
+.ti-ext{display:flex;flex-direction:column;gap:8px}
+.ti-ext-it{display:flex;align-items:center;gap:10px;text-align:left;border:1px solid var(--border);border-radius:12px;padding:9px 12px;background:var(--surface);font:inherit;color:var(--text);text-decoration:none;cursor:pointer}
+.ti-ext-it:hover{border-color:#C9A84C}
+.ti-ext-it b{display:block;font-size:13px}
+.ti-ext-it small{display:block;font-size:11.5px;color:var(--text3)}
+@media (max-width:1100px){.ti-grade{grid-template-columns:minmax(0,1fr)}.ti-blocos{grid-template-columns:repeat(auto-fill,minmax(150px,1fr))}}
+
+/* ── Tribunais (mapa do Brasil) e Sistemas fiscais ── */
+.ts-trib{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,1fr);gap:22px;align-items:start}
+.ts-mapa-caixa{background:linear-gradient(160deg,#EEF2F8,#E3E9F3);border-radius:14px;padding:14px}
+html[data-tema="escuro"] .ts-mapa-caixa{background:linear-gradient(160deg,#121D33,#0D1526)}
+.ts-mapa{display:block;width:100%;height:auto;max-height:560px}
+.ts-uf{fill:#FFFFFF;stroke:#B9C4D8;stroke-width:1;cursor:pointer;transition:fill .12s}
+.ts-uf:hover,.ts-uf:focus-visible{fill:#D3DDF0;outline:none}
+.ts-uf.on{fill:#1B2A4A;stroke:#C9A84C;stroke-width:1.5}
+html[data-tema="escuro"] .ts-uf{fill:#1C2A45;stroke:#30436A}
+html[data-tema="escuro"] .ts-uf:hover{fill:#2B4A7E}
+html[data-tema="escuro"] .ts-uf.on{fill:#C9A84C;stroke:#F4D27A}
+.ts-rots text{font:700 12px var(--font-ui,'Inter',system-ui,sans-serif);fill:#4A5363;text-anchor:middle;pointer-events:none}
+.ts-rots text.on{fill:#FFFFFF}
+html[data-tema="escuro"] .ts-rots text{fill:#C9D1D9}
+html[data-tema="escuro"] .ts-rots text.on{fill:#1B2A4A}
+.ts-nota{margin:6px 0 0;font-size:10.5px;color:var(--text3)}
+.ts-lista h3{font-size:17px;margin:0 0 8px}
+.ts-lista h3 span{font-size:12px;color:var(--text3);font-weight:600;margin-left:4px}
+.ts-grupo{margin-top:12px}
+.ts-grupo h4{margin:0 0 6px;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--text3)}
+.ts-links{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px}
+.ts-link{display:flex;flex-direction:column;gap:1px;border:1px solid var(--border);border-radius:10px;padding:9px 12px;color:var(--text);text-decoration:none;background:var(--surface)}
+.ts-link:hover{border-color:#C9A84C}
+.ts-link b{font-size:13px}.ts-link small{font-size:11.5px;color:var(--text3)}
+.ts-nada{color:var(--text3);margin:0}
+@media (max-width:760px){.ts-trib{grid-template-columns:minmax(0,1fr)}}

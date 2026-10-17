@@ -1283,3 +1283,13 @@ button.b-pr-conf:hover,button.b-pr-conf:focus-visible{background:var(--hover);te
 .b-cx-mes > summary .b-cx-c{display:flex;flex-direction:column;align-items:flex-end;text-align:right;font-variant-numeric:tabular-nums;font-weight:600}
 .b-cx-mes > summary .b-cx-c small{font-size:11px;font-weight:500;color:var(--text3)}
 @media (max-width:600px){.b-cx-mes > summary{grid-template-columns:1fr 1fr 1fr}.b-cx-mes > summary > b{grid-column:1 / -1}}
+/* ═══ Backup 96 ═══ */
+/* As cores de valor (verde/vermelho/azul) vencem a cor fixa das células do visual premium */
+html body.gx-barra-topo table.b-tab td.b-verde-v:not(#_){color:var(--green-d)!important}
+html body.gx-barra-topo table.b-tab td.b-verm-v:not(#_){color:var(--red-d)!important}
+html body.gx-barra-topo table.b-tab td.b-azul-v:not(#_){color:var(--blue-d)!important}
+/* Tabelas de totais (Resultado do mês, Resumo mensal do Caixa): linha de Total sem fundo colorido e sem negrito — só o <b> do total fica em negrito */
+html body.gx-barra-topo table.b-tab.b-tab-tot tfoot td:not(#_){background:var(--surface)!important;font-weight:500!important;border-top:2px solid var(--border)}
+html body.gx-barra-topo table.b-tab.b-tab-tot tfoot td b{font-weight:700}
+.b-cx-mes > summary{grid-template-columns:minmax(70px,1fr) repeat(4,minmax(110px,170px))}
+@media (max-width:600px){.b-cx-mes > summary{grid-template-columns:1fr 1fr}}

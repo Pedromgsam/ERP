@@ -1029,18 +1029,25 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
       !/Comparativo por cliente|Comparativo por fornecedor/.test(await p.textContent('#panel-financeiroContab #fin-corpo')) && /Recebido × pago mês a mês/.test(await p.textContent('#panel-financeiroContab #fin-corpo')) &&
       /Recebido por tipo de serviço/.test(await p.textContent('#panel-financeiroContab #fin-corpo')) && /Maiores grupos/.test(await p.textContent('#panel-financeiroContab #fin-corpo')) && !!(await p.$('#panel-financeiroContab #fin-corpo .b-barras, #panel-financeiroContab #fin-corpo .b-barras-vazio')));
     ok('B74 Financeiro: Análise na estrutura do ambiente (faixa de números, cartões e barras simples)', !!(await p.$('#panel-financeiroContab #fin-corpo .b-nums-faixa')) && (await p.$$('#panel-financeiroContab #fin-corpo .b-fin-cartao')).length >= 4 && /Despesas por categoria/.test(await p.textContent('#panel-financeiroContab #fin-corpo')));
+    ok('B96 Resultado do mês: verde/vermelho só na coluna Resultado e só o total do Resultado em negrito', await p.evaluate(() => { const t = document.querySelector('#panel-financeiroContab .b-tab-res'); if (!t) return false;
+      const lin = [...t.querySelectorAll('tbody tr')], tf = [...t.querySelectorAll('tfoot td')];
+      return lin.every((r) => !r.cells[1].className.match(/verde|verm/) && !r.cells[2].className.match(/verde|verm/) && !r.cells[3].querySelector('b')) && tf.filter((c) => c.querySelector('b')).length === 1 && !!tf[3].querySelector('b'); }));
     ok('Contabilidade: gráfico mês a mês com recebido (verde) e pago (vermelho)', await p.evaluate(() => { const g = document.querySelector('#panel-financeiroContab #fin-corpo .b-graf'); const leg = g && g.nextElementSibling ? g.nextElementSibling.textContent : '';
       return !!g && /Recebido/.test(leg) && /Pago/.test(leg); }));
     sql("insert into lancamentos(empresa,tipo,descricao,vencimento,valor,pago,data_pagamento) values ('contabilidade','receita','Caixa teste',current_date-5,500,true,current_date-5)");
     await p.evaluate(() => ERP_RECARREGAR()); await p.waitForTimeout(2500);
     await finAba(p, 'financeiroContab', 'caixa');
+    ok('B96 Caixa: coluna "Resultado" (sem "Lucro apurado"), verde/vermelho só no Resultado e linha de Total sem fundo colorido', await p.evaluate(() => { const t = document.querySelector('#panel-financeiroContab .b-tab-cx'); if (!t) return false;
+      const ths = [...t.querySelectorAll('thead th')].map((x) => x.textContent.trim().toLowerCase()), iR = ths.indexOf('resultado'), lin = t.querySelector('tbody tr'), tf = t.querySelector('tfoot td');
+      const cor = [...lin.cells].map((c, i) => (/b-verde-v|b-verm-v/.test(c.className) ? i : -1)).filter((i) => i >= 0);
+      return iR > 0 && !ths.includes('lucro apurado') && cor.length === 1 && cor[0] === iR && getComputedStyle(tf).backgroundColor === getComputedStyle(t.closest('.b-fin-cartao') || document.body).backgroundColor; }));
     ok('B95 Caixa: Resumo mensal sem o quadro "Receita × despesa"; Saldo acumulado em azul e sem negrito no mês', /Resumo mensal/.test(await p.textContent('#panel-financeiroContab #fin-corpo')) &&
       !/Receita × despesa/.test(await p.textContent('#panel-financeiroContab #fin-corpo')) && await p.evaluate(() => { const td = document.querySelector('#panel-financeiroContab .b-tab-cx tbody tr td:last-child');
         return !!td && td.classList.contains('b-azul-v') && !td.querySelector('b'); }));
     await p.click('#panel-financeiroContab #cx-vista [data-cx=detalhado]'); await p.waitForTimeout(500);
     ok('B76 Caixa: "Mês a mês" mostra o livro-caixa do mês aberto', !!(await p.$('#panel-financeiroContab details.b-cx-mes[open] table')));
-    ok('B95 Caixa → Mês a mês: Receita · Despesa · Saldo em 3 colunas alinhadas (verde, vermelho, azul)', await p.evaluate(() => { const sm = document.querySelector('#panel-financeiroContab details.b-cx-mes > summary'); if (!sm) return false;
-      const c = [...sm.querySelectorAll('.b-cx-c')]; return getComputedStyle(sm).display === 'grid' && c.length === 3 && c[0].classList.contains('b-verde-v') && c[1].classList.contains('b-verm-v') && c[2].classList.contains('b-azul-v'); }));
+    ok('B96 Caixa → Mês a mês: Receita · Despesa · Distribuição de lucros · Saldo em 4 colunas alinhadas', await p.evaluate(() => { const sm = document.querySelector('#panel-financeiroContab details.b-cx-mes > summary'); if (!sm) return false;
+      const c = [...sm.querySelectorAll('.b-cx-c')]; return getComputedStyle(sm).display === 'grid' && c.length === 4 && c[0].classList.contains('b-verde-v') && c[1].classList.contains('b-verm-v') && /Distribuição/.test(c[2].textContent) && c[3].classList.contains('b-azul-v'); }));
     ok('B94 Caixa: Distribuição de lucros dentro do Caixa (sem aba própria) e abas Análise · Caixa · Lançamentos', !!(await p.$('#panel-financeiroContab #fin-corpo .cx-lucros')) &&
       (await p.$$eval('#panel-financeiroContab #fin-abas [data-aba]', (b) => b.map((x) => x.dataset.aba).join('|'))) === 'analise|caixa|lanc');
     await p.click('#panel-financeiroContab #cx-vista [data-cx=consolidado]'); await p.waitForTimeout(400);
@@ -1048,6 +1055,20 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
       const v = [...document.querySelectorAll('#panel-financeiroContab .b-tab-cx tbody tr td:first-child')].map((x) => { const m = x.textContent.toLowerCase().match(/([a-zç]{3})\D*(\d{2,4})/); return m ? Number(m[2].slice(-2)) * 100 + (meses[m[1]] || 0) : 0; });
       return v.every((x, i) => i === 0 || x >= v[i - 1]); }));
     sql("delete from lancamentos where descricao='Caixa teste'");
+    // ── Backup 96: AMBIENTE DE TESTE dentro do ERP (⋯ → "Ambiente de teste") ──
+    ok('B96: ⋯ tem "Ambiente de teste"', !!(await p.$('#gs-teste')));
+    await p.evaluate(() => window.trocarAmbTeste()); await nav(p, 'hoje'); await p.waitForSelector('#ti-kpis .ti-kpi:not(.ti-esq)', { timeout: 10000 }).catch(() => {});
+    ok('B96: no ambiente de teste o Início tem números com mini-gráfico, o dia por hora, atalhos e sites', await p.evaluate(() => document.documentElement.dataset.amb === 'teste') &&
+      !!(await p.$('#ti-kpis .ti-spark')) && (await p.$$('#ti-horas .ti-hora')).length === 11 && (await p.$$('[data-ti-ir]')).length >= 5 && !!(await p.$('#gx-faixa-amb')));
+    await p.click('[data-ti-ext=tribunais]'); await p.waitForSelector('.ts-mapa', { timeout: 5000 }).catch(() => {});
+    ok('B96 Tribunais: mapa real com os 27 estados; MG mostra TJMG PJe/eProc, TRF-6 e TRT-3 (Estadual · Federal · Trabalho)', (await p.$$('.ts-mapa .ts-uf')).length === 27 &&
+      await p.evaluate(() => { const t = document.getElementById('ts-lista').textContent; return /TJMG · PJe/.test(t) && /TJMG · eProc/.test(t) && /TRF-6/.test(t) && /TRT-3/.test(t) && /Justiça Estadual.*Justiça Federal.*Justiça do Trabalho/.test(t) && !/Eleitoral/.test(t); }));
+    await p.click('.ts-uf[data-uf=SP]'); await p.waitForTimeout(200);
+    ok('B96 Tribunais: clicar em SP troca para e-SAJ + eProc do TJSP e TRT-2/TRT-15', await p.evaluate(() => { const t = document.getElementById('ts-lista').textContent; return /TJSP · e-SAJ/.test(t) && /TJSP · eProc/.test(t) && /TRT-2/.test(t) && /TRT-15/.test(t); }));
+    await p.click('#janelas [data-fechar]'); await p.click('[data-ti-ext=fiscal]'); await p.waitForTimeout(300);
+    ok('B96 Sistemas fiscais: e-CAC e SIARE', await p.evaluate(() => /e-CAC/.test(document.getElementById('janelas').textContent) && /SIARE/.test(document.getElementById('janelas').textContent)));
+    await p.click('#janelas [data-fechar]'); await p.evaluate(() => window.trocarAmbTeste()); await p.waitForTimeout(300);
+    ok('B96: "Voltar ao normal" tira o ambiente de teste', await p.evaluate(() => !document.documentElement.dataset.amb && !document.getElementById('gx-faixa-amb')));
     await nav(p, 'financeiro'); await p.waitForTimeout(1000);
     ok('Financeiro: Análise sem a tabela "Em atraso" (já está em A receber)', !(await p.evaluate(() => [...document.querySelectorAll('#panel-financeiro .cc-t')].some((x) => /^Em atraso$/.test(x.textContent.trim())))));
     // Central de e-mails ao cliente (Backup 16)
