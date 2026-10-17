@@ -721,6 +721,21 @@ O que mudou:
 
 Ainda falta (próxima rodada): apagar o ERP antigo (ERP.html, remendos e blocos antigos do design.css).
 
+## Backup 98 — Mês a mês alinhado, horário em toda tarefa e Tribunais com "Nacionais" dentro do mapa
+1. Merge da pull request.
+2. **Sem SQL desta vez** (o banco não mudou).
+3. **Ctrl+Shift+R** no ERP.
+
+O que mudou (vale para todos):
+- **Financeiro → Contabilidade → Caixa → Mês a mês:** Receita · Despesa · Distribuição de lucros · Saldo da linha do mês ficam exatamente em cima das mesmas colunas da tabela do detalhe; o Saldo fica preto (vermelho só se negativo).
+- **Tarefas:** toda tarefa tem o campo **Horário (opcional)** ao lado do Prazo.
+
+Só no ambiente de teste (⋯ → 🧪 Ambiente de teste):
+- **Início:** números = Recebido no mês, Publicações novas e **Lembretes** (saíram Tarefas atrasadas, Compromissos hoje e Prazos da semana). "Hoje, por hora" igual ao da página de alternativas (letras, tamanhos e cores).
+- **Tribunais:** "Nacionais" (STF · STJ · TST · SEEU) dentro do mapa, no canto de cima à esquerda (sem cobrir estado); a busca foi para cima da lista e o mapa ficou maior.
+- **Calendário:** legenda embaixo com cada tipo na sua cor (Reunião · Audiência · Tarefa · Rotina · Atrasada · Concluída).
+- Página de alternativas (dados fictícios): https://claude.ai/artifact/QZurvjNrQ9h2wS2TZ81rEk
+
 ## Backup 97 — Financeiro preto (vermelho só no negativo), Mês a mês com Distribuição e Início de teste com sistemas do escritório
 1. Merge da pull request.
 2. **Sem SQL desta vez** (o banco não mudou).

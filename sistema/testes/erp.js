@@ -1050,6 +1050,10 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
       const c = [...sm.querySelectorAll('.b-cx-c')], th = [...d.querySelectorAll('table thead th')].map((x) => x.textContent.trim());
       return getComputedStyle(sm).display === 'grid' && c.length === 4 && c[0].classList.contains('b-verde-v') && c[1].classList.contains('b-verm-v') && /Distribuição/.test(c[2].textContent) && !c[3].classList.contains('b-azul-v') &&
         th.join('|') === 'Data|Histórico|Categoria|Receita|Despesa|Distribuição de lucros|Saldo'; }));
+    ok('B98 Caixa → Mês a mês: Receita · Despesa · Distribuição · Saldo do resumo alinhados com as colunas da tabela', await p.evaluate(() => {
+      const d = document.querySelector('#panel-financeiroContab details.b-cx-mes[open]'); if (!d) return false;
+      const c = [...d.querySelectorAll('summary .b-cx-c')], th = [...d.querySelectorAll('table thead th')].slice(3);
+      return c.length === 4 && th.length === 4 && c.every((x, i) => Math.abs(x.getBoundingClientRect().right - th[i].getBoundingClientRect().right) <= 3); }));
     ok('B94 Caixa: Distribuição de lucros dentro do Caixa (sem aba própria) e abas Análise · Caixa · Lançamentos', !!(await p.$('#panel-financeiroContab #fin-corpo .cx-lucros')) &&
       (await p.$$eval('#panel-financeiroContab #fin-abas [data-aba]', (b) => b.map((x) => x.dataset.aba).join('|'))) === 'analise|caixa|lanc');
     await p.click('#panel-financeiroContab #cx-vista [data-cx=consolidado]'); await p.waitForTimeout(400);
@@ -1061,10 +1065,12 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     ok('B96: ⋯ tem "Ambiente de teste"', !!(await p.$('#gs-teste')));
     await p.evaluate(() => window.trocarAmbTeste()); await nav(p, 'hoje'); await p.waitForSelector('#ti-kpis .ti-kpi:not(.ti-esq)', { timeout: 10000 }).catch(() => {});
     ok('B96: no ambiente de teste o Início tem números com mini-gráfico, o dia por hora, atalhos e sites', await p.evaluate(() => document.documentElement.dataset.amb === 'teste') &&
-      !!(await p.$('#ti-kpis .ti-spark')) && (await p.$$('#ti-horas .ti-hora')).length === 11 && !!(await p.$('#gx-faixa-amb')));
+      !!(await p.$('#ti-kpis .ti-spark')) && (await p.$$('#ti-horas .ti-hora')).length === 10 && !!(await p.$('#gx-faixa-amb')));
     await p.waitForSelector('#ti-sis [data-ti-sis]', { timeout: 5000 }).catch(() => {});
-    ok('B97 Início de teste: números sem Honorários/Parcelas em atraso/Passivo (com Publicações novas, Tarefas atrasadas, Compromissos hoje e Prazos da semana)', await p.evaluate(() => {
-      const t = document.getElementById('ti-kpis').textContent; return !/Honorários em atraso|Parcelas em atraso|Passivo/.test(t) && /Publicações novas/.test(t) && /Tarefas atrasadas/.test(t) && /Compromissos hoje/.test(t) && /Prazos da semana/.test(t); }));
+    ok('B98 Início de teste: números = Recebido no mês, Publicações novas e Lembretes (sem Tarefas atrasadas, Compromissos hoje e Prazos da semana)', await p.evaluate(() => {
+      const t = document.getElementById('ti-kpis').textContent; return /Recebido no mês/.test(t) && /Publicações novas/.test(t) && /Lembretes/.test(t) && !/Tarefas atrasadas|Compromissos hoje|Prazos da semana|Honorários em atraso|Passivo/.test(t); }));
+    ok('B98 Início de teste: "Hoje, por hora" no desenho da página de alternativas (título 14 px, linhas de 34 px, 08:00–17:00)', await p.evaluate(() => { const h = document.querySelector('.ti-hoje .ti-h3'), l = document.querySelector('#ti-horas .ti-hora');
+      return !!h && getComputedStyle(h).fontSize === '14px' && !!l && l.getBoundingClientRect().height >= 34 && /^08:00/.test(l.textContent) && /17:00/.test(document.querySelector('#ti-horas .ti-hora:last-child').textContent); }));
     ok('B97 Início de teste: "Tarefas atrasadas" ao lado de "Hoje, por hora" e só atrasadas', await p.evaluate(() => { const par = document.querySelector('.ti-par'); if (!par) return false;
       const c = [...par.children], a = c[0].getBoundingClientRect(), b = c[1].getBoundingClientRect(); return /Hoje, por hora/.test(c[0].textContent) && /Tarefas atrasadas/.test(c[1].textContent) && Math.abs(a.top - b.top) < 4 && b.left > a.right - 1 &&
         [...document.querySelectorAll('#ini-dia [data-ini-t]')].every((x) => x.classList.contains('ini-it-atr')); }));
@@ -1081,6 +1087,12 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     ok('B97 Tribunais: busca "trt-3" acha o TRT-3', await p.evaluate(() => /TRT-3 · PJe/.test(document.getElementById('ts-lista').textContent)));
     await p.fill('#ts-q', 'Paraná'); await p.waitForTimeout(150);
     ok('B97 Tribunais: busca pelo nome do estado abre o estado (Paraná → TJPR)', await p.evaluate(() => /TJPR/.test(document.getElementById('ts-lista').textContent) || !!document.querySelector('[data-ts-uf=PR]')));
+    ok('B98 Tribunais: "Nacionais" dentro do mapa, no canto de cima à esquerda, sem cobrir nenhum estado', await p.evaluate(() => {
+      const bt = document.querySelector('.ts-mapa-caixa .ts-nac'), cx = document.querySelector('.ts-mapa-caixa'); if (!bt || !cx) return false;
+      const r = bt.getBoundingClientRect(), c = cx.getBoundingClientRect(); if (r.left - c.left > 30 || r.top - c.top > 30) return false;
+      bt.style.visibility = 'hidden'; let livre = true;
+      for (let x = r.left + 2; x < r.right; x += 6) for (let y = r.top + 2; y < r.bottom; y += 6) { const e = document.elementFromPoint(x, y); if (e && e.closest && e.closest('.ts-uf')) livre = false; }
+      bt.style.visibility = ''; return livre; }));
     ok('B97 Tribunais: mapa bem maior (janela larga, mapa com mais de 600 px)', await p.evaluate(() => document.querySelector('.ts-mapa').getBoundingClientRect().width > 600));
     await p.hover('.ts-link').catch(() => {});
     await p.click('#janelas [data-fechar]'); await p.click('[data-ti-ext=fiscal]'); await p.waitForTimeout(300);

@@ -1088,6 +1088,8 @@ function formTarefa(t, depois) {
       campo('Tarefa <span class="obrig">*</span>', '<input name="titulo" maxlength="300" value="' + esc(t.titulo || '') + '" placeholder="O que precisa ser feito?">', 'inteiro') +
       campo('Para quem', selectPessoa('responsavel', t.responsavel || (novo && E.perfil ? E.perfil.nome : ''), '— escolha —')) +
       campo('Prazo', '<input name="prazo" type="date" value="' + esc(t.prazo || '') + '">') +
+      // Backup 98: toda tarefa pode ter horário (opcional)
+      campo('Horário <span class="sub">(opcional)</span>', '<input name="hora" type="time" value="' + esc(t.hora ? String(t.hora).slice(0, 5) : '') + '">') +
       campo('Urgência', selectPares('prioridade', [['alta', 'Alta'], ['media', 'Média'], ['baixa', 'Baixa']], t.prioridade || 'media')) +
       campo('Cliente', '<select name="cliente_id">' + opcoesClientes(t.cliente_id || '') + '</select>') +
       campoRepetir(t) +
@@ -1160,10 +1162,11 @@ function formTarefa(t, depois) {
     const est = f.estimativa_horas.value.trim() ? lerValor(f.estimativa_horas.value) : null;
     if (Number.isNaN(est)) throw new Error('Estimativa de horas inválida.');
     const dados = { titulo: f.titulo.value.trim(), cliente_id: f.cliente_id.value || null, grupo_id: await grupoPorNome(f.grupo.value), responsavel: f.responsavel.value.trim(),
-      participantes: lerParticipantes(j), prazo: f.prazo.value || null, inicio: f.inicio.value || null,
+      participantes: lerParticipantes(j), prazo: f.prazo.value || null, hora: f.hora.value || null, inicio: f.inicio.value || null,
       prioridade: f.prioridade.value, status: f.status.value, estimativa_horas: est, etiquetas: f.etiquetas.value.trim(),
       depende_de: f.depende_de.value || null, exige_anexo: f.exige_anexo.checked, exige_revisao: f.exige_revisao.checked, revisor: f.revisor.value.trim(),
       processos_vinculados: f.processos_vinculados.value.trim(), descricao: f.descricao.value.trim(), obs: f.obs.value.trim(), checklist };
+    if (!dados.hora && t.hora_fim) dados.hora_fim = null;
     if (!dados.grupo_id && dados.cliente_id) { const c = E.clientes.find((x) => x.id === dados.cliente_id); if (c) dados.grupo_id = c.grupo_id; }
     ['tarefa_pai_id', 'fluxo_id', 'contrato_id'].forEach((k) => { if (novo && t[k]) dados[k] = t[k]; });
     if (dados.exige_revisao && !dados.revisor) throw new Error('Informe quem revisa (ou desmarque "Exige revisão").');

@@ -1293,3 +1293,12 @@ html body.gx-barra-topo table.b-tab.b-tab-tot tfoot td:not(#_){background:var(--
 html body.gx-barra-topo table.b-tab.b-tab-tot tfoot td b{font-weight:700}
 .b-cx-mes > summary{grid-template-columns:minmax(70px,1fr) repeat(4,minmax(110px,170px))}
 @media (max-width:600px){.b-cx-mes > summary{grid-template-columns:1fr 1fr}}
+
+/* ═══ Backup 98: Caixa → Mês a mês — Receita · Despesa · Distribuição · Saldo do resumo na mesma coluna da tabela do detalhe ═══ */
+.b-tab.b-tab-cxmes{table-layout:fixed;width:100%}
+.b-tab-cxmes col.cx-c-d{width:11%}.b-tab-cxmes col.cx-c-h{width:25%}.b-tab-cxmes col.cx-c-cat{width:16%}.b-tab-cxmes col.cx-c-v{width:12%}
+.b-cx-mes > summary:not(#_){grid-template-columns:52% repeat(4,12%);gap:6px 0}
+.b-cx-mes > summary .b-cx-c:not(#_){padding-right:var(--cx-td-pd,10px);box-sizing:border-box}
+@media (max-width:600px){.b-cx-mes > summary:not(#_){grid-template-columns:1fr 1fr;gap:6px 12px}.b-cx-mes > summary .b-cx-c:not(#_){padding-right:0}}
+.b-cx-mes > summary .b-cx-c:not(.b-verde-v):not(.b-verm-v){color:var(--ink)}
+.b-tab.b-tab-cxmes thead th:not(#_){white-space:normal}

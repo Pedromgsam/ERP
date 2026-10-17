@@ -165,7 +165,18 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--ouro);outline-offse
 /* Backup 97: mapa bem maior, busca e instâncias nacionais */
 .jan.jan-larga{width:min(1400px,100%)}
 .jan-larga .jan-bd{grid-template-columns:minmax(0,1.7fr) minmax(300px,1fr)}
-.jan-larga .mapa-br{max-height:calc(100vh - 230px);min-height:420px}
+.jan-larga .mapa-br{max-height:calc(100vh - 175px);min-height:440px}
+/* Backup 98: "Nacionais" dentro do mapa (canto de cima à esquerda, onde não há estado); busca em cima da lista */
+.jan.jan-larga{width:min(1520px,100%)}
+.jan-larga .jan-bd{grid-template-columns:minmax(0,2fr) minmax(300px,1fr)!important}
+.mapa-caixa{position:relative}
+.jan-larga .mapa-caixa{padding:10px}
+.jan-larga .legenda-mapa{position:absolute;right:12px;bottom:8px;margin:0}
+.mapa-caixa .trib-nac{position:absolute;top:14px;left:14px;z-index:1;max-width:150px;min-height:0;display:flex;flex-direction:column;align-items:flex-start;gap:1px;text-align:left;border:1px solid #B9C4D8;border-radius:10px;background:#FFFFFF;padding:7px 11px;color:#1B2A4A;box-shadow:0 1px 3px rgba(16,24,40,.1)}
+.mapa-caixa .trib-nac b{font-size:13px}.mapa-caixa .trib-nac small{font-size:11px;color:#4A5363;font-weight:500;white-space:nowrap}
+.mapa-caixa .trib-nac[aria-pressed="true"]{background:#1B2A4A;border-color:#C9A84C;color:#fff}.mapa-caixa .trib-nac[aria-pressed="true"] small{color:#D6DEEC}
+.trib-dir{min-width:0}.trib-dir .trib-topo{padding:0 0 12px}
+@media (max-width:900px){.mapa-caixa .trib-nac{position:static;max-width:none;margin:0 0 10px}}
 .trib-topo{display:flex;flex-wrap:wrap;gap:10px;align-items:center;padding:14px 20px 0}
 .trib-busca{flex:1 1 320px;display:flex;align-items:center;gap:8px;border:1px solid var(--border);border-radius:10px;padding:0 12px;background:var(--surface);min-height:40px}
 .trib-busca:focus-within{border-color:#1B2A4A;box-shadow:0 0 0 3px rgba(27,42,74,.15)}
@@ -283,9 +294,9 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--ouro);outline-offse
     const d = pts.map((v, i) => (i ? 'L' : 'M') + (i * sx).toFixed(1) + ' ' + y(v).toFixed(1)).join(' ');
     return '<svg viewBox="0 0 ' + w + ' ' + h + '" preserveAspectRatio="none" aria-hidden="true"><path d="' + d + ' L' + w + ' ' + h + ' L0 ' + h + 'Z" fill="' + cor + '" opacity=".12"/><path d="' + d + '" fill="none" stroke="' + cor + '" stroke-width="1.6"/></svg>'; };
 
-  // Backup 97: números do dia — saíram Honorários em atraso, Parcelas em atraso e Passivo dos clientes
+  // Backup 97/98: números do dia — Recebido no mês, Publicações novas e Lembretes
   const KPIS_97 = () => [['g', 'Recebido no mês', 'R$ 24.075', 'últimos 6 meses', [18, 21, 19, 26, 22, 24], 'var(--green)'], ['', 'Publicações novas', '2', 'para ler'],
-    ['r', 'Tarefas atrasadas', '2', 'minhas'], ['', 'Compromissos hoje', '3', 'com hora marcada'], ['', 'Prazos da semana', '5', 'hoje até 23/10']]
+    ['', 'Lembretes', '3', '1 para hoje']]
     .map(([c, r, v, sub, p, cor]) => '<button type="button" class="kpi ' + c + '" style="text-align:left"><small>' + r + '</small><b class="num">' + v + '</b><small>' + sub + '</small>' + (p ? spark(p, cor) : '') + '</button>').join('');
   const listaAtrasadas = () => '<div class="lista">' + TAREFAS_ATR.map(([t, s]) => '<div class="l"><span class="ok" aria-hidden="true"></span><div class="tx">' + t + '<small>' + s + '</small></div><span class="tag r">atrasada</span></div>').join('') + '</div>';
   const blocoSis = ([i, t, sub, g]) => '<button type="button" class="bloco"><span class="bi">' + ic(i) + '</span><b>' + t + ' ↗</b><small>' + sub + '</small><span class="cont"><span class="tag ' + (g === 'Contabilidade' ? 'g' : 'b') + '">' + g + '</span></span></button>';
@@ -312,7 +323,7 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--ouro);outline-offse
           ['08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00'].map((h) => { const e = AGENDA.find((x) => x[0].slice(0, 2) === h.slice(0, 2));
             return '<div class="hora' + (h === '14:00' ? ' agora' : '') + '"><span class="num">' + h + '</span><div>' + (e ? '<div class="evento ' + e[3] + '">' + e[0] + ' · ' + e[1] + '<small>' + e[2] + '</small></div>' : '') + '</div></div>'; }).join('') + '</div></div>' +
         '<div class="cartao"><h3>Tarefas atrasadas<small>só eu</small></h3>' + listaAtrasadas() + '</div></div>' },
-    F: { nota: 'F (Backup 97): Cockpit + Portal. Números do dia (Recebido no mês, Publicações novas, Tarefas atrasadas, Compromissos hoje, Prazos da semana); "Hoje, por hora" ao lado de "Tarefas atrasadas"; embaixo, os sistemas do escritório que ficam FORA do ERP e os sites. Tribunais: mapa maior, busca (TJMG, Minas, TRT-3…) e botão Nacionais (STF, STJ, TST, SEEU).',
+    F: { nota: 'F (Backup 97): Cockpit + Portal. Números do dia (Recebido no mês, Publicações novas, Lembretes); "Hoje, por hora" ao lado de "Tarefas atrasadas"; embaixo, os sistemas do escritório que ficam FORA do ERP e os sites. Tribunais: mapa maior, busca (TJMG, Minas, TRT-3…) e botão Nacionais (STF, STJ, TST, SEEU).',
       html: () => cab('Boa tarde, Pedro', 'sexta-feira, 16 de outubro', '<button class="bt" type="button">Só eu</button><button class="bt p" type="button">+ Lembrete</button>') +
         '<div class="portal-busca" role="search">⌕ Buscar cliente, processo, tela ou ação…<kbd>Ctrl K</kbd></div>' +
         '<div class="kpis">' + KPIS_97() + '</div>' +
@@ -418,9 +429,9 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--ouro);outline-offse
     janTrib.hidden = false;
   }
   function abrirTribunais() {
-    abrirJan('Tribunais', 'Clique no estado, escolha "Nacionais" ou digite o tribunal', 'tribunais', '<div class="trib-topo"><label class="trib-busca"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg><input type="search" id="trib-q" autocomplete="off" placeholder="Buscar tribunal ou estado — ex.: TJMG, Minas, TRT-3, eproc" aria-label="Buscar tribunal ou estado"></label><button type="button" class="trib-nac" data-nac aria-pressed="false">Nacionais · STF, STJ, TST, SEEU</button></div><div class="jan-bd"><div class="mapa-caixa"><svg class="mapa-br" viewBox="' + MAPA_BR.viewBox + '" role="group" aria-label="Mapa do Brasil — clique no estado">' +
+    abrirJan('Tribunais', 'Clique no estado, escolha "Nacionais" ou digite o tribunal', 'tribunais', '<div class="jan-bd"><div class="mapa-caixa"><button type="button" class="trib-nac" data-nac aria-pressed="false"><b>Nacionais</b><small>STF · STJ · TST · SEEU</small></button><svg class="mapa-br" viewBox="' + MAPA_BR.viewBox + '" role="group" aria-label="Mapa do Brasil — clique no estado">' +
       Object.keys(MAPA_BR.uf).map((uf) => '<path class="ufp" data-uf="' + uf + '" d="' + MAPA_BR.uf[uf][1] + '" tabindex="0" role="button" aria-label="' + MAPA_BR.uf[uf][0] + '"><title>' + MAPA_BR.uf[uf][0] + '</title></path>').join('') +
-      '<g class="rots" aria-hidden="true"></g></svg><p class="legenda-mapa">Mapa: @svg-maps/brazil (CC BY 4.0)</p></div><div class="trib" id="trib-lista"></div></div>', true);
+      '<g class="rots" aria-hidden="true"></g></svg><p class="legenda-mapa">Mapa: @svg-maps/brazil (CC BY 4.0)</p></div><div class="trib-dir"><div class="trib-topo"><label class="trib-busca"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg><input type="search" id="trib-q" autocomplete="off" placeholder="Buscar tribunal ou estado — ex.: TJMG, Minas, TRT-3, eproc" aria-label="Buscar tribunal ou estado"></label></div><div class="trib" id="trib-lista"></div></div></div>', true);
     janTrib.querySelector('#trib-q').addEventListener('input', (ev) => buscarTribunais(ev.target.value));
     rotular(janTrib.querySelector('.mapa-br')); pintarTribunais();
   }

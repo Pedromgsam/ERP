@@ -81,9 +81,10 @@ function janelaTribunais(ufIni) {
   // Backup 97: busca (tribunal, sistema ou estado), botão "Nacionais" (STF, STJ, TST, SEEU) e mapa bem maior (janela .ts-jan)
   let uf = ufIni === 'nac' ? '' : (ufIni || 'MG');
   const j = abrirJanela({ titulo: 'Tribunais', sub: 'Clique no estado, escolha "Nacionais" ou digite o tribunal', larga: true,
-    corpo: '<div class="ts-topo"><label class="ts-busca"><span aria-hidden="true">' + iconeB('lupa') + '</span><input type="search" id="ts-q" autocomplete="off" placeholder="Buscar tribunal ou estado — ex.: TJMG, Minas, TRT-3, eproc" aria-label="Buscar tribunal ou estado"></label>' +
-      '<button type="button" class="b-chip ts-nac" data-ts-nac aria-pressed="false">Nacionais · STF, STJ, TST, SEEU</button></div>' +
-      '<div class="ts-trib"><div class="ts-mapa-caixa">' + mapaBrasilSVG() + '<p class="ts-nota">Mapa: @svg-maps/brazil (CC BY 4.0)</p></div><div class="ts-lista" id="ts-lista" aria-live="polite"></div></div>' });
+    // Backup 98: "Nacionais" dentro do mapa (canto de cima à esquerda, área sem estado); a busca fica em cima da lista, para o mapa ganhar altura
+    corpo: '<div class="ts-trib"><div class="ts-mapa-caixa"><button type="button" class="ts-nac" data-ts-nac aria-pressed="false"><b>Nacionais</b><small>STF · STJ · TST · SEEU</small></button>' + mapaBrasilSVG() + '<p class="ts-nota">Mapa: @svg-maps/brazil (CC BY 4.0)</p></div>' +
+      '<div class="ts-dir"><div class="ts-topo"><label class="ts-busca"><span aria-hidden="true">' + iconeB('lupa') + '</span><input type="search" id="ts-q" autocomplete="off" placeholder="Buscar tribunal ou estado — ex.: TJMG, Minas, TRT-3" aria-label="Buscar tribunal ou estado"></label></div>' +
+      '<div class="ts-lista" id="ts-lista" aria-live="polite"></div></div></div>' });
   j.querySelector('.janela').classList.add('ts-jan');
   const svg = j.querySelector('.ts-mapa'), lista = j.querySelector('#ts-lista'), qIn = j.querySelector('#ts-q'), btNac = j.querySelector('[data-ts-nac]');
   const grupo = (g, ls) => '<section class="ts-grupo"><h4>' + esc(g) + '</h4>' + (ls.length ? '<div class="ts-links">' + ls.map(linkSis).join('') + '</div>' : '<p class="ts-nada">—</p>') + '</section>';
@@ -183,7 +184,7 @@ async function inicioTeste() {
     '<section class="b-faixa-av ini-faixa ini-faixa-1" id="ini-faixa"><div class="b-faixa-lin"><span class="b-faixa-rot">Avisos</span><div class="ini-conf-l"><span id="ini-resumo" class="ini-pills"></span><span id="ini-resumo-fin" hidden></span></div></div></section>' +
     // Backup 97: "Hoje, por hora" e "Tarefas atrasadas" lado a lado; embaixo, os sistemas do escritório (fora do ERP) e os sites
     '<div class="ti-par">' +
-      '<section class="ti-cartao"><div class="ti-hd"><h2>Hoje, por hora</h2><small id="ti-agora"></small></div><div id="ti-horas" class="ti-horas"></div></section>' +
+      '<section class="ti-cartao ti-hoje"><h3 class="ti-h3">Hoje, por hora<small id="ti-agora"></small></h3><div id="ti-horas" class="ti-horas"></div></section>' +
       '<section class="ti-cartao ini-b74"><div class="ini-sec-hd"><div><h2 id="ini-dia-tit">Tarefas atrasadas</h2><p id="ini-dia-sub">O que já passou do prazo</p></div><div id="ini-quem"></div></div><div id="ini-dia" data-so-atr="1"></div></section>' +
     '</div><div class="ti-grade"><div class="ti-col">' +
       '<section class="ti-cartao"><div class="ti-hd"><h2>Sistemas do escritório</h2><small>fora do ERP · abrem em outra aba</small><button type="button" class="b-chip" id="ti-sis-ed" hidden>Endereços</button></div><div class="ti-blocos" id="ti-sis"></div></section>' +
@@ -213,10 +214,10 @@ async function horasDoDia() {
   $('ti-agora').textContent = 'agora: ' + String(hAg).padStart(2, '0') + ':' + String(agora.getMinutes()).padStart(2, '0');
   const L = await q(sb.from('tarefas').select('id, titulo, hora, hora_fim, local, tipo_agenda, responsavel, participantes, revisor, status, prazo').eq('prazo', h).not('hora', 'is', null).not('status', 'in', '(concluida,cancelada)')).catch(() => []);
   const meus = (L || []).filter((t) => typeof ehMinha !== 'function' || ehMinha(t)).sort((a, b) => String(a.hora).localeCompare(String(b.hora)));
-  const horas = []; for (let x = 8; x <= 18; x++) horas.push(x);
+  const horas = []; for (let x = 8; x <= 17; x++) horas.push(x);   // Backup 98: 08:00–17:00, igual à página de alternativas
   el.innerHTML = horas.map((x) => { const ev = meus.filter((t) => Number(String(t.hora).slice(0, 2)) === x);
     return '<div class="ti-hora' + (x === hAg ? ' ti-agora' : '') + '"><span>' + String(x).padStart(2, '0') + ':00</span><div>' +
-      ev.map((t) => '<button type="button" class="ti-ev ti-ev-' + esc(t.tipo_agenda || 'tarefa') + '" data-ti-t="' + t.id + '"><b>' + esc(String(t.hora).slice(0, 5)) + ' · ' + esc(t.titulo) + '</b>' + (t.local ? '<small>' + esc(t.local) + '</small>' : '') + '</button>').join('') + '</div></div>'; }).join('') +
+      ev.map((t) => '<button type="button" class="ti-ev ti-ev-' + esc(t.tipo_agenda || 'tarefa') + '" data-ti-t="' + t.id + '">' + esc(String(t.hora).slice(0, 5)) + ' · ' + esc(t.titulo) + (t.local ? '<small>' + esc(t.local) + '</small>' : '') + '</button>').join('') + '</div></div>'; }).join('') +
     (meus.length ? '' : '<p class="ti-vazio">Nenhum compromisso com hora marcada hoje.</p>');
   el.onclick = (ev) => { const b = ev.target.closest('[data-ti-t]'); if (!b) return; const t = meus.find((x) => x.id === b.dataset.tiT);
     if (t && typeof detalheAgenda === 'function') detalheAgenda(t, h); else if (t && typeof abrirTarefa === 'function') abrirTarefa(t, () => TELAS.inicio()); };
@@ -224,21 +225,20 @@ async function horasDoDia() {
 // Backup 97: números do dia (saíram Honorários em atraso, Parcelas em atraso e Passivo — pedido do usuário):
 // Recebido no mês (com mini-gráfico), Publicações novas, Tarefas atrasadas, Compromissos hoje e Prazos da semana (os meus)
 async function kpisTeste() {
+  // Backup 98: só Recebido no mês (mini-gráfico), Publicações novas e Lembretes (saíram Tarefas atrasadas, Compromissos hoje e Prazos da semana)
   const el = $('ti-kpis'); if (!el) return;
-  const h = hojeISO(), ks = mesesAtras(6), ini = ks[0] + '-01', sem = somarDias(h, 7);
+  const h = hojeISO(), ks = mesesAtras(6), ini = ks[0] + '-01';
   const fin = pode('financeiro_juridico') || pode('financeiro_contab');
-  const [rec, nPub, tar] = await Promise.all([
+  const [rec, nPub, lemb] = await Promise.all([
     fin ? buscarTodos(() => sb.from('lancamentos').select('id, valor, data_pagamento').eq('tipo', 'receita').eq('pago', true).gte('data_pagamento', ini)).catch(() => []) : [],
     pode('juridico') ? sb.from('publicacoes').select('id', { count: 'exact', head: true }).eq('status', 'nova').then((r) => r.count || 0, () => 0) : null,
-    buscarTodos(() => sb.from('tarefas').select('id, prazo, hora, responsavel, participantes, revisor, status').not('status', 'in', '(concluida,cancelada)').lte('prazo', sem)).catch(() => [])]);
-  const meus = tar.filter((t) => typeof ehMinha !== 'function' || ehMinha(t));
-  const nAtr = meus.filter((t) => t.prazo < h).length, nHoje = meus.filter((t) => t.prazo === h && t.hora).length, nSem = meus.filter((t) => t.prazo >= h && t.prazo <= sem).length;
+    dadosLembretes().catch(() => ({ vis: [] }))]);
+  const nLemb = (lemb.vis || []).length, nHojeL = (lemb.vis || []).filter((l) => l.dia && l.dia <= h).length;
   const recMes = ks.map((k) => soma(rec.filter((l) => String(l.data_pagamento || '').startsWith(k)), (l) => Number(l.valor) || 0));
   const item = (cls, rot, val, sub, pts, ir) => '<button type="button" class="ti-kpi ' + cls + '"' + (ir ? ' data-ti-ir="' + ir + '"' : '') + '><small>' + esc(rot) + '</small><b>' + val + '</b>' + (sub ? '<em>' + esc(sub) + '</em>' : '') + sparkB(pts) + '</button>';
   el.innerHTML = (fin ? item('ti-k-verde', 'Recebido no mês', brl(recMes[recMes.length - 1]), 'últimos 6 meses', recMes, 'financeiro') : '') +
     (nPub !== null ? item(nPub ? 'ti-k-azul' : '', 'Publicações novas', String(nPub), nPub ? 'para ler' : 'nada novo', null, 'publicacoes') : '') +
-    item(nAtr ? 'ti-k-verm' : '', 'Tarefas atrasadas', String(nAtr), 'minhas', null, 'tarefas') +
-    item('', 'Compromissos hoje', String(nHoje), 'com hora marcada', null, 'tarefas') +
-    item('', 'Prazos da semana', String(nSem), 'hoje até ' + dataBR(sem).slice(0, 5), null, 'tarefas');
+    item(nHojeL ? 'ti-k-ouro' : '', 'Lembretes', String(nLemb), nHojeL ? plural(nHojeL, 'para hoje', 'para hoje') : 'próximos 7 dias', null, '').replace('<button type="button" class="ti-kpi', '<button type="button" data-ti-lemb class="ti-kpi');
+  const bl = el.querySelector('[data-ti-lemb]'); if (bl) bl.onclick = () => { const c = $('ini-lembretes'); if (c) c.scrollIntoView({ behavior: 'smooth', block: 'center' }); };
   el.querySelectorAll('[data-ti-ir]').forEach((b) => b.onclick = () => { const id = b.dataset.tiIr; if (typeof window.nav === 'function') window.nav(null, id); else irPara(id); });
 }
