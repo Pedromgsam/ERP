@@ -721,6 +721,22 @@ O que mudou:
 
 Ainda falta (próxima rodada): apagar o ERP antigo (ERP.html, remendos e blocos antigos do design.css).
 
+## Backup 95 — O visual premium virou o padrão do ERP, Financeiro com cores pelo sinal e Tribunais no mapa
+1. Merge da pull request.
+2. **Sem SQL desta vez** (o banco não mudou).
+3. **Ctrl+Shift+R** no ERP.
+
+O que mudou:
+- **Visual premium = o visual do ERP.** Não existe mais "visual normal": o botão "✦ Visual premium (teste)" do ⋯ e a faixa do pé da tela saíram. Todo mundo vê o premium, em qualquer computador.
+  O que o premium já escondia continua escondido (Clientes: coluna e botão "recebe e-mails" — ficam em Administração → E-mail → Quem recebe; Processos: filtros Competência e Advogado; Painel: filtro Responsável; Tarefas: a engrenagem, trocada por "Feriados" e "Agenda").
+- **Financeiro → Análise:** "Resultado do mês" em ordem cronológica (ago, set, out…); resultado verde quando positivo e vermelho quando negativo, sem negrito no mês; o Total em negrito, na cor do sinal.
+  A **Distribuição de lucros não conta mais como "pago"** em "Recebido × pago", no "Resultado do mês" e em "Despesas por categoria" (não é despesa).
+- **Caixa (Consolidado):** "Ficou no caixa" verde/vermelho; "Saldo acumulado" em azul, sem negrito (só o total em negrito). Saiu o quadro "Receita × despesa mês a mês".
+- **Caixa (Mês a mês):** a linha de cada mês em 3 colunas alinhadas — Receita (verde) · Despesa (vermelho) · Saldo (azul).
+- **Filtro principal (Grupo/Empresa):** a lista cresce ou encolhe conforme o nome escolhido (não corta nome comprido).
+- **Tarefas:** "Feriados" e "Agenda" do tamanho dos botões normais, com o ícone no quadrinho azul preenchido (igual ao de Tarefas).
+- **Alternativas do Início** (página de teste, dados fictícios): sempre no modo claro, ícones no lugar das letras e o atalho **Tribunais** com mapa do Brasil — clique no estado e escolha o sistema (ex.: MG → TJMG PJe, TJMG eProc, TRT-3, TRF-6). Link: https://claude.ai/artifact/QZurvjNrQ9h2wS2TZ81rEk
+
 ## Backup 94 — Caixa em ordem cronológica com a Distribuição de lucros, filtro principal azul e Cockpit + Portal
 1. Merge da pull request.
 2. **Sem SQL desta vez** (o banco não mudou).

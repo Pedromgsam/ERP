@@ -11,14 +11,8 @@
   --font-ui:"Inter",system-ui,-apple-system,"Segoe UI",sans-serif; --font-tit:"Playfair Display",Georgia,serif;
   --r:12px; --sombra:0 1px 2px rgba(16,24,40,.06),0 1px 3px rgba(16,24,40,.08);
 }
-@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
-  --bg:#0D1117; --surface:#161B22; --surface2:#1C2129; --border:#30363D; --text:#E6EDF3; --text2:#C2CAD3; --text3:#8B949E;
-  --marinho:#2B4A7E; --marinho2:#22385F; --ouro:#D4B35C; --ouro-lt:#2D2716; --azul-lt:#1A2537;
-  --red:#F47067; --red-lt:#3A1D1D; --amber:#E3B341; --amber-lt:#33290F; --green:#57AB5A; --green-lt:#18301C; --blue:#6CA4F8; color-scheme:dark}}
-:root[data-theme="dark"]{
-  --bg:#0D1117; --surface:#161B22; --surface2:#1C2129; --border:#30363D; --text:#E6EDF3; --text2:#C2CAD3; --text3:#8B949E;
-  --marinho:#2B4A7E; --marinho2:#22385F; --ouro:#D4B35C; --ouro-lt:#2D2716; --azul-lt:#1A2537;
-  --red:#F47067; --red-lt:#3A1D1D; --amber:#E3B341; --amber-lt:#33290F; --green:#57AB5A; --green-lt:#18301C; --blue:#6CA4F8; color-scheme:dark}
+/* Backup 95: sempre no modo claro (pedido do usuário) */
+:root{color-scheme:light}
 *{box-sizing:border-box}
 body{background:var(--bg);color:var(--text);font:13.5px/1.45 var(--font-ui);padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:16px 40px}
 h1,h2,h3{margin:0;text-wrap:balance}
@@ -72,11 +66,12 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--ouro);outline-offse
 .blocos{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:12px}
 .bloco{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:6px;text-align:left;box-shadow:var(--sombra);min-width:0;transition:border-color .15s,transform .15s}
 .bloco:hover{border-color:var(--ouro);transform:translateY(-1px)}
-.bloco .bi{width:32px;height:32px;border-radius:9px;background:var(--azul-lt);color:var(--blue);display:grid;place-items:center;font-weight:700;font-size:13px}
+.bloco .bi{width:34px;height:34px;border-radius:10px;background:linear-gradient(135deg,#1B2A4A,#2E5EAA);color:#fff;display:grid;place-items:center;flex:none}
+.bi svg,.f-ext :is(a,button) span svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
 .bloco b{font-size:14px}
 .bloco small{color:var(--text3);font-size:12px}
 .bloco .cont{margin-top:auto;display:flex;gap:6px;flex-wrap:wrap}
-.ext .bi{background:var(--ouro-lt);color:var(--amber)}
+.ext .bi{background:linear-gradient(135deg,#8A6D14,#C9A84C)}
 .sub-tit{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);font-weight:600}
 /* B — Mural de notícias */
 .mural{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,1fr);gap:14px}
@@ -116,13 +111,16 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--ouro);outline-offse
 .f-col{display:flex;flex-direction:column;gap:14px;min-width:0}
 .f-blocos{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
 .f-blocos .bloco{padding:10px;gap:4px;box-shadow:none}
-.f-blocos .bloco .bi{width:26px;height:26px;font-size:11.5px;border-radius:7px}
+.f-blocos .bloco .bi{width:28px;height:28px;border-radius:8px}
+.f-blocos .bloco .bi svg{width:15px;height:15px}
 .f-blocos .bloco b{font-size:13px}
 .f-blocos .bloco small{font-size:11.5px}
 .f-ext{display:flex;flex-wrap:wrap;gap:6px}
-.f-ext a{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--border);border-radius:999px;padding:5px 11px;font-size:12px;background:var(--surface);color:var(--text);text-decoration:none}
-.f-ext a:hover{border-color:var(--ouro)}
-.f-ext a span{width:18px;height:18px;border-radius:5px;background:var(--ouro-lt);color:var(--amber);display:grid;place-items:center;font-size:9.5px;font-weight:700}
+.f-ext :is(a,button){display:inline-flex;align-items:center;gap:6px;border:1px solid var(--border);border-radius:999px;padding:5px 11px;font-size:12px;background:var(--surface);color:var(--text);text-decoration:none}
+.f-ext :is(a,button):hover{border-color:var(--ouro)}
+.f-ext :is(a,button) span{width:22px;height:22px;border-radius:6px;background:linear-gradient(135deg,#8A6D14,#C9A84C);color:#fff;display:grid;place-items:center}
+.f-ext :is(a,button) span svg{width:13px;height:13px}
+.f-ext button{font-family:inherit;cursor:pointer}
 @media (max-width:1100px){.f-grade{grid-template-columns:minmax(0,1fr)}.f-blocos{grid-template-columns:repeat(auto-fill,minmax(150px,1fr))}}
 @media (max-width:600px){.f-topo{grid-template-columns:minmax(0,1fr)}}
 /* D — Meu dia (foco) */
@@ -150,6 +148,33 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--ouro);outline-offse
 .prosc .mais{color:var(--green)}.prosc .menos{color:var(--red)}
 @media (max-width:900px){.mural,.cockpit{grid-template-columns:minmax(0,1fr)}.semana{grid-template-columns:repeat(5,minmax(150px,1fr));overflow-x:auto}}
 @media (max-width:700px){.tela{grid-template-columns:minmax(0,1fr)}.lado{display:none}.tres{grid-template-columns:minmax(0,1fr)}.conteudo{padding:14px}}
+
+/* Backup 95: Tribunais — mapa do Brasil em quadros (um por estado); clicar no estado mostra os tribunais dele */
+.jan-fundo{position:fixed;inset:0;background:rgba(15,23,42,.45);display:grid;place-items:center;padding:16px;z-index:50}
+.jan-fundo[hidden]{display:none}
+.jan{background:var(--surface);border-radius:14px;box-shadow:0 20px 50px rgba(0,0,0,.25);width:min(920px,100%);max-height:calc(100vh - 32px);overflow:auto;display:flex;flex-direction:column}
+.jan-hd{display:flex;align-items:center;gap:12px;padding:16px 20px 12px;border-bottom:1px solid var(--border)}
+.jan-hd .bi{width:34px;height:34px;border-radius:10px;background:linear-gradient(135deg,#1B2A4A,#2E5EAA);color:#fff;display:grid;place-items:center;flex:none}
+.jan-hd h2{font-size:16px}.jan-hd p{margin:0;color:var(--text3);font-size:12.5px}
+.jan-hd .x{margin-left:auto;border:0;background:none;font-size:22px;line-height:1;color:var(--text3);padding:4px 8px;border-radius:8px}
+.jan-hd .x:hover{background:var(--surface2)}
+.jan-bd{display:grid;grid-template-columns:auto minmax(0,1fr);gap:20px;padding:16px 20px 20px}
+.mapa{display:grid;grid-template-columns:repeat(8,44px);grid-auto-rows:44px;gap:4px;align-content:start}
+.uf{border:1px solid #C9D4E8;background:#E8EDF7;color:#1B2A4A;border-radius:8px;font-weight:700;font-size:12px;padding:0;transition:background .12s}
+.uf:hover{background:#D3DDF0}
+.uf[aria-pressed="true"]{background:linear-gradient(135deg,#1B2A4A,#2E5EAA);border-color:#1B2A4A;color:#fff}
+.uf.reg-n{border-color:#B9D9C4}.uf.reg-ne{border-color:#E8D3A2}.uf.reg-co{border-color:#D9C2E6}.uf.reg-s{border-color:#C8D9F0}
+.legenda-mapa{grid-column:1 / -1;font-size:11.5px;color:var(--text3);margin-top:6px}
+.trib h3{font-size:15px;margin:0 0 2px}
+.trib .sub{color:var(--text3);font-size:12px;margin:0 0 10px}
+.trib-grupo{margin-top:12px}
+.trib-grupo > b{display:block;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);margin-bottom:6px}
+.trib-links{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:8px}
+.trib-links a{display:flex;flex-direction:column;gap:1px;border:1px solid var(--border);border-radius:10px;padding:9px 12px;color:var(--text);text-decoration:none;background:var(--surface)}
+.trib-links a:hover{border-color:var(--ouro)}
+.trib-links a b{font-size:13px}.trib-links a small{color:var(--text3);font-size:11.5px}
+.trib-aviso{margin-top:14px;font-size:11.5px;color:var(--text3)}
+@media (max-width:760px){.jan-bd{grid-template-columns:minmax(0,1fr)}.mapa{grid-template-columns:repeat(8,minmax(0,1fr));grid-auto-rows:38px;gap:3px}}
 @media (prefers-reduced-motion:reduce){.bloco{transition:none}.bloco:hover{transform:none}}
 </style>
 
@@ -177,6 +202,7 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--ouro);outline-offse
   </nav>
   <main class="conteudo" id="conteudo"></main>
 </div>
+<div class="jan-fundo" id="jan-trib" hidden><div class="jan" role="dialog" aria-modal="true" aria-labelledby="jan-trib-t"></div></div>
 
 <script>
 (function () {
@@ -190,13 +216,34 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--ouro);outline-offse
     ['15', 'out', 'a', 'Rotina', 'Guias de parcelamento enviadas', '8 guias enviadas por e-mail a 3 grupos; 1 ficou para o cliente emitir.'],
     ['15', 'out', '', 'CRM', 'Proposta enviada — Comércio Gama', 'Consultoria mensal em 1,5 salário mínimo. Próximo passo: retorno até 20/10.'],
     ['14', 'out', 'r', 'Acordos', 'Parcela de acordo venceu sem pagamento', 'Acordo da Beta com o fornecedor X: parcela 4/10, R$ 1.250,00.']];
-  const SISTEMAS = [['Ta', 'Tarefas', '2 para hoje', [['a', '2 hoje']]], ['Pr', 'Processos', '1 ativo', [['r', '1 nunca conferido']]], ['Pa', 'Parcelamentos', 'guias e parcelas', [['r', '1 atrasada']]],
-    ['Ac', 'Acordos', 'parcelas a pagar', [['r', '5 atrasadas']]], ['Fi', 'Financeiro', 'Jurídico e Contabilidade', [['r', 'R$ 44,7 mil atraso']]], ['Cl', 'Clientes', '3 cadastros', []],
-    ['CR', 'CRM', '2 negociações', [['b', 'R$ 3 mil/mês']]], ['Do', 'Documentos', 'arquivos e modelos', [['a', '1 vencendo']]], ['Ro', 'Rotina', 'conferências e guias', [['a', '3 grupos']]]];
-  const EXTERNOS = [['eC', 'e-CAC (Receita)', 'certidões e parcelamentos'], ['PJ', 'PJe / TJMG', 'processos eletrônicos'], ['DJ', 'Diário (DJEN)', 'comunicações'], ['Gm', 'Gmail do escritório', 'caixa e rascunhos'], ['Dr', 'Google Drive', 'pastas dos clientes'], ['Ag', 'Google Agenda', 'prazos e audiências']];
+  // Backup 95: ícones (traço, 24×24) no lugar das iniciais
+  const IC = {
+    tarefas: '<path d="M9 11l3 3 9-9"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>',
+    processos: '<path d="M12 3v18M5 7h14M8 21h8"/><path d="M5 7l-3 6a3 3 0 0 0 6 0zM19 7l-3 6a3 3 0 0 0 6 0z"/>',
+    parcelamentos: '<path d="M12 2l9 5-9 5-9-5 9-5z"/><path d="M3 12l9 5 9-5M3 17l9 5 9-5"/>',
+    acordos: '<path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6M8 17c2-2 3 1 5-1"/>',
+    financeiro: '<path d="M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>',
+    clientes: '<circle cx="9" cy="7" r="4"/><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>',
+    crm: '<path d="M3 17l6-6 4 4 8-8"/><path d="M14 7h7v7"/>',
+    documentos: '<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>',
+    rotina: '<path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/>',
+    receita: '<path d="M3 21h18M5 21V10M19 21V10M9 21V10M15 21V10M2 10l10-6 10 6z"/>',
+    tribunais: '<path d="M14 13l-7.5 7.5a2.1 2.1 0 0 1-3-3L11 10"/><path d="M16 16l6-6M8 8l6-6M9 7l8 8M21 11l-8-8"/>',
+    diario: '<path d="M4 4h13v16H6a2 2 0 0 1-2-2z"/><path d="M17 8h3v10a2 2 0 0 1-2 2M8 8h5M8 12h5M8 16h5"/>',
+    email: '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/>',
+    drive: '<path d="M7 18a5 5 0 1 1 .9-9.9A6 6 0 0 1 19 10a4 4 0 0 1 0 8z"/>',
+    inicio: '<path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/>',
+    agenda: '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/>'
+  };
+  const ic = (k) => '<svg viewBox="0 0 24 24" aria-hidden="true">' + (IC[k] || '') + '</svg>';
+  const SISTEMAS = [['tarefas', 'Tarefas', '2 para hoje', [['a', '2 hoje']]], ['processos', 'Processos', '1 ativo', [['r', '1 nunca conferido']]], ['parcelamentos', 'Parcelamentos', 'guias e parcelas', [['r', '1 atrasada']]],
+    ['acordos', 'Acordos', 'parcelas a pagar', [['r', '5 atrasadas']]], ['financeiro', 'Financeiro', 'Jurídico e Contabilidade', [['r', 'R$ 44,7 mil atraso']]], ['clientes', 'Clientes', '3 cadastros', []],
+    ['crm', 'CRM', '2 negociações', [['b', 'R$ 3 mil/mês']]], ['documentos', 'Documentos', 'arquivos e modelos', [['a', '1 vencendo']]], ['rotina', 'Rotina', 'conferências e guias', [['a', '3 grupos']]]];
+  // 'tribunais' não é link: abre a janela com o mapa do Brasil
+  const EXTERNOS = [['receita', 'e-CAC (Receita)', 'certidões e parcelamentos'], ['tribunais', 'Tribunais', 'escolha o estado no mapa'], ['diario', 'Diário (DJEN)', 'comunicações'], ['email', 'Gmail do escritório', 'caixa e rascunhos'], ['drive', 'Google Drive', 'pastas dos clientes'], ['agenda', 'Google Agenda', 'prazos e audiências']];
 
   const pils = () => '<div style="display:flex;flex-wrap:wrap;gap:6px">' + AVISOS.map(([c, n, t]) => '<span class="pil"><span class="pt ' + c + '"></span><b class="num">' + n + '</b>' + t + '</span>').join('') + '</div>';
-  const cab = (tit, sub, extra) => '<div class="cab"><div class="ic" aria-hidden="true">⌂</div><div><h2>' + tit + '</h2><p>' + sub + '</p></div><span class="esp"></span>' + (extra || '') + '</div>';
+  const cab = (tit, sub, extra) => '<div class="cab"><div class="ic" aria-hidden="true">' + ic('inicio') + '</div><div><h2>' + tit + '</h2><p>' + sub + '</p></div><span class="esp"></span>' + (extra || '') + '</div>';
   const listaTarefas = () => '<div class="lista">' + TAREFAS.map(([t, s, c]) => '<div class="l"><span class="ok" aria-hidden="true"></span><div class="tx">' + t + '<small>' + s + '</small></div>' + (c ? '<span class="tag ' + c + '">' + (c === 'r' ? 'atrasada' : 'hoje') + '</span>' : '') + '</div>').join('') + '</div>';
   const spark = (pts, cor) => { const w = 120, h = 26, max = Math.max.apply(null, pts), min = Math.min.apply(null, pts), sx = w / (pts.length - 1), y = (v) => h - 3 - ((v - min) / ((max - min) || 1)) * (h - 6);
     const d = pts.map((v, i) => (i ? 'L' : 'M') + (i * sx).toFixed(1) + ' ' + y(v).toFixed(1)).join(' ');
@@ -207,8 +254,8 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--ouro);outline-offse
       html: () => cab('Boa tarde, Pedro', 'sexta-feira, 16 de outubro', '<button class="bt p" type="button">+ Lembrete</button>') +
         '<div class="portal-busca" role="search">⌕ Buscar cliente, processo, tela ou ação…<kbd>Ctrl K</kbd></div>' +
         '<div class="cartao"><h3>Avisos</h3>' + pils() + '</div>' +
-        '<div class="sub-tit">Sistemas do ERP</div><div class="blocos">' + SISTEMAS.map(([i, t, s, c]) => '<button type="button" class="bloco"><span class="bi">' + i + '</span><b>' + t + '</b><small>' + s + '</small><span class="cont">' + c.map(([k, x]) => '<span class="tag ' + k + '">' + x + '</span>').join('') + '</span></button>').join('') + '</div>' +
-        '<div class="sub-tit">Sites que o escritório usa</div><div class="blocos">' + EXTERNOS.map(([i, t, s]) => '<button type="button" class="bloco ext"><span class="bi">' + i + '</span><b>' + t + ' ↗</b><small>' + s + '</small></button>').join('') + '</div>' },
+        '<div class="sub-tit">Sistemas do ERP</div><div class="blocos">' + SISTEMAS.map(([i, t, s, c]) => '<button type="button" class="bloco"><span class="bi">' + ic(i) + '</span><b>' + t + '</b><small>' + s + '</small><span class="cont">' + c.map(([k, x]) => '<span class="tag ' + k + '">' + x + '</span>').join('') + '</span></button>').join('') + '</div>' +
+        '<div class="sub-tit">Sites que o escritório usa</div><div class="blocos">' + EXTERNOS.map(([i, t, s]) => '<button type="button" class="bloco ext"' + (i === 'tribunais' ? ' data-trib' : '') + '><span class="bi">' + ic(i) + '</span><b>' + t + (i === 'tribunais' ? ' ›' : ' ↗') + '</b><small>' + s + '</small></button>').join('') + '</div>' },
     B: { nota: 'B: estilo portal de notícias — uma manchete com o mais importante do dia e, ao lado, a lista do que aconteceu (publicações, pagamentos, guias, CRM), com data, como num mural. Bom para quem chega e quer saber "o que mudou desde ontem".',
       html: () => cab('Boa tarde, Pedro', 'sexta-feira, 16 de outubro · 5 novidades desde ontem') +
         '<div class="mural"><div style="display:flex;flex-direction:column;gap:14px;min-width:0">' +
@@ -227,7 +274,7 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--ouro);outline-offse
           ['08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00'].map((h) => { const e = AGENDA.find((x) => x[0].slice(0, 2) === h.slice(0, 2));
             return '<div class="hora' + (h === '14:00' ? ' agora' : '') + '"><span class="num">' + h + '</span><div>' + (e ? '<div class="evento ' + e[3] + '">' + e[0] + ' · ' + e[1] + '<small>' + e[2] + '</small></div>' : '') + '</div></div>'; }).join('') + '</div></div>' +
         '<div class="cartao"><h3>Tarefas<small>atrasadas e de hoje</small></h3>' + listaTarefas() + '</div></div>' },
-    F: { nota: 'F (novo, pedido de 17/10): o Cockpit (C) com o Portal (A). No alto, a busca e os números com mini-gráfico; logo abaixo, os avisos. À esquerda, o dia por hora e as tarefas; à direita, os sistemas do ERP (cada um com o que pede ação) e os sites que o escritório usa (abrem em outra aba).',
+    F: { nota: 'F (novo, pedido de 17/10): o Cockpit (C) com o Portal (A). No alto, a busca e os números com mini-gráfico; logo abaixo, os avisos. À esquerda, o dia por hora e as tarefas; à direita, os sistemas do ERP (cada um com o que pede ação) e os sites que o escritório usa (abrem em outra aba). Novo: "Tribunais" abre um mapa do Brasil — clique no estado e escolha o sistema do tribunal.',
       html: () => cab('Boa tarde, Pedro', 'sexta-feira, 16 de outubro', '<button class="bt" type="button">Só eu</button><button class="bt p" type="button">+ Lembrete</button>') +
         '<div class="portal-busca" role="search">⌕ Buscar cliente, processo, tela ou ação…<kbd>Ctrl K</kbd></div>' +
         '<div class="kpis">' + [['r', 'Honorários em atraso', 'R$ 44.675', [30, 34, 31, 38, 41, 44.6], 'var(--red)'], ['g', 'Recebido no mês', 'R$ 24.075', [18, 21, 19, 26, 22, 24], 'var(--green)'],
@@ -238,8 +285,8 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--ouro);outline-offse
           ['08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00'].map((h) => { const e = AGENDA.find((x) => x[0].slice(0, 2) === h.slice(0, 2));
             return '<div class="hora' + (h === '14:00' ? ' agora' : '') + '"><span class="num">' + h + '</span><div>' + (e ? '<div class="evento ' + e[3] + '">' + e[0] + ' · ' + e[1] + '<small>' + e[2] + '</small></div>' : '') + '</div></div>'; }).join('') + '</div></div>' +
           '<div class="cartao"><h3>Tarefas<small>atrasadas e de hoje</small></h3>' + listaTarefas() + '</div></div>' +
-        '<div class="f-col"><div class="cartao"><h3>Sistemas do ERP</h3><div class="f-blocos">' + SISTEMAS.map(([i, t, s, c]) => '<button type="button" class="bloco"><span class="bi">' + i + '</span><b>' + t + '</b><small>' + s + '</small><span class="cont">' + c.map(([k, x]) => '<span class="tag ' + k + '">' + x + '</span>').join('') + '</span></button>').join('') + '</div></div>' +
-          '<div class="cartao"><h3>Sites que o escritório usa<small>abrem em outra aba</small></h3><div class="f-ext">' + EXTERNOS.map(([i, t]) => '<a href="#" onclick="return false"><span>' + i + '</span>' + t + ' ↗</a>').join('') + '</div></div></div></div>' },
+        '<div class="f-col"><div class="cartao"><h3>Sistemas do ERP</h3><div class="f-blocos">' + SISTEMAS.map(([i, t, s, c]) => '<button type="button" class="bloco"><span class="bi">' + ic(i) + '</span><b>' + t + '</b><small>' + s + '</small><span class="cont">' + c.map(([k, x]) => '<span class="tag ' + k + '">' + x + '</span>').join('') + '</span></button>').join('') + '</div></div>' +
+          '<div class="cartao"><h3>Sites que o escritório usa<small>abrem em outra aba</small></h3><div class="f-ext">' + EXTERNOS.map(([i, t]) => i === 'tribunais' ? '<button type="button" data-trib><span>' + ic(i) + '</span>' + t + ' ›</button>' : '<a href="#" onclick="return false"><span>' + ic(i) + '</span>' + t + ' ↗</a>').join('') + '</div></div></div></div>' },
     D: { nota: 'D: foco — uma coluna só, sem números do escritório: o próximo compromisso em destaque, as suas tarefas na ordem em que devem ser feitas e só 3 números. Bom para a equipe; os sócios veem o resto no Painel.',
       html: () => '<div class="foco"><div class="saud">Boa tarde, Pedro.<small>Sexta, 16/10 · 3 coisas para hoje e 1 atrasada</small></div>' +
         '<div class="proximo"><span class="h num">11:30</span><div style="flex:1;min-width:200px"><b>Audiência — 5000001-11.2024.8.13.0024</b><div style="color:var(--text3);font-size:12.5px">TJMG · virtual · em 2 h 20 min</div></div><button class="bt p" type="button">Abrir</button></div>' +
@@ -253,12 +300,58 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--ouro);outline-offse
           .map(([d, l, h]) => '<div class="dia' + (h ? ' hoje' : '') + '"><b>' + d + (h ? ' · hoje' : '') + '</b>' + l.map(([c, t, s]) => '<div class="c ' + c + '">' + t + '<small>' + s + '</small></div>').join('') + '</div>').join('') + '</div>' +
         '<div class="sub-tit">Próxima semana</div><ul class="prosc"><li><b>3 parcelas vencem</b>Beta e Alfa · R$ 2.480,00</li><li><b>1 audiência</b>qua 21/10, 14:00</li><li><b>Resumo do mês</b><span class="mais">recebido +12%</span> · <span class="menos">atraso +8%</span></li></ul>' }
   };
+  // ── Backup 95: TRIBUNAIS — mapa do Brasil em quadros (posição aproximada de cada estado) + os tribunais de cada um ──
+  const UFS = { RR: ['Roraima', 2, 0, 'n'], AP: ['Amapá', 4, 0, 'n'], AM: ['Amazonas', 1, 1, 'n'], PA: ['Pará', 3, 1, 'n'], MA: ['Maranhão', 5, 1, 'ne'], CE: ['Ceará', 6, 1, 'ne'], RN: ['Rio Grande do Norte', 7, 1, 'ne'],
+    AC: ['Acre', 0, 2, 'n'], RO: ['Rondônia', 1, 2, 'n'], MT: ['Mato Grosso', 2, 2, 'co'], TO: ['Tocantins', 4, 2, 'n'], PI: ['Piauí', 5, 2, 'ne'], PE: ['Pernambuco', 6, 2, 'ne'], PB: ['Paraíba', 7, 2, 'ne'],
+    MS: ['Mato Grosso do Sul', 2, 3, 'co'], GO: ['Goiás', 3, 3, 'co'], DF: ['Distrito Federal', 4, 3, 'co'], BA: ['Bahia', 5, 3, 'ne'], AL: ['Alagoas', 7, 3, 'ne'], SE: ['Sergipe', 6, 3, 'ne'],
+    SP: ['São Paulo', 3, 4, 'se'], MG: ['Minas Gerais', 4, 4, 'se'], ES: ['Espírito Santo', 5, 4, 'se'], PR: ['Paraná', 3, 5, 's'], RJ: ['Rio de Janeiro', 4, 5, 'se'], SC: ['Santa Catarina', 3, 6, 's'], RS: ['Rio Grande do Sul', 3, 7, 's'] };
+  const TRF = { AC: 1, AM: 1, AP: 1, BA: 1, DF: 1, GO: 1, MA: 1, MT: 1, PA: 1, PI: 1, RO: 1, RR: 1, TO: 1, RJ: 2, ES: 2, SP: 3, MS: 3, RS: 4, SC: 4, PR: 4, AL: 5, CE: 5, PB: 5, PE: 5, RN: 5, SE: 5, MG: 6 };
+  const TRT = { RJ: [1], SP: [2, 15], MG: [3], RS: [4], BA: [5], PE: [6], CE: [7], PA: [8], AP: [8], PR: [9], DF: [10], TO: [10], AM: [11], RR: [11], SC: [12], PB: [13], RO: [14], AC: [14], MA: [16], ES: [17], GO: [18], AL: [19], SE: [20], RN: [21], PI: [22], MT: [23], MS: [24] };
+  // sistemas do Tribunal de Justiça que fogem do "PJe" padrão (exemplos; no ERP cada link seria editável em Administração)
+  const TJ_SIS = { MG: [['TJMG · PJe', 'https://pje.tjmg.jus.br', 'processos eletrônicos (1º e 2º grau)'], ['TJMG · eProc', 'https://eproc1g.tjmg.jus.br', 'processos novos no eProc']],
+    SP: [['TJSP · e-SAJ', 'https://esaj.tjsp.jus.br', 'consulta e peticionamento']], RS: [['TJRS · eProc', 'https://eproc1g.tjrs.jus.br', 'processos eletrônicos']],
+    SC: [['TJSC · eProc', 'https://eproc1g.tjsc.jus.br', 'processos eletrônicos']], PR: [['TJPR · Projudi', 'https://projudi.tjpr.jus.br', 'processos eletrônicos']],
+    DF: [['TJDFT · PJe', 'https://pje.tjdft.jus.br', 'processos eletrônicos']] };
+  function tribunaisDe(uf) {
+    const u = uf.toLowerCase(), tj = uf === 'DF' ? 'TJDFT' : 'TJ' + uf, site = uf === 'DF' ? 'https://www.tjdft.jus.br' : 'https://www.tj' + u + '.jus.br';
+    const est = (TJ_SIS[uf] || [[tj + ' · PJe', 'https://pje.tj' + u + '.jus.br', 'processos eletrônicos']]).concat([[tj + ' · site', site, 'consulta processual e notícias']]);
+    const trab = TRT[uf].map((n) => ['TRT-' + n + ' · PJe', 'https://pje.trt' + n + '.jus.br', 'Justiça do Trabalho' + (uf === 'SP' ? (n === 2 ? ' (capital e Grande SP)' : ' (Campinas e interior)') : '')]);
+    const n = TRF[uf], fed = [['TRF-' + n, 'https://www.trf' + n + '.jus.br', 'Justiça Federal da ' + n + 'ª Região']];
+    return [['Justiça Estadual', est], ['Justiça do Trabalho', trab], ['Justiça Federal', fed], ['Eleitoral', [['TRE-' + uf, 'https://www.tre-' + u + '.jus.br', 'Justiça Eleitoral']]],
+      ['Tribunais superiores (todos os estados)', [['STJ', 'https://www.stj.jus.br', 'Superior Tribunal de Justiça'], ['TST', 'https://www.tst.jus.br', 'Tribunal Superior do Trabalho'], ['STF', 'https://portal.stf.jus.br', 'Supremo Tribunal Federal']]]];
+  }
+  const janTrib = document.getElementById('jan-trib');
+  let ufAberta = 'MG', antesDaJanela = null;
+  function pintarTribunais() {
+    const [nome] = UFS[ufAberta];
+    janTrib.querySelector('#trib-lista').innerHTML = '<h3>' + nome + ' (' + ufAberta + ')</h3><p class="sub">Toque no sistema para abrir em outra aba.</p>' +
+      tribunaisDe(ufAberta).map(([g, ls]) => '<div class="trib-grupo"><b>' + g + '</b><div class="trib-links">' +
+        ls.map(([t, url, d]) => '<a href="' + url + '" target="_blank" rel="noopener noreferrer"><b>' + t + ' ↗</b><small>' + d + '</small></a>').join('') + '</div></div>').join('') +
+      '<p class="trib-aviso">Endereços de exemplo, para mostrar a ideia. No ERP, a lista de cada estado fica editável (Administração), para o escritório guardar só os sistemas que usa.</p>';
+    janTrib.querySelectorAll('.uf').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.uf === ufAberta)));
+  }
+  function abrirTribunais() {
+    antesDaJanela = document.activeElement;
+    janTrib.querySelector('.jan').innerHTML = '<div class="jan-hd"><span class="bi">' + ic('tribunais') + '</span><div><h2 id="jan-trib-t">Tribunais</h2><p>Escolha o estado no mapa</p></div><button type="button" class="x" aria-label="Fechar" data-fechar>×</button></div>' +
+      '<div class="jan-bd"><div><div class="mapa" role="group" aria-label="Mapa do Brasil por estado">' +
+        Object.keys(UFS).map((uf) => { const [nome, c, l, reg] = UFS[uf]; return '<button type="button" class="uf reg-' + reg + '" data-uf="' + uf + '" style="grid-column:' + (c + 1) + ';grid-row:' + (l + 1) + '" title="' + nome + '" aria-label="' + nome + '">' + uf + '</button>'; }).join('') +
+      '</div><p class="legenda-mapa">Cada quadro é um estado, na posição aproximada do mapa.</p></div><div class="trib" id="trib-lista"></div></div>';
+    janTrib.hidden = false; pintarTribunais();
+    const bt = janTrib.querySelector('.uf[aria-pressed="true"]'); if (bt) bt.focus();
+  }
+  function fecharTribunais() { janTrib.hidden = true; if (antesDaJanela && antesDaJanela.focus) antesDaJanela.focus(); }
+  janTrib.addEventListener('click', (ev) => {
+    if (ev.target === janTrib || ev.target.closest('[data-fechar]')) return fecharTribunais();
+    const b = ev.target.closest('[data-uf]'); if (b) { ufAberta = b.dataset.uf; pintarTribunais(); }
+  });
+  document.addEventListener('keydown', (ev) => { if (ev.key === 'Escape' && !janTrib.hidden) fecharTribunais(); });
   const conteudo = document.getElementById('conteudo'), nota = document.getElementById('nota'), esc = document.getElementById('escolha');
   function mostrar(k) {
     conteudo.innerHTML = ALT[k].html(); nota.textContent = ALT[k].nota;
     esc.querySelectorAll('[data-alt]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.alt === k)));
     try { localStorage.setItem('inicio_alt', k); } catch (e) { /* sem memória: tudo bem */ }
   }
+  conteudo.addEventListener('click', (ev) => { if (ev.target.closest('[data-trib]')) abrirTribunais(); });
   esc.addEventListener('click', (ev) => { const b = ev.target.closest('[data-alt]'); if (b) mostrar(b.dataset.alt); });
   let ini = 'A'; try { const s = localStorage.getItem('inicio_alt'); if (s && ALT[s]) ini = s; } catch (e) { /* nada */ }
   if (/^#[A-F]$/.test(location.hash)) ini = location.hash.slice(1);

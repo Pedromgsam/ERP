@@ -135,11 +135,8 @@
       '<div class="tn-menu tn-menu-dir" role="menu">' + LANCAR.map((x, i) => '<button type="button" role="menuitem" data-lancar="' + i + '">' + esc(x[0]) + '</button>').join('') + '</div></div>' +
       '<div class="hd-usuario"><button type="button" id="gs-ajuda" title="Ajuda desta tela" aria-label="Ajuda desta tela"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .9-1 1.6v.6M12 17h.01"/></svg></button><button type="button" id="gs-tema" title="Modo escuro / claro" aria-label="Alternar modo escuro" aria-pressed="false"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/></svg></button>' +
       '<div class="tn-grupo tn-mais-acoes"><button type="button" class="tn-abre gs-bt-mais" data-grupo="acoes" title="Atualizar dados e relatório em PDF" aria-label="Mais ações" aria-haspopup="true" aria-expanded="false">⋯</button>' +
-      '<div class="tn-menu tn-menu-dir" role="menu"><button type="button" data-acao="atualizar">↻ Atualizar dados</button><button type="button" data-acao="meunome">👤 Meu nome</button>' +
-        // Backup 89: o AMBIENTE DE TESTE agora é o próprio ERP com o visual premium ligado (mesmos dados e funções; só muda a aparência, só neste navegador)
-        '<button type="button" data-acao="premium" id="gs-premium" aria-pressed="false">✦ Visual premium (teste)</button></div></div>' +
+      '<div class="tn-menu tn-menu-dir" role="menu"><button type="button" data-acao="atualizar">↻ Atualizar dados</button><button type="button" data-acao="meunome">👤 Meu nome</button></div></div>' +
       '<span class="gs-eu"><span class="gs-ava" id="gs-ava" aria-hidden="true"></span><span class="gs-eu-tx"><span id="gs-nome"></span><small id="gs-papel"></small></span></span><button type="button" id="gs-sair">Sair</button></div>';
-    marcarVisualPremium();
     // barra lateral: marca, seções, itens com ícone; submódulos abrem logo abaixo (linha fina à esquerda); "encolher" no pé
     const lado = document.createElement('aside');
     lado.id = 'gs-lado'; lado.className = 'gs';
@@ -201,7 +198,6 @@
       if (alvo.id === 'gs-sair' || alvo.classList.contains('gs-sair')) { if (typeof window.acLogout === 'function') window.acLogout(); }
       else if (alvo.dataset.acao === 'atualizar') { if (typeof window._dbCacheClear === 'function') window._dbCacheClear(); ED.recarregar(); }
       else if (alvo.dataset.acao === 'meunome') pedirMeuNome(false);
-      else if (alvo.dataset.acao === 'premium') trocarVisualPremium();
       else if (alvo.dataset.acao === 'buscar') { if (GS() && GS().abrirBuscaGeral) GS().abrirBuscaGeral(); }
       else if (alvo.dataset.ir && (e.ctrlKey || e.metaKey || e.shiftKey)) window.open(location.pathname + '#' + alvo.dataset.ir, '_blank', 'noopener');   // Backup 34: Ctrl + clique = aba nova
       else if (alvo.dataset.ir) ir(alvo.dataset.ir);
@@ -781,21 +777,4 @@
   window.ERP_TELAS = { ir, desenharGS, LANCAR };
 })();
 
-// ═══ Backup 89: VISUAL PREMIUM (o novo "ambiente de teste") ═══
-// Liga/desliga a camada premium.css (html[data-visual="premium"]) só neste navegador. Endereço com ?visual=premium (ou ?visual=normal) também liga/desliga.
-function marcarVisualPremium() {
-  const on = document.documentElement.getAttribute('data-visual') === 'premium';
-  const b = document.getElementById('gs-premium'); if (b) { b.setAttribute('aria-pressed', String(on)); b.textContent = on ? '✦ Voltar ao visual normal' : '✦ Visual premium (teste)'; }
-  let f = document.getElementById('gx-faixa-premium');
-  if (on && !f) { f = document.createElement('div'); f.id = 'gx-faixa-premium'; f.innerHTML = '<span>✦ Visual premium — teste</span><button type="button" data-acao="premium">Voltar ao normal</button>';
-    f.querySelector('button').onclick = trocarVisualPremium; document.body.appendChild(f); }
-  if (!on && f) f.remove();
-}
-function trocarVisualPremium() {
-  const on = document.documentElement.getAttribute('data-visual') !== 'premium';
-  if (on) document.documentElement.setAttribute('data-visual', 'premium'); else document.documentElement.removeAttribute('data-visual');
-  try { localStorage.setItem('erp_visual', on ? 'premium' : ''); } catch (e) { /* vale só agora */ }
-  marcarVisualPremium();
-  if (typeof window.ERP_RECARREGAR_TELA === 'function') window.ERP_RECARREGAR_TELA();
-}
-window.trocarVisualPremium = trocarVisualPremium;
+// Backup 95: o visual premium é o padrão (o botão "Visual premium (teste)" e a faixa saíram) — o atributo vem do <head> (montar-erp).

@@ -60,7 +60,7 @@ TELAS.painelExec = async function () {
   c.innerHTML = cabecalhoTela({ icone: 'painel', titulo: 'Painel Executivo', frase: 'Passivo dos clientes e onde ele está' }) +
     filtroSusB('pe-filtro', [{ k: 'grupo', rot: 'Grupo', todos: 'Todos os grupos', opcoes: grupos, v: P.grupo }, { k: 'emp', rot: 'Empresa', todos: 'Todas as empresas', opcoes: emps, v: P.empresa },
       { k: 'resp', rot: 'Responsável', todos: 'Todos', opcoes: resps, v: P.resp, cls: 'b-pm-fora' }]) +   // Backup 92: sem Responsável no visual premium
-    '<div id="pe-nums">' + numsFaixa([['Passivo total', t(N.total), 'RFB ' + brlCurto(N.rfb) + ' · PGFN ' + brlCurto(N.pgfn) + ' · AGE/MG ' + brlCurto(N.age)], ['Parcelamentos (saldo)', t(N.saldoParc), plural(N.nParc, 'ativo', 'ativos')],
+    '<div id="pe-nums">' + numsFaixa([['Passivo total', t(N.total), ['RFB ' + brlCurto(N.rfb), 'PGFN ' + brlCurto(N.pgfn), 'AGE/MG ' + brlCurto(N.age)].map((x) => x.replace(/ /g, '\u00a0')).join(' · ')   /* Backup 95: cada valor numa linha só */], ['Parcelamentos (saldo)', t(N.saldoParc), plural(N.nParc, 'ativo', 'ativos')],
       ['Acordos (em aberto)', t(N.acPagar), plural(N.nAc, 'parcela', 'parcelas')], ['Passivo em disputa', t(N.passivo), plural(N.nProc, 'processo', 'processos'), 'b-verm'], ['Ativo em disputa', t(N.ativo), '', 'b-verde']]) + '</div>' +
     // Backup 83: como no ambiente — só o título e "6 meses · 12 meses"; a linha é o total do que está escolhido no alto (todos, um grupo ou uma empresa)
     '<section class="b-fin-cartao b-pe-evo" id="pe-evo"><div class="b-fin-hd b-pe-evo-hd"><div><h3>Evolução do passivo</h3></div>' +

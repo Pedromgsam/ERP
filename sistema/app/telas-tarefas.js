@@ -487,8 +487,8 @@ TELAS.tarefas = async function () {
     '<div class="b-seg tf-vista b-pm-fora" id="tf-vista" role="tablist">' + [['lista', 'Lista'], ['calendario', 'Calendário']]
       .map(([v, r]) => '<button type="button" role="tab" class="b-seg-bt" data-v="' + v + '">' + r + '</button>').join('') + '</div>' +
     // Backup 93 (U3, visual premium): no lugar da engrenagem, dois botões que dizem o que fazem
-    '<button type="button" class="btn btn-o b-bt b-pm-so" id="tf-feriados2">' + iconeB('calendario') + 'Feriados</button>' +
-    '<button type="button" class="btn btn-o b-bt b-pm-so" id="tf-agenda2" title="Prazos e audiências no seu Google Agenda">' + iconeB('calendario') + 'Agenda</button>' +
+    '<button type="button" class="btn btn-o b-bt b-pm-so" id="tf-feriados2">' + '<span class="b-bt-quad">' + iconeB('calendario') + '</span>Feriados</button>' +
+    '<button type="button" class="btn btn-o b-bt b-pm-so" id="tf-agenda2" title="Prazos e audiências no seu Google Agenda">' + '<span class="b-bt-quad">' + iconeB('calendario') + '</span>Agenda</button>' +
     '<span class="tf-cfg-wrap b-pm-fora"><button class="btn btn-o tf-bt-ic" id="tf-config" title="Configurar: feriados e Google Agenda" aria-expanded="false">⚙</button>' +
       '<span class="tf-cfg-menu" id="tf-cfg-menu" hidden>' +   // Backup 88: sem "Modelos de fluxo" 
       '<button class="btn btn-o" id="tf-feriados">Feriados</button><button class="btn btn-o" id="tf-agenda" title="Prazos fatais e audiências no seu Google Agenda">📅 Google Agenda</button></span></span>' +
