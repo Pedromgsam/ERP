@@ -721,6 +721,18 @@ O que mudou:
 
 Ainda falta (próxima rodada): apagar o ERP antigo (ERP.html, remendos e blocos antigos do design.css).
 
+## Backup 94 — Caixa em ordem cronológica com a Distribuição de lucros, filtro principal azul e Cockpit + Portal
+1. Merge da pull request.
+2. **Sem SQL desta vez** (o banco não mudou).
+3. **Ctrl+Shift+R** no ERP.
+
+O que mudou:
+- **Contabilidade:** abas na ordem **Análise · Caixa · Lançamentos**. A aba "Distribuição de lucros" saiu: tudo o que ela mostrava (total distribuído, quanto o Pedro e o Éder receberam, o equilíbrio 50/50 e a lista dos lançamentos) agora fica no fim do **Caixa**.
+- **Caixa:** em ordem cronológica — o mês mais antigo em cima (ago, set, out…), tanto no Consolidado quanto no Mês a mês.
+- **Visual premium:** o filtro principal do alto ("Filtros · Todos os grupos · Todas as empresas") voltou a ser a pílula azul-marinho de antes, sempre azul e um pouco menor. Os outros filtros suspensos não mudaram.
+- **Tarefas (premium):** "Feriados" e "Agenda" no desenho das pílulas de filtro, com o ícone em azul.
+- **Alternativas do Início:** nova opção **F · Cockpit + Portal** (página de teste, dados fictícios).
+
 ## Backup 93 — Caixa com lucro apurado, resumo semanal, "Conferido" num clique e alternativas do Início
 1. Merge da pull request.
 2. **SQL no Supabase** (Raw → Ctrl+A/Ctrl+C → conferir a última linha "fim do Backup 93" → Run).

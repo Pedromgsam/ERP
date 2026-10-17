@@ -1810,7 +1810,7 @@ function formLembrete(l) {
 //  · Análise: Quem fez · Período · Tipo · Grupo → faixa de números, mês a mês, comparativo por pessoa, serviço, grupos (e despesas por categoria);
 //  · Lançamentos: UMA tabela com os botões A receber · Recebido · Perdas (+ A pagar · Pago quando há despesas), atalhos de prazo, busca e
 //    "Filtros" num painel só (quem, grupo, tipo, área, referência, favorecido, vencimento/pagamento de-até, valor);
-//  · Contabilidade também: Caixa (consolidado ou mês a mês) e Distribuição de lucros (Pedro × Éder, 50/50).
+//  · Contabilidade também: Caixa (consolidado ou mês a mês, do mais antigo para o mais novo) com a Distribuição de lucros (Pedro × Éder, 50/50) no fim.
 // Nada saiu do antigo: baixa (com confirmação), baixa de várias, Cobrar (WhatsApp/e-mail) uma ou várias, desfazer, detalhe com ✎ Editar,
 // os avisos "vencidos" e "prejuízo", o Recibo e os mesmos números da Análise.
 // ═══════════════════════════════════════════════════════════════════
@@ -1819,7 +1819,8 @@ const EMPRESAS = {
   escritorio:    { tela: 'juridico', titulo: 'Financeiro · Jurídico', frase: 'Honorários a receber, recebidos e contas a pagar',
                    abas: [['analise', 'Análise'], ['lanc', 'Lançamentos']] },
   contabilidade: { tela: 'contabilidade', titulo: 'Financeiro · Contabilidade', frase: 'Honorários a receber, recebidos e contas a pagar',
-                   abas: [['analise', 'Análise'], ['lanc', 'Lançamentos'], ['caixa', 'Caixa'], ['lucros', 'Distribuição de lucros']] }
+                   // Backup 94: ordem Análise · Caixa · Lançamentos; a Distribuição de lucros virou parte do Caixa (sem aba própria)
+                   abas: [['analise', 'Análise'], ['caixa', 'Caixa'], ['lanc', 'Lançamentos']] }
 };
 const SOCIOS_LUCRO = ['Pedro', 'Éder'];
 const PERIODOS_FIN = [['mes', 'Este mês'], ['mesant', 'Mês passado'], ['ano', 'Este ano'], ['anoant', 'Ano passado'], ['12m', '12 meses'], ['todos', 'Tudo']];
@@ -1893,6 +1894,7 @@ function pintarFin(empresa) {
   // Backup 84: tudo procurado DENTRO da tela desta empresa — Jurídico e Contabilidade têm os mesmos ids (#fin-corpo…) e, ao trocar
   // rápido de uma para a outra, a anterior ainda está na página: a Contabilidade se desenhava no painel escondido do Jurídico e ficava em "Carregando…"
   const R = raizFin(empresa), F = estadoFin(empresa), L = F.dados || [], corpo = R.querySelector('#fin-corpo'); if (!corpo) return;
+  if (F.aba === 'lucros') F.aba = 'caixa';   // Backup 94: a antiga aba "Distribuição de lucros" agora fica dentro do Caixa
   if (!EMPRESAS[empresa].abas.some((a) => a[0] === F.aba)) F.aba = 'analise';
   R.querySelectorAll('#fin-abas [data-aba]').forEach((b) => b.setAttribute('aria-selected', String(b.dataset.aba === F.aba)));
   // Backup 86 (M18): sem os avisos no alto ("N honorários vencidos", "Prejuízo"), como no ambiente
@@ -1900,7 +1902,6 @@ function pintarFin(empresa) {
     if (F.aba === 'analise') analiseFin(empresa, corpo);
     else if (F.aba === 'lanc') listaFin(empresa, corpo);
     else if (F.aba === 'caixa') caixaFin(empresa, corpo);
-    else if (F.aba === 'lucros') lucrosFin(empresa, corpo);
   } catch (e) { console.error(e); corpo.innerHTML = '<div class="card"><div class="card-bd msg-erro">' + esc(erroAmigavel(e)) + '</div></div>'; }
 }
 
@@ -2188,7 +2189,8 @@ function caixaFin(empresa, corpo) {
   let miolo;
   if (F.caixa === 'detalhado') {
     let ini = 0;
-    miolo = meses.slice().map((m) => { const s0 = ini; ini = m.saldo; return [m, s0]; }).reverse().map(([m, s0]) => {
+    // Backup 94: ordem cronológica — o mês mais antigo em cima
+    miolo = meses.slice().map((m) => { const s0 = ini; ini = m.saldo; return [m, s0]; }).map(([m, s0]) => {
       let s = s0;
       const cats = somaPor(m.itens.filter((l) => l._c === 'pago'), (l) => l.categoria).sort((a, b) => b[1] - a[1]);
       return '<details class="b-cx-mes"' + (m.k === hk ? ' open' : '') + '><summary><b>' + esc(rotMesB(m.k)) + '</b><span class="b-verde-v">+ ' + brl(m.r) + '</span><span class="b-verm-v">− ' + brl(m.d) + '</span><span>saldo ' + brl(m.saldo) + '</span></summary>' +
@@ -2205,32 +2207,34 @@ function caixaFin(empresa, corpo) {
     const ks = meses.map((m) => m.k), tot = (f) => meses.reduce((s, m) => s + m[f], 0);
     miolo = cartaoFin('Resumo mensal', 'Lucro apurado = receita − despesas da operação. A distribuição de lucros sai do lucro; o que sobra fica no caixa.',
       '<div class="b-rola b-rola-solta" data-sem-pagina><table class="b-tab b-tab-cx"><thead><tr><th>Mês</th><th class="b-dir">Receita</th><th class="b-dir">Despesas</th><th class="b-dir">Lucro apurado</th><th class="b-dir">Distribuição de lucros</th><th class="b-dir">Ficou no caixa</th><th class="b-dir">Saldo acumulado</th></tr></thead><tbody>' +
-        meses.slice().reverse().map((m) => '<tr' + (!m.r && !m.d ? ' class="b-apagada"' : '') + '><td>' + esc(rotMesB(m.k)) + '</td><td class="b-dir b-verde-v">' + (m.r ? brl(m.r) : '—') + '</td><td class="b-dir b-verm-v">' + (m.dop ? brl(m.dop) : '—') + '</td>' +
+        meses.map((m) => '<tr' + (!m.r && !m.d ? ' class="b-apagada"' : '') + '><td>' + esc(rotMesB(m.k)) + '</td><td class="b-dir b-verde-v">' + (m.r ? brl(m.r) : '—') + '</td><td class="b-dir b-verm-v">' + (m.dop ? brl(m.dop) : '—') + '</td>' +
           '<td class="b-dir"><b class="' + (m.lucro < 0 ? 'b-verm' : '') + '">' + brl(m.lucro) + '</b></td><td class="b-dir">' + (m.dist ? '− ' + brl(m.dist) : '—') + '</td><td class="b-dir' + (m.res < 0 ? ' b-verm-v' : '') + '">' + brl(m.res) + '</td><td class="b-dir"><b>' + brl(m.saldo) + '</b></td></tr>').join('') +
         '</tbody><tfoot><tr><td>Total</td><td class="b-dir">' + brl(tot('r')) + '</td><td class="b-dir">' + brl(tot('dop')) + '</td><td class="b-dir">' + brl(tot('lucro')) + '</td><td class="b-dir">' + (tot('dist') ? '− ' + brl(tot('dist')) : '—') + '</td><td class="b-dir">' + brl(tot('res')) + '</td><td class="b-dir">' + brl(saldo) + '</td></tr></tfoot></table></div>') +
       cartaoFin('Receita × despesa mês a mês', 'Recebido contra pago (despesas da operação) — passe o mouse no mês para ver os dois juntos.', '<div class="b-fin-graf">' + graficoColunasB(ks, [{ nome: 'Receita', cor: corBarraPessoa('Pedro'), valores: meses.map((m) => m.r) },
         { nome: 'Despesas', cor: corBarraPessoa('Emanuelle'), valores: meses.map((m) => m.dop) }], { titulo: 'Receita e despesa' }) + '</div>');
   }
-  corpo.innerHTML = seg + nums + miolo;
+  corpo.innerHTML = seg + nums + miolo + '<div id="cx-lucros"></div>';
+  blocoLucros(empresa, corpo.querySelector('#cx-lucros'));
   corpo.querySelector('#cx-vista').onclick = (ev) => { const b = ev.target.closest('[data-cx]'); if (b) { F.caixa = b.dataset.cx; caixaFin(empresa, corpo); } };
   corpo.querySelectorAll('[data-cx-l]').forEach((tr) => tr.onclick = () => detalheLancamento(tr.dataset.cxL).catch((e) => aviso(erroAmigavel(e), true)));
 }
 
 // ───────────────────────────── Distribuição de lucros (Contabilidade) ─────────────────────────────
-function lucrosFin(empresa, corpo) {
+// Backup 94: deixou de ser aba; é o último bloco do Caixa (total, quanto cada sócio recebeu, equilíbrio 50/50 e os lançamentos)
+function blocoLucros(empresa, corpo) {
   const F = estadoFin(empresa);
   const linhas = (F.dados || []).filter((l) => /distribui[cç][aã]o de lucros/i.test(l.categoria || ''));
-  if (!linhas.length) { corpo.innerHTML = vazioB({ icone: 'financeiro', titulo: 'Nenhuma distribuição lançada ainda', frase: 'Lance uma despesa com o tipo "Distribuição de lucros" e o favorecido Pedro ou Éder — o cálculo aparece aqui sozinho.' }); return; }
+  if (!linhas.length) { corpo.innerHTML = '<div class="b-bloco cx-lucros"><h3>Distribuição de lucros</h3><p class="b-barras-vazio">Nenhuma distribuição lançada ainda. Lance uma despesa com o tipo "Distribuição de lucros" e o sócio (Pedro ou Éder) — o cálculo aparece aqui sozinho.</p></div>'; return; }
   const socio = (l) => (l.favorecido || (l.grupos && l.grupos.nome) || '—').trim() || '—';
   const ehSocio = (n) => SOCIOS_LUCRO.find((s) => normalizar(s) === normalizar(n));
   const por = {}; linhas.forEach((l) => { const k = ehSocio(socio(l)) || socio(l); por[k] = (por[k] || 0) + (Number(l.valor) || 0); });
   const [s1, s2] = SOCIOS_LUCRO, v1 = por[s1] || 0, v2 = por[s2] || 0, tot12 = v1 + v2, totGeral = Object.values(por).reduce((s, v) => s + v, 0);
   const outros = Object.keys(por).filter((n) => !ehSocio(n)), dif = v1 - v2, igual = Math.abs(dif) < 0.01;
   const pc = (v) => (tot12 ? Math.round(v / tot12 * 100) + '% do total (' + s1 + ' + ' + s2 + ')' : '—');
-  corpo.innerHTML = (outros.length ? '<div class="b-alerta-a"><b>Favorecido fora de ' + s1 + '/' + s2 + '</b>' + outros.map((n) => '<div>• "' + esc(n) + '" — ' + brl(por[n]) + ' (não entra no equilíbrio 50/50)</div>').join('') + '</div>' : '') +
+  corpo.innerHTML = '<div class="b-bloco cx-lucros"><h3>Distribuição de lucros</h3>' + (outros.length ? '<div class="b-alerta-a"><b>Favorecido fora de ' + s1 + '/' + s2 + '</b>' + outros.map((n) => '<div>• "' + esc(n) + '" — ' + brl(por[n]) + ' (não entra no equilíbrio 50/50)</div>').join('') + '</div>' : '') +
     numsFaixa([['Total distribuído', brl(totGeral), plural(linhas.length, 'lançamento', 'lançamentos')], [s1, brl(v1), pc(v1)], [s2, brl(v2), pc(v2)],
       ['Equilíbrio (50/50)', igual ? 'Igual' : brl(Math.abs(dif)), igual ? s1 + ' e ' + s2 + ' receberam o mesmo total' : (dif > 0 ? s1 : s2) + ' está à frente — ' + brl(Math.abs(dif) / 2) + ' equilibraria', igual ? 'b-verde' : 'b-verm']]) +
-    '<div id="fin-lucros"></div>';
+    '<div id="fin-lucros"></div></div>';
   tabelaB(corpo.querySelector('#fin-lucros'), { id: 'fin-lucros-' + empresa, linhas, titulo: 'Lançamentos de distribuição de lucros', unidade: ['lançamento', 'lançamentos'],
     colunas: [{ k: 'd', rot: 'Data', cls: 'b-cen b-data', html: (l) => dataBR(dataLanc(l)), ord: dataLanc }, { k: 's', rot: 'Sócio', html: (l) => esc(socio(l)), ord: (l) => normalizar(socio(l)) },
       { k: 'v', rot: 'Valor', cls: 'b-dir b-val', soma: true, html: (l) => brl(l.valor), ord: (l) => Number(l.valor) || 0 },

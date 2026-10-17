@@ -197,3 +197,28 @@ html[data-visual="premium"] body.gx-barra-topo .gs #fa-filtros.b-fin-filtros-88:
 html[data-visual="premium"] body.gx-barra-topo .gs #fa-filtros .b-fin-f-periodo:not(#_){order:1;flex-basis:100%}
 html[data-visual="premium"] body.gx-barra-topo .gs #fa-filtros :is(.b-fin-f-quem,.b-fin-f-tipo,.b-fin-f-grupo):not(#_){order:2;flex:0 0 auto;margin:0}
 html[data-visual="premium"] .gs #fa-filtros select.b-sel-sus:not(#_){min-width:160px}
+
+/* ═══ Backup 94 (respostas de 17/10) ═══ */
+/* Filtro suspenso PRINCIPAL (Filtros · Todos os grupos · Todas as empresas): volta a pílula marinho do Backup 89, sempre azul,
+   um pouco menor (36 px em vez de 42). Os outros filtros suspensos ficam como no Backup 93. */
+html[data-visual="premium"] body.gx-barra-topo .gs .b-fsus.b-fsus-fixo:not(#_){gap:0}
+html[data-visual="premium"] body.gx-barra-topo .gs .b-fsus.b-fsus-fixo > :is(.b-fsus-rot,.b-fsus-c,.b-fsus-limpar):not(#_){height:36px;background:var(--pm-navy)!important;display:inline-flex;align-items:center;box-sizing:border-box;margin:0}
+html[data-visual="premium"] body.gx-barra-topo .gs .b-fsus.b-fsus-fixo > .b-fsus-rot:not(#_){border-radius:999px 0 0 999px!important;padding:0 6px 0 14px!important;color:rgba(201,168,76,.9)!important;font-weight:700;font-size:9.5px!important;letter-spacing:.12em;text-transform:uppercase}
+html[data-visual="premium"] body.gx-barra-topo .gs .b-fsus.b-fsus-fixo > .b-fsus-c:not(#_){padding:0 3px!important;border-radius:0!important}
+html[data-visual="premium"] body.gx-barra-topo .gs .b-fsus.b-fsus-fixo > .b-fsus-limpar:not(#_){border-radius:0 999px 999px 0!important;padding:0 12px 0 5px!important;color:#FCA5A5!important;font-weight:600!important;font-size:11.5px!important;opacity:1}
+html[data-visual="premium"] body.gx-barra-topo .gs .b-fsus.b-fsus-fixo > .b-fsus-limpar:not(#_)::before{background:rgba(220,38,38,.18);border:1px solid rgba(248,113,113,.4);color:#FCA5A5;padding:2px 8px;font-size:10px}
+html[data-visual="premium"] body.gx-barra-topo .gs .b-fsus.b-fsus-fixo > .b-fsus-limpar.b-fsus-limpar-x:not(#_){color:rgba(252,165,165,.7)!important;opacity:1}
+html[data-visual="premium"] body.gx-barra-topo .gs .b-fsus.b-fsus-fixo select:not(#_),
+html[data-visual="premium"] body.gx-barra-topo .gs .b-fsus.b-fsus-fixo select:has(option:checked:not([value=""])):not(#_){height:28px;background-color:var(--pm-navy2)!important;color:#FFFFFF!important;border:1px solid rgba(255,255,255,.14)!important;
+  border-radius:999px!important;padding:0 28px 0 11px!important;font-weight:600!important;font-size:12px!important;max-width:220px;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23C9A84C' stroke-width='1.6' fill='none'/%3E%3C/svg%3E")!important;background-repeat:no-repeat!important;background-position:right 10px center!important}
+@media (max-width:600px){
+  html[data-visual="premium"] body.gx-barra-topo .gs .b-fsus.b-fsus-fixo:not(#_){background:var(--pm-navy);border-radius:16px;padding:8px 10px;gap:6px}
+  html[data-visual="premium"] body.gx-barra-topo .gs .b-fsus.b-fsus-fixo > :is(.b-fsus-rot,.b-fsus-c,.b-fsus-limpar):not(#_){height:auto;border-radius:0!important;padding:0!important}
+}
+/* Tarefas: "Feriados" e "Agenda" no mesmo desenho dos filtros (pílula clara), com o ícone em azul como o de Tarefas */
+html[data-visual="premium"] body.gx-barra-topo .gs :is(#tf-feriados2,#tf-agenda2):not(#_){border:1px solid var(--border)!important;background:var(--surface)!important;color:var(--text2)!important;border-radius:999px!important;
+  padding:4px 12px!important;height:auto;min-height:0;font:600 12.5px var(--font-ui)!important;line-height:1.45;gap:6px;box-shadow:none!important}
+html[data-visual="premium"] body.gx-barra-topo .gs :is(#tf-feriados2,#tf-agenda2):hover:not(#_){border-color:var(--primario)!important;color:var(--text)!important}
+html[data-visual="premium"] body.gx-barra-topo .gs :is(#tf-feriados2,#tf-agenda2) .b-ic:not(#_){color:#2E5EAA;width:15px;height:15px}
+html[data-visual="premium"][data-tema="escuro"] body.gx-barra-topo .gs :is(#tf-feriados2,#tf-agenda2) .b-ic:not(#_){color:#6CA0F0}

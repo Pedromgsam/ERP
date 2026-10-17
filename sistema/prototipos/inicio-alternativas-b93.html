@@ -110,6 +110,21 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--ouro);outline-offse
 .evento.r{background:var(--red-lt);border-left-color:var(--red)}.evento.a{background:var(--amber-lt);border-left-color:var(--amber)}
 .evento small{display:block;color:var(--text3);font-size:11px}
 .agora{border-top:2px solid var(--red)!important}
+/* F — Cockpit + Portal (Backup 94) */
+.f-topo{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:center}
+.f-grade{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);gap:14px}
+.f-col{display:flex;flex-direction:column;gap:14px;min-width:0}
+.f-blocos{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.f-blocos .bloco{padding:10px;gap:4px;box-shadow:none}
+.f-blocos .bloco .bi{width:26px;height:26px;font-size:11.5px;border-radius:7px}
+.f-blocos .bloco b{font-size:13px}
+.f-blocos .bloco small{font-size:11.5px}
+.f-ext{display:flex;flex-wrap:wrap;gap:6px}
+.f-ext a{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--border);border-radius:999px;padding:5px 11px;font-size:12px;background:var(--surface);color:var(--text);text-decoration:none}
+.f-ext a:hover{border-color:var(--ouro)}
+.f-ext a span{width:18px;height:18px;border-radius:5px;background:var(--ouro-lt);color:var(--amber);display:grid;place-items:center;font-size:9.5px;font-weight:700}
+@media (max-width:1100px){.f-grade{grid-template-columns:minmax(0,1fr)}.f-blocos{grid-template-columns:repeat(auto-fill,minmax(150px,1fr))}}
+@media (max-width:600px){.f-topo{grid-template-columns:minmax(0,1fr)}}
 /* D — Meu dia (foco) */
 .foco{max-width:760px;width:100%;margin:0 auto;display:flex;flex-direction:column;gap:14px}
 .foco .saud{font-family:var(--font-tit);font-size:28px;line-height:1.2}
@@ -147,6 +162,7 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--ouro);outline-offse
     <button type="button" data-alt="C" aria-pressed="false"><b>C · Cockpit</b><small>números + agenda do dia por hora</small></button>
     <button type="button" data-alt="D" aria-pressed="false"><b>D · Meu dia</b><small>uma coluna, só o que é seu</small></button>
     <button type="button" data-alt="E" aria-pressed="false"><b>E · Minha semana</b><small>segunda a sexta lado a lado</small></button>
+    <button type="button" data-alt="F" aria-pressed="false"><b>F · Cockpit + Portal</b><small>números, dia por hora e atalhos (novo)</small></button>
   </div>
   <p class="nota" id="nota"></p>
 </div>
@@ -211,6 +227,19 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--ouro);outline-offse
           ['08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00'].map((h) => { const e = AGENDA.find((x) => x[0].slice(0, 2) === h.slice(0, 2));
             return '<div class="hora' + (h === '14:00' ? ' agora' : '') + '"><span class="num">' + h + '</span><div>' + (e ? '<div class="evento ' + e[3] + '">' + e[0] + ' · ' + e[1] + '<small>' + e[2] + '</small></div>' : '') + '</div></div>'; }).join('') + '</div></div>' +
         '<div class="cartao"><h3>Tarefas<small>atrasadas e de hoje</small></h3>' + listaTarefas() + '</div></div>' },
+    F: { nota: 'F (novo, pedido de 17/10): o Cockpit (C) com o Portal (A). No alto, a busca e os números com mini-gráfico; logo abaixo, os avisos. À esquerda, o dia por hora e as tarefas; à direita, os sistemas do ERP (cada um com o que pede ação) e os sites que o escritório usa (abrem em outra aba).',
+      html: () => cab('Boa tarde, Pedro', 'sexta-feira, 16 de outubro', '<button class="bt" type="button">Só eu</button><button class="bt p" type="button">+ Lembrete</button>') +
+        '<div class="portal-busca" role="search">⌕ Buscar cliente, processo, tela ou ação…<kbd>Ctrl K</kbd></div>' +
+        '<div class="kpis">' + [['r', 'Honorários em atraso', 'R$ 44.675', [30, 34, 31, 38, 41, 44.6], 'var(--red)'], ['g', 'Recebido no mês', 'R$ 24.075', [18, 21, 19, 26, 22, 24], 'var(--green)'],
+          ['', 'Passivo dos clientes', 'R$ 1,32 mi', [1.6, 1.55, 1.5, 1.42, 1.38, 1.32], 'var(--blue)'], ['a', 'Parcelas em atraso', '6', [2, 3, 3, 5, 4, 6], 'var(--amber)'], ['', 'Tarefas abertas', '12', [15, 14, 16, 13, 12, 12], 'var(--blue)']]
+          .map(([c, r, v, p, cor]) => '<button type="button" class="kpi ' + c + '" style="text-align:left"><small>' + r + '</small><b class="num">' + v + '</b>' + spark(p, cor) + '</button>').join('') + '</div>' +
+        '<div class="cartao"><h3>Avisos</h3>' + pils() + '</div>' +
+        '<div class="f-grade"><div class="f-col"><div class="cartao"><h3>Hoje, por hora<small>agora: 14:10</small></h3><div class="horas">' +
+          ['08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00'].map((h) => { const e = AGENDA.find((x) => x[0].slice(0, 2) === h.slice(0, 2));
+            return '<div class="hora' + (h === '14:00' ? ' agora' : '') + '"><span class="num">' + h + '</span><div>' + (e ? '<div class="evento ' + e[3] + '">' + e[0] + ' · ' + e[1] + '<small>' + e[2] + '</small></div>' : '') + '</div></div>'; }).join('') + '</div></div>' +
+          '<div class="cartao"><h3>Tarefas<small>atrasadas e de hoje</small></h3>' + listaTarefas() + '</div></div>' +
+        '<div class="f-col"><div class="cartao"><h3>Sistemas do ERP</h3><div class="f-blocos">' + SISTEMAS.map(([i, t, s, c]) => '<button type="button" class="bloco"><span class="bi">' + i + '</span><b>' + t + '</b><small>' + s + '</small><span class="cont">' + c.map(([k, x]) => '<span class="tag ' + k + '">' + x + '</span>').join('') + '</span></button>').join('') + '</div></div>' +
+          '<div class="cartao"><h3>Sites que o escritório usa<small>abrem em outra aba</small></h3><div class="f-ext">' + EXTERNOS.map(([i, t]) => '<a href="#" onclick="return false"><span>' + i + '</span>' + t + ' ↗</a>').join('') + '</div></div></div></div>' },
     D: { nota: 'D: foco — uma coluna só, sem números do escritório: o próximo compromisso em destaque, as suas tarefas na ordem em que devem ser feitas e só 3 números. Bom para a equipe; os sócios veem o resto no Painel.',
       html: () => '<div class="foco"><div class="saud">Boa tarde, Pedro.<small>Sexta, 16/10 · 3 coisas para hoje e 1 atrasada</small></div>' +
         '<div class="proximo"><span class="h num">11:30</span><div style="flex:1;min-width:200px"><b>Audiência — 5000001-11.2024.8.13.0024</b><div style="color:var(--text3);font-size:12.5px">TJMG · virtual · em 2 h 20 min</div></div><button class="bt p" type="button">Abrir</button></div>' +
@@ -232,7 +261,7 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--ouro);outline-offse
   }
   esc.addEventListener('click', (ev) => { const b = ev.target.closest('[data-alt]'); if (b) mostrar(b.dataset.alt); });
   let ini = 'A'; try { const s = localStorage.getItem('inicio_alt'); if (s && ALT[s]) ini = s; } catch (e) { /* nada */ }
-  if (/^#[A-E]$/.test(location.hash)) ini = location.hash.slice(1);
+  if (/^#[A-F]$/.test(location.hash)) ini = location.hash.slice(1);
   mostrar(ini);
 })();
 </script>

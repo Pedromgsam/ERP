@@ -1038,8 +1038,12 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
       /Resumo mensal/.test(await p.textContent('#panel-financeiroContab #fin-corpo')));
     await p.click('#panel-financeiroContab #cx-vista [data-cx=detalhado]'); await p.waitForTimeout(500);
     ok('B76 Caixa: "Mês a mês" mostra o livro-caixa do mês aberto', !!(await p.$('#panel-financeiroContab details.b-cx-mes[open] table')));
-    await finAba(p, 'financeiroContab', 'lucros');
-    ok('B76 Distribuição de lucros: aba própria (vazia ou com o equilíbrio 50/50)', /Distribuição|distribuição/.test(await p.textContent('#panel-financeiroContab #fin-corpo')));
+    ok('B94 Caixa: Distribuição de lucros dentro do Caixa (sem aba própria) e abas Análise · Caixa · Lançamentos', !!(await p.$('#panel-financeiroContab #fin-corpo .cx-lucros')) &&
+      (await p.$$eval('#panel-financeiroContab #fin-abas [data-aba]', (b) => b.map((x) => x.dataset.aba).join('|'))) === 'analise|caixa|lanc');
+    await p.click('#panel-financeiroContab #cx-vista [data-cx=consolidado]'); await p.waitForTimeout(400);
+    ok('B94 Caixa: meses em ordem cronológica (o mais antigo em cima)', await p.evaluate(() => { const meses = { jan: 1, fev: 2, mar: 3, abr: 4, mai: 5, jun: 6, jul: 7, ago: 8, set: 9, out: 10, nov: 11, dez: 12 };
+      const v = [...document.querySelectorAll('#panel-financeiroContab .b-tab-cx tbody tr td:first-child')].map((x) => { const m = x.textContent.toLowerCase().match(/([a-zç]{3})\D*(\d{2,4})/); return m ? Number(m[2].slice(-2)) * 100 + (meses[m[1]] || 0) : 0; });
+      return v.every((x, i) => i === 0 || x >= v[i - 1]); }));
     sql("delete from lancamentos where descricao='Caixa teste'");
     await nav(p, 'financeiro'); await p.waitForTimeout(1000);
     ok('Financeiro: Análise sem a tabela "Em atraso" (já está em A receber)', !(await p.evaluate(() => [...document.querySelectorAll('#panel-financeiro .cc-t')].some((x) => /^Em atraso$/.test(x.textContent.trim())))));
