@@ -694,10 +694,12 @@ function setFinTab(tab,btn){
 trocar("  resumo:        function(){ renderInicio(); renderResumo();", "  resumo:        function(){ renderResumo();", 1);
 trocar("  if(id==='relatorio')    { renderTudoAgora(); _initRelatorio(); }\n  if(id==='inicio')       renderInicio();\n", "", 1);
 trocar("function _pintar(id){\n", "function _pintar(id){\n  if(window.ERP_TELA_NOVA&&window.ERP_TELA_NOVA(id)){ delete _SUJOS[id]; return; }\n", 1);
-trocar('\n</head>\n', '\n<link rel="stylesheet" href="tokens.css">\n<link rel="stylesheet" href="tema-escuro.css">\n<link rel="stylesheet" href="design.css">\n<link rel="stylesheet" href="base.css">\n<link rel="stylesheet" href="premium.css">\n' +
+trocar('\n</head>\n', '\n<link rel="stylesheet" href="tokens.css">\n<link rel="stylesheet" href="tema-escuro.css">\n<link rel="stylesheet" href="design.css">\n<link rel="stylesheet" href="base.css">\n<link rel="stylesheet" href="premium.css">\n<link rel="stylesheet" href="teste.css">\n' +
   '<script>try{if(localStorage.getItem("erp_tema")==="escuro")document.documentElement.setAttribute("data-tema","escuro")}catch(e){}' +
   // Backup 95: o visual premium virou o ÚNICO visual do ERP (sem botão para voltar ao antigo; a camada premium.css segue presa a html[data-visual="premium"])
-  'document.documentElement.setAttribute("data-visual","premium");try{localStorage.removeItem("erp_visual")}catch(e){}</script>\n</head>\n', 1);
+  'document.documentElement.setAttribute("data-visual","premium");try{localStorage.removeItem("erp_visual")}catch(e){}' +
+  // Backup 96: ambiente de teste dentro do ERP (?teste=1|0 no endereço ou a escolha guardada neste navegador)
+  'try{var _t=(location.search.match(/[?&]teste=(1|0)/)||[])[1];if(_t)localStorage.setItem("erp_amb",_t==="1"?"teste":"");if(localStorage.getItem("erp_amb")==="teste")document.documentElement.setAttribute("data-amb","teste")}catch(e){}</script>\n</head>\n', 1);
 fs.writeFileSync(destino, s);
 
 // ═══════ Gestão embutido: as telas do Gestão rodando dentro do ERP ═══════
@@ -743,7 +745,7 @@ let graf = ler('graficos.js').replace("document.addEventListener('DOMContentLoad
 const bundle = "'use strict';\n// GERADO por sistema/ferramentas/montar-erp.js — não edite; edite os arquivos do Gestão.\n(function () {\n" +
   "const _raiz = document.createElement('div'); _raiz.id = 'gs-raiz'; _raiz.className = 'gs';\n" +
   "_raiz.innerHTML = '<div id=\"janelas\"></div><div id=\"aviso\"></div>'; document.body.appendChild(_raiz);\n" +
-  [nuc, graf, ler('telas-painel.js'), ler('telas-financeiro.js'), ler('telas-cadastros.js'), ler('telas-admin.js'), ler('telas-tarefas.js'), ler('telas-documentos.js'), ler('telas-cliente360.js'), ler('telas-crm.js'), ler('telas-publicacoes.js'), ler('telas-acordos.js'), ler('telas-alertas.js'), ler('telas-guias.js'), ler('telas-rotina.js'), ler('telas-execucoes.js'), ler('telas-parcelamentos.js'), ler('telas-acordos-nova.js'), ler('telas-painel-exec.js'), ler('telas-busca.js'), ler('telas-portal.js')].join('\n') +
+  [nuc, graf, ler('telas-painel.js'), ler('telas-financeiro.js'), ler('telas-cadastros.js'), ler('telas-admin.js'), ler('telas-tarefas.js'), ler('telas-documentos.js'), ler('telas-cliente360.js'), ler('telas-crm.js'), ler('telas-publicacoes.js'), ler('telas-acordos.js'), ler('telas-alertas.js'), ler('telas-guias.js'), ler('telas-rotina.js'), ler('telas-execucoes.js'), ler('telas-parcelamentos.js'), ler('telas-acordos-nova.js'), ler('telas-painel-exec.js'), ler('telas-busca.js'), ler('telas-portal.js'), ler('telas-teste.js')].join('\n') +
   "\n// toda gravação confirmada aparece também no rodapé do ERP\nconst _avisoOrig = aviso;\n" +
   "aviso = function (msg, erro) { _avisoOrig(msg, erro); if (!erro && window.ERP_EDITOR && /^✓/.test(msg)) window.ERP_EDITOR.gravou(String(msg).replace(/^✓\\s*/, '')); };\n" +
   "window.GS = { cabecalhoTela, vazioB, iconeB, tabelaB, abrirBuscaGeral, janelaParcelamento, TELAS, E, irPara, carregarCadastros, formLancamento, formCliente, formContrato, formTarefa, tabelaLancamentos, tabelaLancB, ligarAcoesLancamentos, abrirJanela, fecharJanela, abrirFicha, invalidarCadastros, blocoDocumentos, abrirAlertas, contarAlertas, pode, janelaMeusAvisos, formOportunidade, detalheAcordo, perguntarBaixa, confirmarB, avisoRecibo, feitoDesfazer, tribunalProcesso, janelaEmitirGuias, detalheContrato, ICONE_AVISO, abrirTarefa, detalheLancamento, formReuniao, janelaDelegar, abrirGeradorContrato, cardGuias, emitirParcela, enviarAcordosSelecionados, editarAcordo, formAcordoNovo, janelaReceber, formExecucao, escolherExecucaoReceb, formNovoFluxo, gerarGuias, janelaMovimentacao, cobrarWhatsApp, textoRegra, proximasDatas, regraDaTarefa, projecoesRecorrentes };\n})();\n";

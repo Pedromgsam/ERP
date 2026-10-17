@@ -130,7 +130,7 @@ html[data-visual="premium"] body.gx-barra-topo .gs-ava:not(#_){background:#1B2A4
 /* tela de entrada na cor da barra lateral */
 html[data-visual="premium"] #ac-login-overlay:not(#_){background:linear-gradient(180deg,#1B2A4A 0%,#18253F 100%)!important}
 html[data-visual="premium"][data-tema="escuro"] #ac-login-overlay:not(#_){background:linear-gradient(180deg,#121D33 0%,#0D1526 100%)!important}
-html[data-visual="premium"] #ac-login-overlay .ac-login-logo:not(#_){box-shadow:0 0 0 1px rgba(201,168,76,.55),0 12px 32px rgba(0,0,0,.35)}
+html[data-visual="premium"] #ac-login-overlay .ac-login-logo:not(#_){box-shadow:0 0 0 2px rgba(201,168,76,.85),0 0 18px rgba(201,168,76,.22),0 12px 32px rgba(0,0,0,.35)}   /* Backup 96: dourado um pouco mais forte */
 html[data-visual="premium"] #ac-login-overlay .ac-login-card:not(#_){border:1px solid rgba(201,168,76,.25);box-shadow:0 24px 60px rgba(0,0,0,.35)}
 html[data-visual="premium"] #ac-login-overlay .ac-login-btn:not(#_){background:#1B2A4A!important;color:#FFFFFF!important}
 html[data-visual="premium"] #ac-login-overlay .ac-login-wrap > :not(.ac-login-card):not(.ac-login-brand):not(#_),html[data-visual="premium"] #ac-login-overlay .ac-login-footer:not(#_){color:rgba(255,255,255,.62)!important}
@@ -212,9 +212,10 @@ html[data-visual="premium"] body.gx-barra-topo .gs .b-fsus.b-fsus-fixo select:ha
   html[data-visual="premium"] body.gx-barra-topo .gs .b-fsus.b-fsus-fixo:not(#_){background:var(--pm-navy);border-radius:16px;padding:8px 10px;gap:6px}
   html[data-visual="premium"] body.gx-barra-topo .gs .b-fsus.b-fsus-fixo > :is(.b-fsus-rot,.b-fsus-c,.b-fsus-limpar):not(#_){height:auto;border-radius:0!important;padding:0!important}
 }
-/* Backup 95: Tarefas — "Feriados" e "Agenda" do TAMANHO dos botões normais (como "+ Nova tarefa"), com o ícone no quadrinho
-   preenchido em degradê azul e o desenho branco, igual ao ícone do cabeçalho de Tarefas (.b-cab-ic) */
-html[data-visual="premium"] body.gx-barra-topo .gs .b-bt-quad:not(#_){display:inline-grid;place-items:center;width:20px;height:20px;border-radius:6px;flex:none;
-  background:linear-gradient(135deg,#1B2A4A,#2E5EAA);color:#FFFFFF;margin-right:2px}
-html[data-visual="premium"] body.gx-barra-topo .gs .b-bt-quad .b-ic:not(#_){width:12px;height:12px;color:#FFFFFF;stroke:#FFFFFF}
-html[data-visual="premium"] body.gx-barra-topo .gs :is(#tf-feriados2,#tf-agenda2):not(#_){display:inline-flex;align-items:center;gap:7px}
+/* Backup 96: Tarefas — "Feriados" e "Agenda" inteiros no desenho do ícone de Tarefas (.b-cab-ic): fundo em degradê azul, letra e ícone brancos,
+   no tamanho dos botões normais (como "+ Nova tarefa") */
+html[data-visual="premium"] body.gx-barra-topo .gs :is(#tf-feriados2,#tf-agenda2):not(#_){display:inline-flex;align-items:center;gap:7px;
+  background:linear-gradient(135deg,#1B2A4A,#2E5EAA)!important;color:#FFFFFF!important;border:1px solid transparent!important;box-shadow:var(--pm-sombra)}
+html[data-visual="premium"] body.gx-barra-topo .gs :is(#tf-feriados2,#tf-agenda2):hover:not(#_){filter:brightness(1.12)}
+html[data-visual="premium"] body.gx-barra-topo .gs :is(#tf-feriados2,#tf-agenda2) .b-bt-quad:not(#_){display:contents}
+html[data-visual="premium"] body.gx-barra-topo .gs :is(#tf-feriados2,#tf-agenda2) .b-ic:not(#_){width:15px;height:15px;color:#FFFFFF;stroke:#FFFFFF}

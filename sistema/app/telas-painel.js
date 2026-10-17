@@ -13,6 +13,7 @@ function kpi(rotulo, valor, cor, sub) {
 // Cartões sem sobreposição: "A receber" = de hoje até o fim do mês (o que já venceu fica só em "Em atraso").
 // Em atraso: duas tabelas completas lado a lado (Jurídico | Contabilidade), com o que vence HOJE destacado.
 TELAS.inicio = async function () {
+  if (typeof ambTeste === 'function' && ambTeste() && typeof inicioTeste === 'function') return inicioTeste();   // Backup 96: Início do ambiente de teste
   // Backup 74: como no ambiente de teste, mas funcionando com os dados reais — cabeçalho com a data, os cartões Financeiro e Escritório
   // (o usuário pediu para manter, E3 = não), "Meu dia" (hoje + atrasadas) ao lado de Lembretes e "Próximos 7 dias" (o calendário da fila saiu no Backup 83: agenda só em Tarefas).
   const h = new Date(), hora = h.getHours(), saud = hora < 12 ? 'Bom dia' : hora < 18 ? 'Boa tarde' : 'Boa noite';

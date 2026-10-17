@@ -135,8 +135,11 @@
       '<div class="tn-menu tn-menu-dir" role="menu">' + LANCAR.map((x, i) => '<button type="button" role="menuitem" data-lancar="' + i + '">' + esc(x[0]) + '</button>').join('') + '</div></div>' +
       '<div class="hd-usuario"><button type="button" id="gs-ajuda" title="Ajuda desta tela" aria-label="Ajuda desta tela"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .9-1 1.6v.6M12 17h.01"/></svg></button><button type="button" id="gs-tema" title="Modo escuro / claro" aria-label="Alternar modo escuro" aria-pressed="false"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/></svg></button>' +
       '<div class="tn-grupo tn-mais-acoes"><button type="button" class="tn-abre gs-bt-mais" data-grupo="acoes" title="Atualizar dados e relatório em PDF" aria-label="Mais ações" aria-haspopup="true" aria-expanded="false">⋯</button>' +
-      '<div class="tn-menu tn-menu-dir" role="menu"><button type="button" data-acao="atualizar">↻ Atualizar dados</button><button type="button" data-acao="meunome">👤 Meu nome</button></div></div>' +
+      '<div class="tn-menu tn-menu-dir" role="menu"><button type="button" data-acao="atualizar">↻ Atualizar dados</button><button type="button" data-acao="meunome">👤 Meu nome</button>' +
+        // Backup 96: AMBIENTE DE TESTE dentro do ERP (mesmos dados; muda o Início, as cores de texto e o formato dos cartões — só neste navegador)
+        '<button type="button" data-acao="teste" id="gs-teste" aria-pressed="false">🧪 Ambiente de teste</button></div></div>' +
       '<span class="gs-eu"><span class="gs-ava" id="gs-ava" aria-hidden="true"></span><span class="gs-eu-tx"><span id="gs-nome"></span><small id="gs-papel"></small></span></span><button type="button" id="gs-sair">Sair</button></div>';
+    marcarAmbTeste();
     // barra lateral: marca, seções, itens com ícone; submódulos abrem logo abaixo (linha fina à esquerda); "encolher" no pé
     const lado = document.createElement('aside');
     lado.id = 'gs-lado'; lado.className = 'gs';
@@ -198,6 +201,7 @@
       if (alvo.id === 'gs-sair' || alvo.classList.contains('gs-sair')) { if (typeof window.acLogout === 'function') window.acLogout(); }
       else if (alvo.dataset.acao === 'atualizar') { if (typeof window._dbCacheClear === 'function') window._dbCacheClear(); ED.recarregar(); }
       else if (alvo.dataset.acao === 'meunome') pedirMeuNome(false);
+      else if (alvo.dataset.acao === 'teste') trocarAmbTeste();
       else if (alvo.dataset.acao === 'buscar') { if (GS() && GS().abrirBuscaGeral) GS().abrirBuscaGeral(); }
       else if (alvo.dataset.ir && (e.ctrlKey || e.metaKey || e.shiftKey)) window.open(location.pathname + '#' + alvo.dataset.ir, '_blank', 'noopener');   // Backup 34: Ctrl + clique = aba nova
       else if (alvo.dataset.ir) ir(alvo.dataset.ir);
@@ -293,6 +297,24 @@
       main.appendChild(s);
     });
   }
+  // ═══ Backup 96: AMBIENTE DE TESTE (html[data-amb="teste"]; localStorage erp_amb ou ?teste=1|0 no endereço) ═══
+  function marcarAmbTeste() {
+    const on = document.documentElement.getAttribute('data-amb') === 'teste';
+    const b = document.getElementById('gs-teste'); if (b) { b.setAttribute('aria-pressed', String(on)); b.textContent = on ? '🧪 Sair do ambiente de teste' : '🧪 Ambiente de teste'; }
+    let f = document.getElementById('gx-faixa-amb');
+    if (on && !f) { f = document.createElement('div'); f.id = 'gx-faixa-amb'; f.innerHTML = '<span>🧪 Ambiente de teste — Início novo, letras azuladas e cartões novos</span><button type="button">Voltar ao normal</button>';
+      f.querySelector('button').onclick = trocarAmbTeste; document.body.appendChild(f); }
+    if (!on && f) f.remove();
+  }
+  function trocarAmbTeste() {
+    const on = document.documentElement.getAttribute('data-amb') !== 'teste';
+    if (on) document.documentElement.setAttribute('data-amb', 'teste'); else document.documentElement.removeAttribute('data-amb');
+    try { localStorage.setItem('erp_amb', on ? 'teste' : ''); } catch (e) { /* vale só agora */ }
+    marcarAmbTeste();
+    const vis = [...document.querySelectorAll('.gx-painel-gs')].find((x) => x.offsetParent !== null);
+    if (vis) desenharGS(vis.id.replace(/^panel-/, ''));
+  }
+  window.trocarAmbTeste = trocarAmbTeste;
   function desenharGS(id) {
     if (!GS() || !ehGS(id)) return;
     if (id === 'admin' && !ehAdmin()) return;

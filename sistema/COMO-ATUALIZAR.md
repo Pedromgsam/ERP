@@ -721,6 +721,26 @@ O que mudou:
 
 Ainda falta (próxima rodada): apagar o ERP antigo (ERP.html, remendos e blocos antigos do design.css).
 
+## Backup 96 — Ambiente de teste dentro do ERP, Tribunais com mapa do Brasil e Financeiro com cores só no Resultado
+1. Merge da pull request.
+2. **Sem SQL desta vez** (o banco não mudou).
+3. **Ctrl+Shift+R** no ERP.
+4. Para ver o ambiente de teste: **⋯** (barra do alto) → **🧪 Ambiente de teste**. Para sair: botão **Voltar ao normal** no pé da tela (vale só neste navegador).
+
+O que mudou (vale para todos):
+- **Financeiro → Análise → Resultado do mês:** verde/vermelho só na coluna Resultado; a linha de Total sem fundo colorido; o único negrito é o total do Resultado.
+- **Caixa (Consolidado):** "Lucro apurado" passou a se chamar **Resultado**; verde/vermelho só nele; linha de Total sem fundo colorido (negrito só nos totais de Resultado e Saldo).
+- **Caixa (Mês a mês):** 4 colunas alinhadas — Receita · Despesa · Distribuição de lucros · Saldo. Ao abrir o mês, o detalhe continua com Entrada · Saída · Saldo.
+- **Tarefas:** "Feriados" e "Agenda" com o botão inteiro em azul (como o ícone de Tarefas).
+- **Tela de entrada:** o contorno dourado da logo ficou um pouco mais forte.
+
+Só no ambiente de teste (para aprovar):
+- **Início novo (Cockpit + Portal):** números com mini-gráfico dos últimos 6 meses (Recebido no mês, Honorários em atraso), parcelas em atraso, tarefas em aberto; avisos; "Hoje, por hora"; "Para hoje"; atalhos do ERP; sites (Tribunais, Sistemas fiscais, DJEN); lembretes.
+- **Tribunais:** mapa real do Brasil; clicando no estado aparecem os sistemas em Justiça Estadual · Federal · do Trabalho (ex.: MG → TJMG PJe, TJMG eProc, TRF-6, TRT-3; SP → TJSP e-SAJ e eProc, TRF-3, TRT-2 e TRT-15).
+- **Sistemas fiscais:** e-CAC, Regularize, Simples Nacional, NFS-e Nacional e SIARE (MG).
+- **Letras levemente azuladas** e **cartões com canto de 12 px e sombra suave** em todo o ERP.
+- Página de alternativas (dados fictícios): https://claude.ai/artifact/QZurvjNrQ9h2wS2TZ81rEk
+
 ## Backup 95 — O visual premium virou o padrão do ERP, Financeiro com cores pelo sinal e Tribunais no mapa
 1. Merge da pull request.
 2. **Sem SQL desta vez** (o banco não mudou).
