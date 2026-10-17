@@ -9,6 +9,15 @@ ICONES_B.parcelamento = ICONES_B.parcelamento || ICONES_B.camadas;
 ICONES_B.acordo = ICONES_B.acordo || '<path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6M8 17c2-2 3 1 5-1"/>';
 ICONES_B.tribunal = ICONES_B.tribunal || '<path d="M14 13l-7.5 7.5a2.1 2.1 0 0 1-3-3L11 10"/><path d="M16 16l6-6M8 8l6-6M9 7l8 8M21 11l-8-8"/>';
 ICONES_B.fiscal = ICONES_B.fiscal || '<path d="M3 21h18M5 21V10M19 21V10M9 21V10M15 21V10M2 10l10-6 10 6z"/>';
+// Backup 97: ícones dos sistemas do escritório que ficam fora do ERP
+ICONES_B.planilhas = ICONES_B.planilhas || '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M3 15h18M9 4v16"/>';
+ICONES_B.planejamento = ICONES_B.planejamento || '<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>';
+ICONES_B.holding = ICONES_B.holding || '<path d="M3 21h18M5 21V7l7-4 7 4v14"/><path d="M9 21v-5h6v5M9 10h.01M15 10h.01"/>';
+ICONES_B.esteira = ICONES_B.esteira || '<path d="M3 17h18M5 17l2-7h10l2 7"/><circle cx="7" cy="20" r="1.5"/><circle cx="17" cy="20" r="1.5"/><path d="M9 10V6h6v4"/>';
+ICONES_B.societario = ICONES_B.societario || '<circle cx="12" cy="5" r="2.5"/><circle cx="5" cy="19" r="2.5"/><circle cx="19" cy="19" r="2.5"/><path d="M12 7.5v4M12 11.5 6.5 17M12 11.5l5.5 5.5"/>';
+ICONES_B.manual = ICONES_B.manual || '<path d="M4 4h6a3 3 0 0 1 3 3v13a2 2 0 0 0-2-2H4zM20 4h-6a3 3 0 0 0-3 3v13a2 2 0 0 1 2-2h7z"/>';
+ICONES_B.lista = ICONES_B.lista || '<path d="M9 6h11M9 12h11M9 18h11M4 6h.01M4 12h.01M4 18h.01"/>';
+ICONES_B.lupa = ICONES_B.lupa || '<circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/>';
 
 // ── Tribunais: sistemas de cada estado (link direto do sistema, não o site do tribunal) ──
 // Endereços conferidos à mão; quando um tribunal mudar de sistema, é só trocar aqui.
@@ -34,6 +43,9 @@ const TRF_SIS = {
 };
 const JF_EPROC = { RJ: 'https://eproc.jfrj.jus.br/', ES: 'https://eproc.jfes.jus.br/', RS: 'https://eproc.jfrs.jus.br/', SC: 'https://eproc.jfsc.jus.br/', PR: 'https://eproc.jfpr.jus.br/' };
 const TRT_UF = { RJ: [1], SP: [2, 15], MG: [3], RS: [4], BA: [5], PE: [6], CE: [7], PA: [8], AP: [8], PR: [9], DF: [10], TO: [10], AM: [11], RR: [11], SC: [12], PB: [13], RO: [14], AC: [14], MA: [16], ES: [17], GO: [18], AL: [19], SE: [20], RN: [21], PI: [22], MT: [23], MS: [24] };
+// Backup 97: instâncias nacionais (não dependem do estado)
+const NACIONAIS_T = [['STF · Peticionamento', 'https://peticionamento.stf.jus.br/', 'Supremo Tribunal Federal'], ['STJ · Central do Processo Eletrônico', 'https://cpe.web.stj.jus.br/', 'Superior Tribunal de Justiça'],
+  ['TST · PJe', 'https://pje.tst.jus.br/', 'Tribunal Superior do Trabalho'], ['SEEU', 'https://seeu.pje.jus.br/seeu/', 'Sistema Eletrônico de Execução Unificado']];
 function sistemasDoEstado(uf) {
   const fed = (JF_EPROC[uf] ? [['JF' + uf + ' · eProc', JF_EPROC[uf]]] : []).concat(TRF_SIS[TRF_UF[uf]] || []);
   const trab = (TRT_UF[uf] || []).map((n) => ['TRT-' + n + ' · PJe', 'https://pje.trt' + n + '.jus.br/', uf === 'SP' ? (n === 2 ? 'capital e Grande SP' : 'Campinas e interior') : '']);
@@ -48,7 +60,7 @@ const FISCAIS = [
   ['Estadual', [['SIARE — Minas Gerais', 'https://www2.fazenda.mg.gov.br/sol/', 'SEF/MG — ICMS, parcelamentos e certidões']]]
 ];
 // Sites externos do escritório (Início do ambiente de teste). 'janela' = abre a janela com as opções; 'url' = abre em outra aba.
-const EXTERNOS_T = [['tribunais', 'Tribunais', 'escolha o estado no mapa', 'janela'], ['fiscal', 'Sistemas fiscais', 'e-CAC, Regularize, SIARE…', 'janela'],
+const EXTERNOS_T = [['tribunais', 'Tribunais', 'mapa, busca e instâncias nacionais', 'janela'], ['fiscal', 'Sistemas fiscais', 'e-CAC, Regularize, SIARE…', 'janela'],
   ['publicacao', 'Diário (DJEN)', 'comunicações processuais', 'https://comunica.pje.jus.br/']];
 
 const linkSis = ([t, url, d]) => '<a class="ts-link" href="' + esc(url) + '" target="_blank" rel="noopener noreferrer"><b>' + esc(t) + ' ↗</b>' + (d ? '<small>' + esc(d) + '</small>' : '') + '</a>';
@@ -66,18 +78,43 @@ function rotularMapa(svg) {
     t.setAttribute('x', b.x + b.width / 2 + d[0]); t.setAttribute('y', b.y + b.height / 2 + 4 + d[1]); t.setAttribute('data-uf-rot', uf); t.textContent = uf; g.appendChild(t); });
 }
 function janelaTribunais(ufIni) {
-  let uf = ufIni || 'MG';
-  const j = abrirJanela({ titulo: 'Tribunais', sub: 'Clique no estado e escolha o sistema', larga: true,
-    corpo: '<div class="ts-trib"><div class="ts-mapa-caixa">' + mapaBrasilSVG() + '<p class="ts-nota">Mapa: @svg-maps/brazil (CC BY 4.0)</p></div><div class="ts-lista" id="ts-lista" aria-live="polite"></div></div>' });
-  const svg = j.querySelector('.ts-mapa');
+  // Backup 97: busca (tribunal, sistema ou estado), botão "Nacionais" (STF, STJ, TST, SEEU) e mapa bem maior (janela .ts-jan)
+  let uf = ufIni === 'nac' ? '' : (ufIni || 'MG');
+  const j = abrirJanela({ titulo: 'Tribunais', sub: 'Clique no estado, escolha "Nacionais" ou digite o tribunal', larga: true,
+    corpo: '<div class="ts-topo"><label class="ts-busca"><span aria-hidden="true">' + iconeB('lupa') + '</span><input type="search" id="ts-q" autocomplete="off" placeholder="Buscar tribunal ou estado — ex.: TJMG, Minas, TRT-3, eproc" aria-label="Buscar tribunal ou estado"></label>' +
+      '<button type="button" class="b-chip ts-nac" data-ts-nac aria-pressed="false">Nacionais · STF, STJ, TST, SEEU</button></div>' +
+      '<div class="ts-trib"><div class="ts-mapa-caixa">' + mapaBrasilSVG() + '<p class="ts-nota">Mapa: @svg-maps/brazil (CC BY 4.0)</p></div><div class="ts-lista" id="ts-lista" aria-live="polite"></div></div>' });
+  j.querySelector('.janela').classList.add('ts-jan');
+  const svg = j.querySelector('.ts-mapa'), lista = j.querySelector('#ts-lista'), qIn = j.querySelector('#ts-q'), btNac = j.querySelector('[data-ts-nac]');
+  const grupo = (g, ls) => '<section class="ts-grupo"><h4>' + esc(g) + '</h4>' + (ls.length ? '<div class="ts-links">' + ls.map(linkSis).join('') + '</div>' : '<p class="ts-nada">—</p>') + '</section>';
+  const marcar = () => { j.querySelectorAll('.ts-uf, [data-uf-rot]').forEach((p) => p.classList.toggle('on', (p.dataset.uf || p.dataset.ufRot) === uf)); btNac.setAttribute('aria-pressed', String(!uf)); };
   const pintar = () => {
-    j.querySelectorAll('.ts-uf, [data-uf-rot]').forEach((p) => p.classList.toggle('on', (p.dataset.uf || p.dataset.ufRot) === uf));
-    j.querySelector('#ts-lista').innerHTML = '<h3>' + esc(MAPA_BR.uf[uf][0]) + ' <span>' + uf + '</span></h3>' +
-      sistemasDoEstado(uf).map(([g, ls]) => '<section class="ts-grupo"><h4>' + esc(g) + '</h4>' + (ls.length ? '<div class="ts-links">' + ls.map(linkSis).join('') + '</div>' : '<p class="ts-nada">—</p>') + '</section>').join('');
+    marcar();
+    lista.innerHTML = uf ? '<h3>' + esc(MAPA_BR.uf[uf][0]) + ' <span>' + uf + '</span></h3>' + sistemasDoEstado(uf).map(([g, ls]) => grupo(g, ls)).join('')
+      : '<h3>Nacionais <span>valem para todo o país</span></h3>' + grupo('Tribunais superiores e execução penal', NACIONAIS_T);
   };
-  requestAnimationFrame(() => { rotularMapa(svg); pintar(); });
-  svg.addEventListener('click', (ev) => { const p = ev.target.closest('[data-uf]'); if (p) { uf = p.dataset.uf; pintar(); } });
-  svg.addEventListener('keydown', (ev) => { const p = ev.target.closest('[data-uf]'); if (p && (ev.key === 'Enter' || ev.key === ' ')) { ev.preventDefault(); uf = p.dataset.uf; pintar(); } });
+  const buscar = () => {
+    const t = normalizar(qIn.value).trim(); if (!t) return pintar();
+    const t2 = t.replace(/[\s·.-]+/g, '');
+    const bate = (x) => { const n = normalizar(x); return n.includes(t) || n.replace(/[\s·.-]+/g, '').includes(t2); };
+    const ufs = Object.keys(MAPA_BR.uf).filter((k) => normalizar(k) === t || bate(MAPA_BR.uf[k][0]));
+    const vistos = new Set(), sis = [];
+    const juntar = (ls, onde) => ls.forEach((x) => { if (!vistos.has(x[1]) && (bate(x[0]) || bate(onde))) { vistos.add(x[1]); sis.push([x[0], x[1], x[2] || onde]); } });
+    juntar(NACIONAIS_T, 'Nacional');
+    Object.keys(MAPA_BR.uf).forEach((k) => sistemasDoEstado(k).forEach(([g, ls]) => juntar(ls.map((x) => [x[0], x[1], x[2] || '']), '')));
+    if (ufs.length === 1 && !sis.length) { uf = ufs[0]; return pintar(); }
+    marcar();
+    lista.innerHTML = '<h3>Resultado <span>“' + esc(qIn.value.trim()) + '”</span></h3>' +
+      (ufs.length ? '<section class="ts-grupo"><h4>Estados</h4><div class="ts-ufs">' + ufs.map((k) => '<button type="button" class="b-chip" data-ts-uf="' + k + '">' + esc(MAPA_BR.uf[k][0]) + ' · ' + k + '</button>').join('') + '</div></section>' : '') +
+      (sis.length ? grupo('Sistemas', sis.slice(0, 24)) : '') + (!ufs.length && !sis.length ? '<p class="ts-nada">Nada encontrado. Tente a sigla (TJMG, TRF-6, TRT-3) ou o nome do estado.</p>' : '');
+  };
+  const escolher = (k) => { uf = k; qIn.value = ''; pintar(); };
+  requestAnimationFrame(() => { rotularMapa(svg); marcar(); });
+  svg.addEventListener('click', (ev) => { const p = ev.target.closest('[data-uf]'); if (p) escolher(p.dataset.uf); });
+  svg.addEventListener('keydown', (ev) => { const p = ev.target.closest('[data-uf]'); if (p && (ev.key === 'Enter' || ev.key === ' ')) { ev.preventDefault(); escolher(p.dataset.uf); } });
+  btNac.onclick = () => escolher('');
+  lista.addEventListener('click', (ev) => { const b = ev.target.closest('[data-ts-uf]'); if (b) escolher(b.dataset.tsUf); });
+  qIn.addEventListener('input', buscar);
   pintar();
   return j;
 }
@@ -97,10 +134,44 @@ function sparkB(pts) {
 const mesesAtras = (n) => { const d = new Date(), r = []; for (let i = n - 1; i >= 0; i--) { const x = new Date(d.getFullYear(), d.getMonth() - i, 1); r.push(x.getFullYear() + '-' + String(x.getMonth() + 1).padStart(2, '0')); } return r; };
 const fimMesISO = (k) => { const [a, m] = k.split('-').map(Number); return new Date(a, m, 0).toISOString().slice(0, 10); };
 
-// ── Atalhos para os módulos do ERP (com o que pede ação em cada um) ──
-const ATALHOS_T = [['tarefas', 'tarefas', 'Tarefas', 'o que vence e o que atrasou'], ['processos', 'processo', 'Processos', 'carteira e conferências'],
-  ['parcelamentos', 'parcelamento', 'Parcelamentos', 'guias e parcelas'], ['acordos', 'acordo', 'Acordos', 'parcelas a pagar'], ['financeiro', 'financeiro', 'Financeiro', 'Jurídico e Contabilidade'],
-  ['clientes', 'clientes', 'Clientes', 'cadastros e fichas'], ['crm', 'crm', 'CRM', 'negociações'], ['documentos', 'documento', 'Documentos', 'arquivos e modelos'], ['rotina', 'rotina', 'Rotina', 'conferências e guias']];
+// ── Backup 97: atalhos só para o que NÃO está no ERP — os sistemas do escritório (os mesmos do Portal do Escritório) ──
+// O endereço de cada um fica em configuracoes.sistemas_escritorio ({chave: url}); o admin troca pelo "Endereços".
+const SISTEMAS_T = [['planilhas', 'planilhas', 'Minhas Planilhas', 'planilhas de trabalho no Google Sheets', 'Jurídico', 'https://docs.google.com/spreadsheets/d/1edRppknizNZOkGzYTQrXZkQMrG1Zs3041glSyz0ImzE/edit?gid=0#gid=0'],
+  ['planejamento', 'planejamento', 'Planejamento Tributário', 'regimes, vendas, folha e carga tributária', 'Jurídico'], ['holding', 'holding', 'Holding', 'estrutura societária e patrimonial', 'Jurídico'],
+  ['esteira', 'esteira', 'Esteira de Produtos', 'produtos e serviços, etapa por etapa', 'Jurídico'], ['societario', 'societario', 'Mapa Societário', 'sócios, participações e holdings', 'Jurídico'],
+  ['docs_juridico', 'lista', 'Documentos', 'o que pedir ao cliente novo', 'Jurídico'], ['contratos_contab', 'documento', 'Contratos e Documentos', 'serviços contábeis, prontos para assinar', 'Contabilidade'],
+  ['docs_contab', 'lista', 'Documentos — Contabilidade', 'o que pedir ao cliente novo', 'Contabilidade'], ['manual', 'manual', 'Manual do Escritório', 'procedimentos e checklists por setor', 'Escritório']];
+let _sisEnd = null;
+async function enderecosSistemas(forcar) {
+  if (_sisEnd && !forcar) return _sisEnd;
+  const r = await q(sb.from('configuracoes').select('valor').eq('chave', 'sistemas_escritorio').maybeSingle()).catch(() => null);
+  _sisEnd = Object.assign({}, ...SISTEMAS_T.filter((x) => x[5]).map((x) => ({ [x[0]]: x[5] })), (r && r.valor) || {});
+  return _sisEnd;
+}
+const urlSegura = (u) => /^https?:\/\//i.test(String(u || '').trim());
+async function cardSistemas() {
+  const el = $('ti-sis'); if (!el) return;
+  const end = await enderecosSistemas(), adm = !!(E.perfil && E.perfil.papel === 'admin');
+  el.innerHTML = SISTEMAS_T.map(([k, ic, t, s, g]) => { const u = end[k], tag = '<span class="ti-tag ti-tag-' + (g === 'Contabilidade' ? 'g' : g === 'Escritório' ? 'o' : 'b') + '">' + esc(g) + '</span>';
+    return urlSegura(u) ? '<a class="ti-bloco" data-ti-sis="' + k + '" href="' + esc(u) + '" target="_blank" rel="noopener noreferrer"><span class="ti-bi">' + iconeB(ic) + '</span><b>' + esc(t) + ' ↗</b><small>' + esc(s) + '</small>' + tag + '</a>'
+      : '<button type="button" class="ti-bloco ti-bloco-sem" data-ti-sis="' + k + '"' + (adm ? ' data-ti-sis-ed' : ' disabled') + '><span class="ti-bi">' + iconeB(ic) + '</span><b>' + esc(t) + '</b><small>' + (adm ? 'clique para pôr o endereço' : 'endereço ainda não definido') + '</small>' + tag + '</button>'; }).join('');
+  const bt = $('ti-sis-ed'); if (bt) { bt.hidden = !adm; bt.onclick = () => janelaEnderecosSistemas(); }
+  el.onclick = (ev) => { if (ev.target.closest('[data-ti-sis-ed]')) janelaEnderecosSistemas(); };
+}
+function janelaEnderecosSistemas() {
+  const end = _sisEnd || {};
+  const j = abrirJanela({ titulo: 'Endereços dos sistemas', sub: 'O link que abre cada sistema (vale para toda a equipe)',
+    corpo: '<form id="f-sis" class="ts-end">' + SISTEMAS_T.map(([k, , t]) => '<label class="campo"><span>' + esc(t) + '</span><input name="' + k + '" type="url" inputmode="url" autocomplete="off" placeholder="https://…" value="' + esc(end[k] || '') + '"></label>').join('') + '</form>',
+    rodape: '<button type="button" class="btn" data-fechar-j>Cancelar</button><button type="button" class="btn btn-p" id="sis-salvar">Salvar</button>' });
+  j.querySelector('[data-fechar-j]').onclick = () => fecharJanela(j);
+  j.querySelector('#sis-salvar').onclick = (ev) => comBotao(ev.currentTarget, async () => {
+    const v = {}, ruim = [];
+    j.querySelectorAll('#f-sis input').forEach((i) => { const u = i.value.trim(); if (!u) return; if (urlSegura(u)) v[i.name] = u; else ruim.push(i.closest('label').textContent.trim()); });
+    if (ruim.length) return aviso('Endereço precisa começar com https:// — ' + ruim.join(', '));
+    await q(sb.from('configuracoes').upsert({ chave: 'sistemas_escritorio', valor: v }, { onConflict: 'chave' }));
+    await enderecosSistemas(true); fecharJanela(j); cardSistemas(); aviso('✓ Endereços salvos.');
+  });
+}
 
 async function inicioTeste() {
   const h = new Date(), hora = h.getHours(), saud = hora < 12 ? 'Bom dia' : hora < 18 ? 'Boa tarde' : 'Boa noite';
@@ -110,12 +181,13 @@ async function inicioTeste() {
     '<div id="ini-valid"></div>' +
     '<div class="ti-kpis" id="ti-kpis"><div class="ti-kpi ti-esq"></div><div class="ti-kpi ti-esq"></div><div class="ti-kpi ti-esq"></div><div class="ti-kpi ti-esq"></div></div>' +
     '<section class="b-faixa-av ini-faixa ini-faixa-1" id="ini-faixa"><div class="b-faixa-lin"><span class="b-faixa-rot">Avisos</span><div class="ini-conf-l"><span id="ini-resumo" class="ini-pills"></span><span id="ini-resumo-fin" hidden></span></div></div></section>' +
-    '<div class="ti-grade"><div class="ti-col">' +
+    // Backup 97: "Hoje, por hora" e "Tarefas atrasadas" lado a lado; embaixo, os sistemas do escritório (fora do ERP) e os sites
+    '<div class="ti-par">' +
       '<section class="ti-cartao"><div class="ti-hd"><h2>Hoje, por hora</h2><small id="ti-agora"></small></div><div id="ti-horas" class="ti-horas"></div></section>' +
-      '<section class="ti-cartao ini-b74"><div class="ini-sec-hd"><div><h2 id="ini-dia-tit">Para hoje</h2><p id="ini-dia-sub">Atrasadas e o que vence hoje</p></div><div id="ini-quem"></div></div><div id="ini-dia"></div></section>' +
+      '<section class="ti-cartao ini-b74"><div class="ini-sec-hd"><div><h2 id="ini-dia-tit">Tarefas atrasadas</h2><p id="ini-dia-sub">O que já passou do prazo</p></div><div id="ini-quem"></div></div><div id="ini-dia" data-so-atr="1"></div></section>' +
+    '</div><div class="ti-grade"><div class="ti-col">' +
+      '<section class="ti-cartao"><div class="ti-hd"><h2>Sistemas do escritório</h2><small>fora do ERP · abrem em outra aba</small><button type="button" class="b-chip" id="ti-sis-ed" hidden>Endereços</button></div><div class="ti-blocos" id="ti-sis"></div></section>' +
     '</div><div class="ti-col">' +
-      '<section class="ti-cartao"><div class="ti-hd"><h2>Atalhos do ERP</h2></div><div class="ti-blocos">' +
-        ATALHOS_T.filter(([id]) => document.getElementById('panel-' + id) || id === 'financeiro').map(([id, ic, t, s]) => '<button type="button" class="ti-bloco" data-ti-ir="' + id + '"><span class="ti-bi">' + iconeB(ic) + '</span><b>' + esc(t) + '</b><small>' + esc(s) + '</small></button>').join('') + '</div></section>' +
       '<section class="ti-cartao"><div class="ti-hd"><h2>Sites que o escritório usa</h2><small>abrem em outra aba</small></div><div class="ti-ext">' +
         EXTERNOS_T.map(([k, t, s, onde]) => (onde === 'janela' ? '<button type="button" class="ti-ext-it" data-ti-ext="' + k + '">' : '<a class="ti-ext-it" href="' + esc(onde) + '" target="_blank" rel="noopener noreferrer">') +
           '<span class="ti-bi ti-bi-ouro">' + iconeB(k === 'tribunais' ? 'tribunal' : k === 'fiscal' ? 'fiscal' : 'publicacao') + '</span><span><b>' + esc(t) + (onde === 'janela' ? ' ›' : ' ↗') + '</b><small>' + esc(s) + '</small></span>' + (onde === 'janela' ? '</button>' : '</a>')).join('') + '</div></section>' +
@@ -130,6 +202,7 @@ async function inicioTeste() {
   meuDia().catch((e) => console.error(e));
   horasDoDia().catch((e) => console.error(e));
   kpisTeste().catch((e) => console.error(e));
+  cardSistemas().catch((e) => console.error(e));
   if (typeof vigiarAgenda === 'function') vigiarAgenda();
   if (typeof cardValidacoes === 'function') cardValidacoes().then((c) => { const el = $('ini-valid'); if (el) { el.innerHTML = c.html; c.ligar(el); } }).catch((e) => console.error(e));
 }
@@ -148,22 +221,24 @@ async function horasDoDia() {
   el.onclick = (ev) => { const b = ev.target.closest('[data-ti-t]'); if (!b) return; const t = meus.find((x) => x.id === b.dataset.tiT);
     if (t && typeof detalheAgenda === 'function') detalheAgenda(t, h); else if (t && typeof abrirTarefa === 'function') abrirTarefa(t, () => TELAS.inicio()); };
 }
-// números com mini-gráfico dos últimos 6 meses (só onde há histórico)
+// Backup 97: números do dia (saíram Honorários em atraso, Parcelas em atraso e Passivo — pedido do usuário):
+// Recebido no mês (com mini-gráfico), Publicações novas, Tarefas atrasadas, Compromissos hoje e Prazos da semana (os meus)
 async function kpisTeste() {
   const el = $('ti-kpis'); if (!el) return;
-  const h = hojeISO(), ks = mesesAtras(6), ini = ks[0] + '-01';
+  const h = hojeISO(), ks = mesesAtras(6), ini = ks[0] + '-01', sem = somarDias(h, 7);
   const fin = pode('financeiro_juridico') || pode('financeiro_contab');
-  const [rec, abertos, nTarefas, parcAtr] = await Promise.all([
-    fin ? buscarTodos(() => sb.from('lancamentos').select('id, valor, redutor, data_pagamento, empresa').eq('tipo', 'receita').eq('pago', true).gte('data_pagamento', ini)).catch(() => []) : [],
-    fin ? buscarTodos(() => sb.from('lancamentos').select('id, valor, vencimento, pago, data_pagamento, perda').eq('tipo', 'receita').eq('perda', false).lte('vencimento', h).or('pago.eq.false,data_pagamento.gte.' + ini)).catch(() => []) : [],
-    sb.from('tarefas').select('id', { count: 'exact', head: true }).not('status', 'in', '(concluida,cancelada)').then((r) => r.count || 0, () => 0),
-    pode('juridico') ? sb.from('parcelas').select('id', { count: 'exact', head: true }).eq('pago', false).lt('vencimento', h).then((r) => r.count || 0, () => 0) : 0]);
+  const [rec, nPub, tar] = await Promise.all([
+    fin ? buscarTodos(() => sb.from('lancamentos').select('id, valor, data_pagamento').eq('tipo', 'receita').eq('pago', true).gte('data_pagamento', ini)).catch(() => []) : [],
+    pode('juridico') ? sb.from('publicacoes').select('id', { count: 'exact', head: true }).eq('status', 'nova').then((r) => r.count || 0, () => 0) : null,
+    buscarTodos(() => sb.from('tarefas').select('id, prazo, hora, responsavel, participantes, revisor, status').not('status', 'in', '(concluida,cancelada)').lte('prazo', sem)).catch(() => [])]);
+  const meus = tar.filter((t) => typeof ehMinha !== 'function' || ehMinha(t));
+  const nAtr = meus.filter((t) => t.prazo < h).length, nHoje = meus.filter((t) => t.prazo === h && t.hora).length, nSem = meus.filter((t) => t.prazo >= h && t.prazo <= sem).length;
   const recMes = ks.map((k) => soma(rec.filter((l) => String(l.data_pagamento || '').startsWith(k)), (l) => Number(l.valor) || 0));
-  const atrEm = (k) => { const fim = k === h.slice(0, 7) ? h : fimMesISO(k);
-    return soma(abertos.filter((l) => l.vencimento < fim && (!l.pago || (l.data_pagamento && l.data_pagamento > fim))), (l) => Number(l.valor) || 0); };
-  const atr = ks.map(atrEm);
   const item = (cls, rot, val, sub, pts, ir) => '<button type="button" class="ti-kpi ' + cls + '"' + (ir ? ' data-ti-ir="' + ir + '"' : '') + '><small>' + esc(rot) + '</small><b>' + val + '</b>' + (sub ? '<em>' + esc(sub) + '</em>' : '') + sparkB(pts) + '</button>';
-  el.innerHTML = (fin ? item('ti-k-verde', 'Recebido no mês', brl(recMes[recMes.length - 1]), 'últimos 6 meses', recMes, 'financeiro') + item('ti-k-verm', 'Honorários em atraso', brl(atr[atr.length - 1]), 'últimos 6 meses', atr, 'financeiro') : '') +
-    item(parcAtr ? 'ti-k-verm' : '', 'Parcelas em atraso', String(parcAtr), 'parcelamentos', null, 'parcelamentos') + item('', 'Tarefas em aberto', String(nTarefas), 'equipe toda', null, 'tarefas');
+  el.innerHTML = (fin ? item('ti-k-verde', 'Recebido no mês', brl(recMes[recMes.length - 1]), 'últimos 6 meses', recMes, 'financeiro') : '') +
+    (nPub !== null ? item(nPub ? 'ti-k-azul' : '', 'Publicações novas', String(nPub), nPub ? 'para ler' : 'nada novo', null, 'publicacoes') : '') +
+    item(nAtr ? 'ti-k-verm' : '', 'Tarefas atrasadas', String(nAtr), 'minhas', null, 'tarefas') +
+    item('', 'Compromissos hoje', String(nHoje), 'com hora marcada', null, 'tarefas') +
+    item('', 'Prazos da semana', String(nSem), 'hoje até ' + dataBR(sem).slice(0, 5), null, 'tarefas');
   el.querySelectorAll('[data-ti-ir]').forEach((b) => b.onclick = () => { const id = b.dataset.tiIr; if (typeof window.nav === 'function') window.nav(null, id); else irPara(id); });
 }

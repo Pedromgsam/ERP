@@ -162,6 +162,21 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--ouro);outline-offse
 .cab .ic svg{width:18px;height:18px;fill:none;stroke:#FFFFFF;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
 .mapa-caixa{background:linear-gradient(160deg,#EEF2F8,#E3E9F3);border-radius:14px;padding:14px}
 .mapa-br{display:block;width:100%;height:auto;max-height:560px}
+/* Backup 97: mapa bem maior, busca e instâncias nacionais */
+.jan.jan-larga{width:min(1400px,100%)}
+.jan-larga .jan-bd{grid-template-columns:minmax(0,1.7fr) minmax(300px,1fr)}
+.jan-larga .mapa-br{max-height:calc(100vh - 230px);min-height:420px}
+.trib-topo{display:flex;flex-wrap:wrap;gap:10px;align-items:center;padding:14px 20px 0}
+.trib-busca{flex:1 1 320px;display:flex;align-items:center;gap:8px;border:1px solid var(--border);border-radius:10px;padding:0 12px;background:var(--surface);min-height:40px}
+.trib-busca:focus-within{border-color:#1B2A4A;box-shadow:0 0 0 3px rgba(27,42,74,.15)}
+.trib-busca svg{width:16px;height:16px;fill:none;stroke:var(--text3);stroke-width:1.8}
+.trib-busca input{flex:1;border:0;outline:0;background:transparent;font:inherit;font-size:13.5px;min-height:38px;color:var(--text)}
+.trib-nac{border:1px solid var(--border);border-radius:999px;background:var(--surface);padding:0 14px;min-height:40px;font:inherit;font-weight:600;font-size:12.5px;color:var(--text);cursor:pointer}
+.trib-nac[aria-pressed="true"]{background:#1B2A4A;color:#fff;border-color:#1B2A4A}
+.trib-ufs{display:flex;flex-wrap:wrap;gap:6px}
+.trib-ufs button{border:1px solid var(--border);border-radius:999px;background:var(--surface);padding:4px 10px;font:inherit;font-size:12px;cursor:pointer}
+.f-par{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:14px}
+@media (max-width:900px){.f-par{grid-template-columns:minmax(0,1fr)}.jan-larga .jan-bd{grid-template-columns:minmax(0,1fr)}.jan-larga .mapa-br{min-height:0;max-height:52vh}}
 .ufp{fill:#FFFFFF;stroke:#B9C4D8;stroke-width:1;cursor:pointer;transition:fill .12s}
 .ufp:hover,.ufp:focus-visible{fill:#D3DDF0;outline:none}
 .ufp.on{fill:#1B2A4A;stroke:#C9A84C;stroke-width:1.5}
@@ -215,6 +230,7 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--ouro);outline-offse
   // dados fictícios (hoje = sexta, 16/10/2026)
   const AVISOS = [['r', 'R$ 44.675,00', 'de honorários em atraso'], ['r', '6', 'parcelas em atraso'], ['a', '1', 'guia a emitir este mês'], ['a', '3', 'grupos sem conferência há 30+ dias'], ['b', '2', 'publicações novas']];
   const TAREFAS = [['Protocolar defesa — Grupo Alfa', 'atrasada desde 14/10', 'r'], ['Conferir processo 5000001-11.2024 e prazos', 'hoje', 'a'], ['Enviar guias de outubro — Grupo Beta', 'hoje', 'a'], ['Revisar contrato de consultoria', 'amanhã', '']];
+  const TAREFAS_ATR = [['Protocolar defesa — Grupo Alfa', 'venceu em 14/10 · Pedro'], ['Conferir passivo do Grupo Beta', 'venceu em 15/10 · Emanuelle']];
   const AGENDA = [['09:00', 'Reunião com Grupo Alfa', 'Diagnóstico · sala 1', ''], ['11:30', 'Audiência — 5000001-11.2024.8.13.0024', 'TJMG · virtual', 'r'], ['15:00', 'Ligar para o contador da Beta', 'retorno sobre o Simples', 'a']];
   const NOTICIAS = [
     ['16', 'out', 'b', 'Publicação', 'Nova intimação no Diário', 'Processo 5000001-11.2024.8.13.0024 (TJMG): despacho para manifestação em 15 dias. Advogado: Pedro.'],
@@ -232,6 +248,7 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--ouro);outline-offse
     clientes: '<circle cx="9" cy="7" r="4"/><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>',
     crm: '<path d="M3 17l6-6 4 4 8-8"/><path d="M14 7h7v7"/>',
     documentos: '<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>',
+    manual: '<path d="M4 4h6a3 3 0 0 1 3 3v13a2 2 0 0 0-2-2H4zM20 4h-6a3 3 0 0 0-3 3v13a2 2 0 0 1 2-2h7z"/>',
     rotina: '<path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/>',
     receita: '<path d="M3 21h18M5 21V10M19 21V10M9 21V10M15 21V10M2 10l10-6 10 6z"/>',
     tribunais: '<path d="M14 13l-7.5 7.5a2.1 2.1 0 0 1-3-3L11 10"/><path d="M16 16l6-6M8 8l6-6M9 7l8 8M21 11l-8-8"/>',
@@ -250,12 +267,12 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--ouro);outline-offse
   };
   const ic = (k) => '<svg viewBox="0 0 24 24" aria-hidden="true">' + (IC[k] || '') + '</svg>';
   // Backup 96: "Sistemas do escritório" = os sistemas externos (como na página do escritório); a tag mostra o grupo
-  const SISTEMAS = [['erp', 'ERP', 'passivo, processos, parcelamentos, acordos e honorários', 'Jurídico'], ['crm', 'CRM', 'prospecção, reuniões e contatos', 'Jurídico'],
-    ['tarefas', 'Tarefas', 'produção do escritório', 'Jurídico'], ['planilhas', 'Minhas Planilhas', 'planilhas de trabalho no Google Sheets', 'Jurídico'],
-    ['planejamento', 'Planejamento Tributário', 'regimes, vendas, folha e carga tributária', 'Jurídico'], ['holding', 'Holding', 'estrutura societária e patrimonial', 'Jurídico'],
-    ['esteira', 'Esteira de Produtos', 'produtos e serviços, etapa por etapa', 'Jurídico'], ['mapa', 'Mapa Societário', 'sócios, participações e holdings', 'Jurídico'],
-    ['erp', 'ERP — Contabilidade', 'Painel Executivo e Honorários da Contabilidade', 'Contabilidade'], ['contratos', 'Contratos e Documentos', 'contratos de serviços contábeis', 'Contabilidade'],
-    ['documentos', 'Documentos — Contabilidade', 'o que pedir ao cliente novo', 'Contabilidade']];
+  // Backup 97: só o que NÃO está no ERP (saíram ERP, CRM e Tarefas)
+  const SISTEMAS = [['planilhas', 'Minhas Planilhas', 'planilhas de trabalho no Google Sheets', 'Jurídico'], ['planejamento', 'Planejamento Tributário', 'regimes, vendas, folha e carga tributária', 'Jurídico'],
+    ['holding', 'Holding', 'estrutura societária e patrimonial', 'Jurídico'], ['esteira', 'Esteira de Produtos', 'produtos e serviços, etapa por etapa', 'Jurídico'],
+    ['mapa', 'Mapa Societário', 'sócios, participações e holdings', 'Jurídico'], ['documentos', 'Documentos', 'o que pedir ao cliente novo', 'Jurídico'],
+    ['contratos', 'Contratos e Documentos', 'serviços contábeis, prontos para assinar', 'Contabilidade'], ['documentos', 'Documentos — Contabilidade', 'o que pedir ao cliente novo', 'Contabilidade'],
+    ['manual', 'Manual do Escritório', 'procedimentos e checklists por setor', 'Escritório']];
   // Backup 96: sem Gmail, Drive e Agenda; "Tribunais" e "Sistemas fiscais" abrem uma janela com as opções
   const EXTERNOS = [['tribunais', 'Tribunais', 'escolha o estado no mapa', 'tribunais'], ['receita', 'Sistemas fiscais', 'e-CAC, Regularize, SIARE…', 'fiscal'], ['diario', 'Diário (DJEN)', 'comunicações processuais', '']];
 
@@ -266,6 +283,11 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--ouro);outline-offse
     const d = pts.map((v, i) => (i ? 'L' : 'M') + (i * sx).toFixed(1) + ' ' + y(v).toFixed(1)).join(' ');
     return '<svg viewBox="0 0 ' + w + ' ' + h + '" preserveAspectRatio="none" aria-hidden="true"><path d="' + d + ' L' + w + ' ' + h + ' L0 ' + h + 'Z" fill="' + cor + '" opacity=".12"/><path d="' + d + '" fill="none" stroke="' + cor + '" stroke-width="1.6"/></svg>'; };
 
+  // Backup 97: números do dia — saíram Honorários em atraso, Parcelas em atraso e Passivo dos clientes
+  const KPIS_97 = () => [['g', 'Recebido no mês', 'R$ 24.075', 'últimos 6 meses', [18, 21, 19, 26, 22, 24], 'var(--green)'], ['', 'Publicações novas', '2', 'para ler'],
+    ['r', 'Tarefas atrasadas', '2', 'minhas'], ['', 'Compromissos hoje', '3', 'com hora marcada'], ['', 'Prazos da semana', '5', 'hoje até 23/10']]
+    .map(([c, r, v, sub, p, cor]) => '<button type="button" class="kpi ' + c + '" style="text-align:left"><small>' + r + '</small><b class="num">' + v + '</b><small>' + sub + '</small>' + (p ? spark(p, cor) : '') + '</button>').join('');
+  const listaAtrasadas = () => '<div class="lista">' + TAREFAS_ATR.map(([t, s]) => '<div class="l"><span class="ok" aria-hidden="true"></span><div class="tx">' + t + '<small>' + s + '</small></div><span class="tag r">atrasada</span></div>').join('') + '</div>';
   const blocoSis = ([i, t, sub, g]) => '<button type="button" class="bloco"><span class="bi">' + ic(i) + '</span><b>' + t + ' ↗</b><small>' + sub + '</small><span class="cont"><span class="tag ' + (g === 'Contabilidade' ? 'g' : 'b') + '">' + g + '</span></span></button>';
   const ALT = {
     A: { nota: 'A: o Início vira a porta de entrada de tudo — os sistemas do escritório (ERP, CRM, Planejamento, Holding…) e os sites que o escritório usa todo dia (abrem em outra aba). A busca (Ctrl+K) fica no alto.',
@@ -284,26 +306,23 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--ouro);outline-offse
           '<div class="cartao"><h3>Agenda</h3><div class="lista">' + AGENDA.map(([h, t, s]) => '<div class="l"><b class="num" style="width:44px">' + h + '</b><div class="tx">' + t + '<small>' + s + '</small></div></div>').join('') + '</div></div></div></div>' },
     C: { nota: 'C: cockpit — uma faixa de números com mini-gráfico dos últimos 6 meses (clicar abre o detalhe) e, embaixo, a agenda do dia por hora ao lado das tarefas. Bom para quem decide pelo número.',
       html: () => cab('Boa tarde, Pedro', 'sexta-feira, 16 de outubro', '<button class="bt" type="button">Só eu</button><button class="bt p" type="button">+ Lembrete</button>') +
-        '<div class="kpis">' + [['r', 'Honorários em atraso', 'R$ 44.675', [30, 34, 31, 38, 41, 44.6], 'var(--red)'], ['g', 'Recebido no mês', 'R$ 24.075', [18, 21, 19, 26, 22, 24], 'var(--green)'],
-          ['', 'Passivo dos clientes', 'R$ 1,32 mi', [1.6, 1.55, 1.5, 1.42, 1.38, 1.32], 'var(--blue)'], ['a', 'Parcelas em atraso', '6', [2, 3, 3, 5, 4, 6], 'var(--amber)'], ['', 'Tarefas abertas', '12', [15, 14, 16, 13, 12, 12], 'var(--blue)']]
-          .map(([c, r, v, p, cor]) => '<button type="button" class="kpi ' + c + '" style="text-align:left"><small>' + r + '</small><b class="num">' + v + '</b>' + spark(p, cor) + '</button>').join('') + '</div>' +
+        '<div class="kpis">' + KPIS_97() + '</div>' +
         '<div class="cartao"><h3>Avisos</h3>' + pils() + '</div>' +
         '<div class="cockpit"><div class="cartao"><h3>Hoje, por hora<small>agora: 14:10</small></h3><div class="horas">' +
           ['08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00'].map((h) => { const e = AGENDA.find((x) => x[0].slice(0, 2) === h.slice(0, 2));
             return '<div class="hora' + (h === '14:00' ? ' agora' : '') + '"><span class="num">' + h + '</span><div>' + (e ? '<div class="evento ' + e[3] + '">' + e[0] + ' · ' + e[1] + '<small>' + e[2] + '</small></div>' : '') + '</div></div>'; }).join('') + '</div></div>' +
-        '<div class="cartao"><h3>Tarefas<small>atrasadas e de hoje</small></h3>' + listaTarefas() + '</div></div>' },
-    F: { nota: 'F (novo, pedido de 17/10): o Cockpit (C) com o Portal (A). No alto, a busca e os números com mini-gráfico; logo abaixo, os avisos. À esquerda, o dia por hora e as tarefas; à direita, os sistemas do escritório e os sites (Tribunais com mapa do Brasil, Sistemas fiscais e DJEN). Novo: "Tribunais" abre um mapa do Brasil — clique no estado e escolha o sistema do tribunal.',
+        '<div class="cartao"><h3>Tarefas atrasadas<small>só eu</small></h3>' + listaAtrasadas() + '</div></div>' },
+    F: { nota: 'F (Backup 97): Cockpit + Portal. Números do dia (Recebido no mês, Publicações novas, Tarefas atrasadas, Compromissos hoje, Prazos da semana); "Hoje, por hora" ao lado de "Tarefas atrasadas"; embaixo, os sistemas do escritório que ficam FORA do ERP e os sites. Tribunais: mapa maior, busca (TJMG, Minas, TRT-3…) e botão Nacionais (STF, STJ, TST, SEEU).',
       html: () => cab('Boa tarde, Pedro', 'sexta-feira, 16 de outubro', '<button class="bt" type="button">Só eu</button><button class="bt p" type="button">+ Lembrete</button>') +
         '<div class="portal-busca" role="search">⌕ Buscar cliente, processo, tela ou ação…<kbd>Ctrl K</kbd></div>' +
-        '<div class="kpis">' + [['r', 'Honorários em atraso', 'R$ 44.675', [30, 34, 31, 38, 41, 44.6], 'var(--red)'], ['g', 'Recebido no mês', 'R$ 24.075', [18, 21, 19, 26, 22, 24], 'var(--green)'],
-          ['', 'Passivo dos clientes', 'R$ 1,32 mi', [1.6, 1.55, 1.5, 1.42, 1.38, 1.32], 'var(--blue)'], ['a', 'Parcelas em atraso', '6', [2, 3, 3, 5, 4, 6], 'var(--amber)'], ['', 'Tarefas abertas', '12', [15, 14, 16, 13, 12, 12], 'var(--blue)']]
-          .map(([c, r, v, p, cor]) => '<button type="button" class="kpi ' + c + '" style="text-align:left"><small>' + r + '</small><b class="num">' + v + '</b>' + spark(p, cor) + '</button>').join('') + '</div>' +
+        '<div class="kpis">' + KPIS_97() + '</div>' +
         '<div class="cartao"><h3>Avisos</h3>' + pils() + '</div>' +
-        '<div class="f-grade"><div class="f-col"><div class="cartao"><h3>Hoje, por hora<small>agora: 14:10</small></h3><div class="horas">' +
+        '<div class="f-par"><div class="cartao"><h3>Hoje, por hora<small>agora: 14:10</small></h3><div class="horas">' +
           ['08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00'].map((h) => { const e = AGENDA.find((x) => x[0].slice(0, 2) === h.slice(0, 2));
             return '<div class="hora' + (h === '14:00' ? ' agora' : '') + '"><span class="num">' + h + '</span><div>' + (e ? '<div class="evento ' + e[3] + '">' + e[0] + ' · ' + e[1] + '<small>' + e[2] + '</small></div>' : '') + '</div></div>'; }).join('') + '</div></div>' +
-          '<div class="cartao"><h3>Tarefas<small>atrasadas e de hoje</small></h3>' + listaTarefas() + '</div></div>' +
-        '<div class="f-col"><div class="cartao"><h3>Sistemas do escritório<small>abrem em outra aba</small></h3><div class="f-blocos">' + SISTEMAS.map(blocoSis).join('') + '</div></div>' +
+          '<div class="cartao"><h3>Tarefas atrasadas<small>só eu</small></h3>' + listaAtrasadas() + '</div></div>' +
+        '<div class="f-grade">' +
+        '<div class="f-col"><div class="cartao"><h3>Sistemas do escritório<small>fora do ERP · abrem em outra aba</small></h3><div class="f-blocos">' + SISTEMAS.map(blocoSis).join('') + '</div></div></div><div class="f-col">' +
           '<div class="cartao"><h3>Sites que o escritório usa<small>abrem em outra aba</small></h3><div class="f-ext">' + EXTERNOS.map(([i, t, s, j]) => j ? '<button type="button" data-trib="' + j + '"><span>' + ic(i) + '</span>' + t + ' ›</button>' : '<a href="https://comunica.pje.jus.br/" target="_blank" rel="noopener noreferrer"><span>' + ic(i) + '</span>' + t + ' ↗</a>').join('') + '</div></div></div></div>' },
     D: { nota: 'D: foco — uma coluna só, sem números do escritório: o próximo compromisso em destaque, as suas tarefas na ordem em que devem ser feitas e só 3 números. Bom para a equipe; os sócios veem o resto no Painel.',
       html: () => '<div class="foco"><div class="saud">Boa tarde, Pedro.<small>Sexta, 16/10 · 3 coisas para hoje e 1 atrasada</small></div>' +
@@ -350,6 +369,9 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--ouro);outline-offse
     const trab = (TRT_UF[uf] || []).map((n) => ['TRT-' + n + ' · PJe', 'https://pje.trt' + n + '.jus.br/', uf === 'SP' ? (n === 2 ? 'capital e Grande SP' : 'Campinas e interior') : '']);
     return [['Justiça Estadual', TJ_SIS[uf] || []], ['Justiça Federal', fed], ['Justiça do Trabalho', trab]];
   }
+  // Backup 97: instâncias nacionais (STF, STJ, TST e SEEU)
+  const NACIONAIS_T = [['STF · Peticionamento', 'https://peticionamento.stf.jus.br/', 'Supremo Tribunal Federal'], ['STJ · Central do Processo Eletrônico', 'https://cpe.web.stj.jus.br/', 'Superior Tribunal de Justiça'],
+    ['TST · PJe', 'https://pje.tst.jus.br/', 'Tribunal Superior do Trabalho'], ['SEEU', 'https://seeu.pje.jus.br/seeu/', 'Sistema Eletrônico de Execução Unificado']];
   // ── Sistemas fiscais ──
   const FISCAIS = [
     ['Federal', [['e-CAC', 'https://cav.receita.fazenda.gov.br/autenticacao/login', 'Receita Federal — caixa postal, parcelamentos, certidões'],
@@ -363,25 +385,43 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--ouro);outline-offse
   const janTrib = document.getElementById('jan-trib');
   let ufAberta = 'MG', antesDaJanela = null;
   const linkSis = ([t, url, d]) => '<a href="' + url + '" target="_blank" rel="noopener noreferrer"><b>' + t + ' ↗</b>' + (d ? '<small>' + d + '</small>' : '') + '</a>';
+  const normz = (x) => String(x || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+  const grupoT = (g, ls) => '<div class="trib-grupo"><b>' + g + '</b><div class="trib-links">' + (ls.length ? ls.map(linkSis).join('') : '<span class="trib-nada">—</span>') + '</div></div>';
   function pintarTribunais() {
-    janTrib.querySelector('#trib-lista').innerHTML = '<h3>' + MAPA_BR.uf[ufAberta][0] + ' <span class="uf-sig">' + ufAberta + '</span></h3><p class="sub">Toque no sistema para abrir em outra aba.</p>' +
-      sistemasDoEstado(ufAberta).map(([g, ls]) => '<div class="trib-grupo"><b>' + g + '</b><div class="trib-links">' + (ls.length ? ls.map(linkSis).join('') : '<span class="trib-nada">—</span>') + '</div></div>').join('');
+    const nac = janTrib.querySelector('[data-nac]'); if (nac) nac.setAttribute('aria-pressed', String(!ufAberta));
+    janTrib.querySelector('#trib-lista').innerHTML = ufAberta ? '<h3>' + MAPA_BR.uf[ufAberta][0] + ' <span class="uf-sig">' + ufAberta + '</span></h3><p class="sub">Toque no sistema para abrir em outra aba.</p>' +
+      sistemasDoEstado(ufAberta).map(([g, ls]) => grupoT(g, ls)).join('')
+      : '<h3>Nacionais <span class="uf-sig">valem para todo o país</span></h3><p class="sub">Toque no sistema para abrir em outra aba.</p>' + grupoT('Tribunais superiores e execução penal', NACIONAIS_T);
     janTrib.querySelectorAll('[data-uf], [data-uf-rot]').forEach((e) => e.classList.toggle('on', (e.dataset.uf || e.dataset.ufRot) === ufAberta));
+  }
+  function buscarTribunais(txt) {
+    const t = normz(txt).trim(); if (!t) return pintarTribunais();
+    const t2 = t.replace(/[\s·.-]+/g, ''), bate = (x) => { const n = normz(x); return n.includes(t) || n.replace(/[\s·.-]+/g, '').includes(t2); };
+    const ufs = Object.keys(MAPA_BR.uf).filter((k) => normz(k) === t || bate(MAPA_BR.uf[k][0]));
+    const vistos = new Set(), sis = [];
+    const juntar = (ls, onde) => ls.forEach((x) => { if (!vistos.has(x[1]) && (bate(x[0]) || bate(onde))) { vistos.add(x[1]); sis.push([x[0], x[1], x[2] || onde]); } });
+    juntar(NACIONAIS_T, 'Nacional'); Object.keys(MAPA_BR.uf).forEach((k) => sistemasDoEstado(k).forEach(([, ls]) => juntar(ls, '')));
+    if (ufs.length === 1 && !sis.length) { ufAberta = ufs[0]; return pintarTribunais(); }
+    janTrib.querySelector('#trib-lista').innerHTML = '<h3>Resultado <span class="uf-sig">“' + txt.trim().replace(/[<>&"]/g, '') + '”</span></h3>' +
+      (ufs.length ? '<div class="trib-grupo"><b>Estados</b><div class="trib-ufs">' + ufs.map((k) => '<button type="button" data-ir-uf="' + k + '">' + MAPA_BR.uf[k][0] + ' · ' + k + '</button>').join('') + '</div></div>' : '') +
+      (sis.length ? grupoT('Sistemas', sis.slice(0, 24)) : '') + (!ufs.length && !sis.length ? '<p class="sub">Nada encontrado. Tente a sigla (TJMG, TRF-6, TRT-3) ou o nome do estado.</p>' : '');
   }
   function rotular(svg) {
     const g = svg.querySelector('.rots');
     svg.querySelectorAll('.ufp').forEach((p) => { const b = p.getBBox(), uf = p.dataset.uf, d = DESLOC_UF[uf] || [0, 0];
       const t = document.createElementNS('http://www.w3.org/2000/svg', 'text'); t.setAttribute('x', b.x + b.width / 2 + d[0]); t.setAttribute('y', b.y + b.height / 2 + 4 + d[1]); t.setAttribute('data-uf-rot', uf); t.textContent = uf; g.appendChild(t); });
   }
-  function abrirJan(titulo, sub, icone, corpo) {
+  function abrirJan(titulo, sub, icone, corpo, larga) {
     antesDaJanela = document.activeElement;
+    janTrib.querySelector('.jan').classList.toggle('jan-larga', !!larga);
     janTrib.querySelector('.jan').innerHTML = '<div class="jan-hd"><span class="bi">' + ic(icone) + '</span><div><h2 id="jan-trib-t">' + titulo + '</h2><p>' + sub + '</p></div><button type="button" class="x" aria-label="Fechar" data-fechar>×</button></div>' + corpo;
     janTrib.hidden = false;
   }
   function abrirTribunais() {
-    abrirJan('Tribunais', 'Clique no estado e escolha o sistema', 'tribunais', '<div class="jan-bd"><div class="mapa-caixa"><svg class="mapa-br" viewBox="' + MAPA_BR.viewBox + '" role="group" aria-label="Mapa do Brasil — clique no estado">' +
+    abrirJan('Tribunais', 'Clique no estado, escolha "Nacionais" ou digite o tribunal', 'tribunais', '<div class="trib-topo"><label class="trib-busca"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg><input type="search" id="trib-q" autocomplete="off" placeholder="Buscar tribunal ou estado — ex.: TJMG, Minas, TRT-3, eproc" aria-label="Buscar tribunal ou estado"></label><button type="button" class="trib-nac" data-nac aria-pressed="false">Nacionais · STF, STJ, TST, SEEU</button></div><div class="jan-bd"><div class="mapa-caixa"><svg class="mapa-br" viewBox="' + MAPA_BR.viewBox + '" role="group" aria-label="Mapa do Brasil — clique no estado">' +
       Object.keys(MAPA_BR.uf).map((uf) => '<path class="ufp" data-uf="' + uf + '" d="' + MAPA_BR.uf[uf][1] + '" tabindex="0" role="button" aria-label="' + MAPA_BR.uf[uf][0] + '"><title>' + MAPA_BR.uf[uf][0] + '</title></path>').join('') +
-      '<g class="rots" aria-hidden="true"></g></svg><p class="legenda-mapa">Mapa: @svg-maps/brazil (CC BY 4.0)</p></div><div class="trib" id="trib-lista"></div></div>');
+      '<g class="rots" aria-hidden="true"></g></svg><p class="legenda-mapa">Mapa: @svg-maps/brazil (CC BY 4.0)</p></div><div class="trib" id="trib-lista"></div></div>', true);
+    janTrib.querySelector('#trib-q').addEventListener('input', (ev) => buscarTribunais(ev.target.value));
     rotular(janTrib.querySelector('.mapa-br')); pintarTribunais();
   }
   function abrirFiscais() {
@@ -390,7 +430,9 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--ouro);outline-offse
   function fecharTribunais() { janTrib.hidden = true; if (antesDaJanela && antesDaJanela.focus) antesDaJanela.focus(); }
   janTrib.addEventListener('click', (ev) => {
     if (ev.target === janTrib || ev.target.closest('[data-fechar]')) return fecharTribunais();
-    const b = ev.target.closest('[data-uf]'); if (b) { ufAberta = b.dataset.uf; pintarTribunais(); }
+    if (ev.target.closest('[data-nac]')) { ufAberta = ''; janTrib.querySelector('#trib-q').value = ''; return pintarTribunais(); }
+    const u = ev.target.closest('[data-ir-uf]'); if (u) { ufAberta = u.dataset.irUf; janTrib.querySelector('#trib-q').value = ''; return pintarTribunais(); }
+    const b = ev.target.closest('[data-uf]'); if (b) { ufAberta = b.dataset.uf; const q = janTrib.querySelector('#trib-q'); if (q) q.value = ''; pintarTribunais(); }
   });
   janTrib.addEventListener('keydown', (ev) => { const b = ev.target.closest && ev.target.closest('[data-uf]'); if (b && (ev.key === 'Enter' || ev.key === ' ')) { ev.preventDefault(); ufAberta = b.dataset.uf; pintarTribunais(); } });
   document.addEventListener('keydown', (ev) => { if (ev.key === 'Escape' && !janTrib.hidden) fecharTribunais(); });

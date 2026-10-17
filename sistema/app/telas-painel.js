@@ -64,12 +64,13 @@ async function meuDia() {
     return '<div class="ini-it' + (atr ? ' ini-it-atr' : '') + '" data-ini-t="' + t.id + '" tabindex="0"><span class="ini-tipo">' + esc(tipo) + '</span><div class="ini-it-tx"><b>' + esc(t.titulo) + '</b>' + (sub ? '<small>' + sub + '</small>' : '') + '</div>' +
       '<span class="ini-dt' + (atr ? ' ini-dt-atr' : '') + '">' + (t.hora ? esc(String(t.hora).slice(0, 5)) + ' · ' : '') + dataBR(t.prazo).slice(0, 5) + '</span>' +
       '<button type="button" class="b-bt-baixa" data-ini-ok="' + t.id + '">Concluir</button></div>'; };
+  const soAtr = el.dataset.soAtr === '1';   // Backup 97: o ambiente de teste mostra só as atrasadas ("Tarefas atrasadas")
   const pintar = () => {
     $('ini-quem').innerHTML = segFiltroB('', 'data-ini-quem', [['eu', E.ini.pessoa ? 'Só ' + E.ini.pessoa.charAt(0).toUpperCase() + E.ini.pessoa.slice(1) : 'Só eu'], ['todos', 'Equipe toda']], E.ini.quem, 'De quem');
-    const hoje = L.filter((t) => t.prazo && t.prazo <= h && doDono(t)).sort((a, b) => String(a.prazo).localeCompare(String(b.prazo)) || String(a.hora || '').localeCompare(String(b.hora || '')));
+    const hoje = L.filter((t) => t.prazo && (soAtr ? t.prazo < h : t.prazo <= h) && doDono(t)).sort((a, b) => String(a.prazo).localeCompare(String(b.prazo)) || String(a.hora || '').localeCompare(String(b.hora || '')));
     const nAtr = hoje.filter((t) => t.prazo < h).length, nHoje = hoje.length - nAtr;
-    const sub = $('ini-dia-sub'); if (sub) sub.textContent = hoje.length ? [nAtr ? plural(nAtr, 'atrasada', 'atrasadas') : '', nHoje ? plural(nHoje, 'vence hoje', 'vencem hoje').replace(/^1 vencem/, '1 vence') : ''].filter(Boolean).join(' · ') : 'Atrasadas e o que vence hoje';
-    el.innerHTML = hoje.length ? '<div class="ini-lista">' + hoje.map(linha).join('') + '</div>' : '<div class="ini-vazio">' + vazioB({ icone: 'ok', titulo: 'Nada para hoje', frase: 'Nenhuma tarefa vence hoje nem está atrasada.' }) + '</div>';
+    const sub = $('ini-dia-sub'); if (sub) sub.textContent = hoje.length ? [nAtr ? plural(nAtr, 'atrasada', 'atrasadas') : '', nHoje ? plural(nHoje, 'vence hoje', 'vencem hoje').replace(/^1 vencem/, '1 vence') : ''].filter(Boolean).join(' · ') : (soAtr ? 'O que já passou do prazo' : 'Atrasadas e o que vence hoje');
+    el.innerHTML = hoje.length ? '<div class="ini-lista">' + hoje.map(linha).join('') + '</div>' : '<div class="ini-vazio">' + vazioB(soAtr ? { icone: 'ok', titulo: 'Nada atrasado', frase: 'Nenhuma tarefa passou do prazo.' } : { icone: 'ok', titulo: 'Nada para hoje', frase: 'Nenhuma tarefa vence hoje nem está atrasada.' }) + '</div>';
   };
   pintar();
   const raiz = el.closest('.ini-b74');

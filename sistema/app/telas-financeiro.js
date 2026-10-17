@@ -347,7 +347,8 @@ function fluxoDoMes(empresa) {
       '<span class="b-fx-rec" style="width:' + pc(recebido) + '%" title="Recebido ' + esc(brl(recebido)) + '"></span><span class="b-fx-atr" style="width:' + pc(atraso) + '%" title="Em atraso ' + esc(brl(atraso)) + '"></span><span class="b-fx-arec" style="width:' + pc(aReceber) + '%" title="A receber ' + esc(brl(aReceber)) + '"></span></div>' +
     '</section>';
 }
-const corSinal = (v) => (v < 0 ? 'b-verm-v' : v > 0 ? 'b-verde-v' : '');
+// Backup 97 (pedido do usuário): resultado e saldo ficam na cor padrão (preto); só o negativo fica vermelho
+const corSinal = (v) => (v < 0 ? 'b-verm-v' : '');
 // ── Backup 79: RESULTADO DO MÊS (como no ambiente de teste): entradas, saídas e resultado de cada mês do período ──
 function resultadoMeses(meses, receita, pagos, contab) {
   if (!contab && !pagos.length) return '';
@@ -383,7 +384,7 @@ function caixaFin(empresa, corpo) {
   // Backup 93: o caixa conta a história do lucro — quanto entrou, quanto custou a operação, o lucro apurado, quanto foi distribuído e o que ficou
   const somaM = (f) => meses.reduce((a, m) => a + m[f], 0), lucroT = somaM('lucro'), distT = somaM('dist');
   const nums = numsFaixa([['Receita', brl(somaM('r')), 'recebida desde o início', 'b-verde'], ['Despesas', brl(somaM('dop')), 'da operação (sem distribuição)'],
-    ['Resultado', brl(lucroT), rotMesB(atual.k) + ': ' + brl(atual.lucro), lucroT < 0 ? 'b-verm' : 'b-verde'], ['Distribuição de lucros', brl(distT), distT && lucroT > 0 ? Math.round(distT / lucroT * 100) + '% do resultado' : 'nada distribuído ainda'],
+    ['Resultado', brl(lucroT), rotMesB(atual.k) + ': ' + brl(atual.lucro), lucroT < 0 ? 'b-verm' : ''], ['Distribuição de lucros', brl(distT), distT && lucroT > 0 ? Math.round(distT / lucroT * 100) + '% do resultado' : 'nada distribuído ainda'],
     ['Saldo em caixa', brl(saldo), 'resultado − distribuído', saldo < 0 ? 'b-verm' : '']]);
   const seg = '<div class="b-seg b-seg-mini" id="cx-vista"><button type="button" class="b-seg-bt" data-cx="consolidado" aria-selected="' + (F.caixa === 'consolidado') + '">Consolidado</button><button type="button" class="b-seg-bt" data-cx="detalhado" aria-selected="' + (F.caixa === 'detalhado') + '">Mês a mês</button></div>';
   let miolo;
@@ -394,12 +395,13 @@ function caixaFin(empresa, corpo) {
       let s = s0;
       const cats = somaPor(m.itens.filter((l) => l._c === 'pago'), (l) => l.categoria).sort((a, b) => b[1] - a[1]);
       return '<details class="b-cx-mes"' + (m.k === hk ? ' open' : '') + '><summary><b>' + esc(rotMesB(m.k)) + '</b><span class="b-cx-c b-verde-v"><small>Receita</small>' + (m.r ? '+ ' + brl(m.r) : '—') + '</span><span class="b-cx-c b-verm-v"><small>Despesa</small>' + (m.dop ? '− ' + brl(m.dop) : '—') + '</span>' +
-        // Backup 96: 4 colunas — a distribuição de lucros sai da despesa e ganha a sua; o detalhe continua com Entrada · Saída · Saldo
-        '<span class="b-cx-c"><small>Distribuição de lucros</small>' + (m.dist ? '− ' + brl(m.dist) : '—') + '</span><span class="b-cx-c b-azul-v"><small>Saldo</small>' + brl(m.saldo) + '</span></summary>' +
-        (m.itens.length ? '<div class="b-rola b-rola-solta" data-sem-pagina><table class="b-tab"><thead><tr><th class="b-cen">Data</th><th>Histórico</th><th>Categoria</th><th class="b-dir">Entrada</th><th class="b-dir">Saída</th><th class="b-dir">Saldo</th></tr></thead><tbody>' +
-          m.itens.map((l) => { const v = valorLanc(l), ent = l._c === 'recebido' ? v : 0, sai = l._c === 'pago' ? v : 0; s += ent - sai;
+        // Backup 96: 4 colunas — a distribuição de lucros sai da despesa e ganha a sua
+        // Backup 97: o detalhe segue o resumo — Receita · Despesa · Distribuição de lucros · Saldo (saldo preto; vermelho só se negativo)
+        '<span class="b-cx-c"><small>Distribuição de lucros</small>' + (m.dist ? '− ' + brl(m.dist) : '—') + '</span><span class="b-cx-c ' + corSinal(m.saldo) + '"><small>Saldo</small>' + brl(m.saldo) + '</span></summary>' +
+        (m.itens.length ? '<div class="b-rola b-rola-solta" data-sem-pagina><table class="b-tab"><thead><tr><th class="b-cen">Data</th><th>Histórico</th><th>Categoria</th><th class="b-dir">Receita</th><th class="b-dir">Despesa</th><th class="b-dir">Distribuição de lucros</th><th class="b-dir">Saldo</th></tr></thead><tbody>' +
+          m.itens.map((l) => { const v = valorLanc(l), ent = l._c === 'recebido' ? v : 0, sai = l._c === 'pago' ? v : 0, dl = sai && ehDistLucro(l); s += ent - sai;
             return '<tr class="b-cl" data-cx-l="' + esc(l.id) + '"><td class="b-cen b-data">' + dataBR(dataLanc(l)) + '</td><td>' + esc(l.descricao || nomeLanc(l) || '—') + '</td><td>' + esc(l._c === 'recebido' ? 'Honorários' : (l.categoria || '—')) + '</td>' +
-              '<td class="b-dir b-verde-v">' + (ent ? brl(ent) : '—') + '</td><td class="b-dir b-verm-v">' + (sai ? brl(sai) : '—') + '</td><td class="b-dir b-azul-v">' + brl(s) + '</td></tr>'; }).join('') +
+              '<td class="b-dir b-verde-v">' + (ent ? brl(ent) : '—') + '</td><td class="b-dir b-verm-v">' + (sai && !dl ? brl(sai) : '—') + '</td><td class="b-dir">' + (dl ? '− ' + brl(sai) : '—') + '</td><td class="b-dir ' + corSinal(s) + '">' + brl(s) + '</td></tr>'; }).join('') +
           '</tbody></table></div>' : '<p class="b-barras-vazio">Nenhum movimento neste mês.</p>') +
         (cats.length ? '<div class="b-cx-cats">' + cats.map(([k, v]) => '<span>' + esc(k) + ' <b>' + brl(v) + '</b></span>').join('') + '</div>' : '') + '</details>';
     }).join('');
@@ -411,8 +413,8 @@ function caixaFin(empresa, corpo) {
     miolo = cartaoFin('Resumo mensal', 'Resultado = receita − despesas da operação. A distribuição de lucros sai do resultado; o que sobra fica no caixa.',
       '<div class="b-rola b-rola-solta" data-sem-pagina><table class="b-tab b-tab-cx b-tab-tot"><thead><tr><th>Mês</th><th class="b-dir">Receita</th><th class="b-dir">Despesas</th><th class="b-dir">Resultado</th><th class="b-dir">Distribuição de lucros</th><th class="b-dir">Ficou no caixa</th><th class="b-dir">Saldo acumulado</th></tr></thead><tbody>' +
         meses.map((m) => '<tr' + (!m.r && !m.d ? ' class="b-apagada"' : '') + '><td>' + esc(rotMesB(m.k)) + '</td><td class="b-dir">' + (m.r ? brl(m.r) : '—') + '</td><td class="b-dir">' + (m.dop ? brl(m.dop) : '—') + '</td>' +
-          '<td class="b-dir ' + corSinal(m.lucro) + '">' + brl(m.lucro) + '</td><td class="b-dir">' + (m.dist ? '− ' + brl(m.dist) : '—') + '</td><td class="b-dir">' + brl(m.res) + '</td><td class="b-dir b-azul-v">' + brl(m.saldo) + '</td></tr>').join('') +
-        '</tbody><tfoot><tr><td>Total</td><td class="b-dir">' + brl(tot('r')) + '</td><td class="b-dir">' + brl(tot('dop')) + '</td><td class="b-dir ' + corSinal(tot('lucro')) + '"><b>' + brl(tot('lucro')) + '</b></td><td class="b-dir">' + (tot('dist') ? '− ' + brl(tot('dist')) : '—') + '</td><td class="b-dir">' + brl(tot('res')) + '</td><td class="b-dir b-azul-v"><b>' + brl(saldo) + '</b></td></tr></tfoot></table></div>');
+          '<td class="b-dir ' + corSinal(m.lucro) + '">' + brl(m.lucro) + '</td><td class="b-dir">' + (m.dist ? '− ' + brl(m.dist) : '—') + '</td><td class="b-dir">' + brl(m.res) + '</td><td class="b-dir ' + corSinal(m.saldo) + '">' + brl(m.saldo) + '</td></tr>').join('') +
+        '</tbody><tfoot><tr><td>Total</td><td class="b-dir">' + brl(tot('r')) + '</td><td class="b-dir">' + brl(tot('dop')) + '</td><td class="b-dir ' + corSinal(tot('lucro')) + '"><b>' + brl(tot('lucro')) + '</b></td><td class="b-dir">' + (tot('dist') ? '− ' + brl(tot('dist')) : '—') + '</td><td class="b-dir">' + brl(tot('res')) + '</td><td class="b-dir ' + corSinal(saldo) + '"><b>' + brl(saldo) + '</b></td></tr></tfoot></table></div>');
     // Backup 95: saiu o quadro "Receita × despesa mês a mês" (pedido do usuário)
   }
   corpo.innerHTML = seg + nums + miolo + '<div id="cx-lucros"></div>';
